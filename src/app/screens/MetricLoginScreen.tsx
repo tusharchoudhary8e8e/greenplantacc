@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Lock, Mail, User, Building, Eye, EyeOff, ShieldCheck, ArrowRight, CheckCircle2 } from "lucide-react";
-import { signInUser, signUpUser } from "../../lib/supabase";
+import { Lock, Mail, ShieldCheck, ArrowRight, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { signInUser } from "../../lib/supabase";
 
 interface LoginScreenProps {
   onLoginSuccess: (userEmail: string) => void;
@@ -11,10 +11,8 @@ export const MetricLoginScreen: React.FC<LoginScreenProps> = ({
   onLoginSuccess,
   onContinueAsGuest,
 }) => {
-  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [orgName, setOrgName] = useState("MetricAccounting Nursery");
   const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -33,26 +31,10 @@ export const MetricLoginScreen: React.FC<LoginScreenProps> = ({
     setSuccessMsg("");
 
     try {
-      if (isSignUp) {
-        // Supabase Auth Sign Up
-        await signUpUser(email, password, {
-          data: { org_name: orgName },
-        });
-        setSuccessMsg("Account created successfully! Logging you in...");
-        setTimeout(async () => {
-          try {
-            await signInUser(email, password);
-            onLoginSuccess(email);
-          } catch {
-            onLoginSuccess(email);
-          }
-        }, 1000);
-      } else {
-        // Supabase Auth Sign In
-        await signInUser(email, password);
-        setSuccessMsg("Logged in successfully!");
-        onLoginSuccess(email);
-      }
+      // Supabase Auth Sign In
+      await signInUser(email, password);
+      setSuccessMsg("Logged in successfully!");
+      onLoginSuccess(email);
     } catch (err: any) {
       setErrorMsg(err.message || "Authentication failed. Please check your credentials.");
       setLoading(false);
@@ -77,38 +59,11 @@ export const MetricLoginScreen: React.FC<LoginScreenProps> = ({
           </p>
         </div>
 
-        {/* Tab Selector */}
+        {/* Tab Selector - Removed Create Account */}
         <div className="flex border-b border-slate-100 bg-slate-50 text-xs font-bold text-slate-500">
-          <button
-            type="button"
-            onClick={() => {
-              setIsSignUp(false);
-              setErrorMsg("");
-              setSuccessMsg("");
-            }}
-            className={`flex-1 py-3 text-center transition ${
-              !isSignUp
-                ? "bg-white text-[#00a651] border-b-2 border-[#00a651] font-extrabold"
-                : "hover:text-slate-700"
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsSignUp(true);
-              setErrorMsg("");
-              setSuccessMsg("");
-            }}
-            className={`flex-1 py-3 text-center transition ${
-              isSignUp
-                ? "bg-white text-[#00a651] border-b-2 border-[#00a651] font-extrabold"
-                : "hover:text-slate-700"
-            }`}
-          >
-            Create Account
-          </button>
+          <div className="flex-1 py-3 text-center transition bg-white text-[#00a651] border-b-2 border-[#00a651] font-extrabold cursor-default">
+            Sign In Securely
+          </div>
         </div>
 
         {/* Form Body */}
@@ -123,25 +78,6 @@ export const MetricLoginScreen: React.FC<LoginScreenProps> = ({
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-700 font-medium flex items-center gap-2 animate-in fade-in">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{successMsg}</span>
-            </div>
-          )}
-
-          {isSignUp && (
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Nursery / Organization Name
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 text-slate-800 font-medium"
-                  placeholder="Greenza Solutions"
-                />
-                <Building className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-              </div>
             </div>
           )}
 
@@ -195,7 +131,7 @@ export const MetricLoginScreen: React.FC<LoginScreenProps> = ({
             disabled={loading}
             className="w-full py-3.5 bg-[#00a651] text-white rounded-xl font-bold text-xs hover:bg-emerald-600 transition shadow-md flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
           >
-            <span>{loading ? "Processing..." : isSignUp ? "Register Account" : "Sign In to MetricAccounting"}</span>
+            <span>{loading ? "Processing..." : "Sign In to MetricAccounting"}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
 
