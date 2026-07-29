@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { User } from "@supabase/supabase-js";
+import { getCurrentUser, onAuthStateChange, signOutUser } from "../lib/supabase";
 import { MetricSidebar, MetricTab } from "./components/MetricSidebar";
 import { MetricDashboardScreen } from "./screens/MetricDashboardScreen";
 import { MetricCreateOrderScreen } from "./screens/MetricCreateOrderScreen";
 import { MetricCustomersScreen } from "./screens/MetricCustomersScreen";
 import { MetricInventoryScreen } from "./screens/MetricInventoryScreen";
+import { MetricLoginScreen } from "./screens/MetricLoginScreen";
 import {
   MetricProductionScreen,
   MetricDispatchScreen,
@@ -26,6 +29,8 @@ import {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<MetricTab>("dashboard");
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [guestMode, setGuestMode] = useState(false);
 
   // State data
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -63,8 +68,32 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // Check Supabase Auth State
+    getCurrentUser().then((u) => {
+      if (u) {
+        setAuthUser(u);
+        setGuestMode(false);
+      }
+    });
+
+    const { data: authListener } = onAuthStateChange((u) => {
+      setAuthUser(u);
+      if (u) setGuestMode(false);
+      loadAllData();
+    });
+
     loadAllData();
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, [loadAllData]);
+
+  const handleLogout = async () => {
+    await signOutUser();
+    setAuthUser(null);
+    setGuestMode(false);
+  };
 
   const handleOrderSaved = (newOrd: Order) => {
     setOrders([newOrd, ...orders]);
@@ -75,13 +104,23 @@ export default function App() {
     setCustomers([newCust, ...customers]);
   };
 
+  // If user is not authenticated and hasn't chosen guest demo mode, show Login screen
+  if (!authUser && !guestMode) {
+    return (
+      <MetricLoginScreen
+        onLoginSuccess={() => loadAllData()}
+        onContinueAsGuest={() => setGuestMode(true)}
+      />
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans antialiased">
       {/* Left Sidebar matching Greenza Solutions layout */}
       <MetricSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onLogout={() => alert("Logged out successfully.")}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
