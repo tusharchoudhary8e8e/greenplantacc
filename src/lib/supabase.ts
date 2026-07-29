@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient, User, Session } from '@supabase/supabase-js';
 
-export const DEFAULT_SUPABASE_URL = "https://vgyxuaistuegijwjopnf.supabase.co";
-export const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_HOyOBnSCNUnClEfzvPeiVw_bO2gzrrL";
+export const DEFAULT_SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || "https://vgyxuaistuegijwjopnf.supabase.co";
+export const DEFAULT_SUPABASE_PUBLISHABLE_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || "sb_publishable_HOyOBnSCNUnClEfzvPeiVw_bO2gzrrL";
 
 function getInitialConfig() {
   const customUrl = localStorage.getItem("custom_supabase_url");
