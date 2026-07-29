@@ -1,0 +1,333 @@
+Build a complete, production-quality single-page web application called "MetricAccounting" 
+— an Agricultural Nursery Management SaaS. 
+
+Create ONE file: index.html (self-contained, no build step needed).
+Use CDNs: Chart.js, Supabase JS v2, SheetJS (XLSX), Google Fonts (Inter).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+BRAND & THEME
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Brand Name: MetricAccounting
+- Tagline: "Agri Saas powered by MetricAccounting"
+- Primary color: #16a34a (green-600)
+- Sidebar background: #16a34a (dark green)
+- Sidebar text: white
+- Active sidebar item: rgba(255,255,255,0.2) background, white text
+- Page header text: #15803d (green-700, bold)
+- Body background: #f0fdf4 (very light green)
+- Cards: white, box-shadow, border-radius 12px
+- Font: Inter (Google Fonts)
+- Buttons primary: #16a34a background, white text, rounded
+- Badges: colored pills (green/blue/orange/red)
+- Sub-page breadcrumb text: muted gray under page title
+- Footer of sidebar: small muted text "Agri Saas powered by MetricAccounting"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LAYOUT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Fixed left sidebar (250px wide, full height, green bg)
+- Top of sidebar: "Welcome," and username in bold white
+- Sidebar nav items with icons (use emoji or Unicode icons):
+    📊 Dashboard
+    🛒 Orders
+    🌱 Production  ▼ (collapsible: Batches, Plant Count)
+    🚚 Dispatch    ▼ (collapsible: Dispatch List, Today's Dispatch)
+    📝 Quotes
+    📣 Campaign
+    📦 Inventory   ▼ (collapsible: Products, Import Crops)
+    👥 Customers
+    👤 Employees
+    🚪 Logout
+- Main content area: right of sidebar, scrollable, padding 24px
+- Top of content: "MetricAccounting Demo" in green bold h1, breadcrumb below
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 0 — SUPABASE SETUP (first run)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+If localStorage has no supabase_url/key, show a centered setup card:
+- MetricAccounting logo + title
+- Input: "Supabase Project URL" (https://xxxx.supabase.co)
+- Input: "Supabase Anon Key"
+- Button: "Connect & Continue" (green)
+- Save to localStorage, init Supabase client, redirect to Login
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 1 — LOGIN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Centered card on green gradient background:
+- "MetricAccounting" logo/title
+- Email input
+- Password input
+- "Sign In" button (green)
+- Link: "Don't have an account? Sign Up"
+- Sign Up form: Email + Password + Confirm Password
+- Use supabase.auth.signInWithPassword() / signUp()
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 2 — DASHBOARD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Two side-by-side donut charts using Chart.js:
+
+LEFT CHART — "Payment Summary"
+  Center text: total ₹ amount
+  Segments (with legend on right showing ₹ value and %):
+    • Advanced Payment   — teal/dark blue
+    • Paid Amount        — purple
+    • Due Amount         — orange
+    • FOC Amount         — red
+
+RIGHT CHART — "Order Summary"
+  Center text: total quantity
+  Segments (with legend on right):
+    • Total Ordered      — blue    (100%)
+    • Total Sowing Done  — green
+    • Total Dispatched   — purple
+    • Remaining Dispatch — orange
+    • Extra Crop         — red
+
+Below charts: "Order Summary" section
+  - Date range filter (from/to date inputs) + Reset + Apply buttons
+  - "Showing all data" or "Showing [from] to [to]" text in green
+  - "Total Customer - X" counter
+  - Table showing customer-wise order breakdown
+
+Load data from Supabase: aggregate ma_orders, ma_order_items, ma_payments.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 3 — ORDERS LIST
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- "Create Order" button (green, top right)
+- Search bar
+- Filter by: Status dropdown, Date range
+- Table columns: Order No | Customer | Date | Items Total | Advance | Due | Status | Actions
+- Status badges: pending=orange, sowing_done=blue, dispatched=green, cancelled=red
+- Pagination (50 per page)
+- Click row → view order detail
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 4 — CREATE ORDER (matches screenshots exactly)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Page title: "Create Order" (breadcrumb: Orders)
+
+SECTION — "Order Information" (white card)
+  Row 1:
+    - Customer dropdown (searchable, loads from ma_customers)
+    - Order Date* (date input, default today)
+  Below dropdown: customer card (if selected)
+    - Circle avatar with initials (green bg)
+    - Customer name in bold + #ORG_ID in gray
+    - Phone icon + phone number
+    - Email icon + email
+    - Pin icon + City, State, Pincode
+    - Right side: zone badge (pill, blue), size badge (pill, gray), crop icon + crop type
+    - E.g. "ZONE1 ZONE" | "SMALL" | 🍅 Tomato
+
+SECTION — "Order Items" (white card)
+  "+ Add Item" button (bordered, green text)
+  Table rows (one per item):
+    - Product (searchable dropdown from ma_products)
+    - Variant (dropdown filtered by product variants)
+    - Price (number input, auto-filled from variant price, editable)
+    - Quantity (number input)
+    - Dispatch Window: two date inputs (from — to)
+    - Sowing Date (date input)
+    - Delete row button (red ×)
+  Below each row:
+    - "Remaining: X" in green (= qty - dispatched)
+    - "Link Batch" button (green, right-aligned) — opens batch selector modal
+
+SECTION — "Order Payment" (white card)
+  Three inputs in a row:
+    - Transport Charge (₹) — number input (placeholder: eg. 1500)
+    - Advance Payment (₹) — number input (placeholder: eg. 10000)
+    - FOC (₹) — number input (placeholder: eg. 750)
+  Bottom row (right-aligned):
+    - "Items Total" label + auto-calculated ₹ value
+    - "Total Amount" = Items Total + Transport Charge
+    - "Due Amount" = Total - Advance - FOC
+
+Buttons: "Save Order" (green), "Cancel" (white/bordered)
+On save: INSERT into ma_orders + ma_order_items (Supabase)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 5 — CUSTOMERS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+List:
+- "Add Customer" button
+- Search by name/phone/city
+- Filter by Zone, State, Size
+- Table: Org ID | Name | Phone | City | Zone | Size | Crops | Actions
+- Virtual scroll / pagination for large datasets
+
+Create Customer form:
+- Name*, Phone*, Email
+- City, State, Pincode
+- Zone (Zone1/Zone2/Zone3/Zone4), Size (Small/Medium/Large)
+- Crop Types (multi-select tags: Tomato, Chilly, Brinjal, Capsicum, etc.)
+- GSTIN, Address
+- Opening Balance (₹)
+- Auto-generate Org ID: ORG1_CUST_YYYY_XXXX
+- Save to ma_customers (Supabase)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 6 — INVENTORY / PRODUCTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Two tabs: "Products" | "Import Crops"
+
+Products tab:
+- "Add Product" button
+- Table: Name | Category | Variants | Unit | Active | Actions
+- Create/Edit Product form:
+    Name*, Category (Vegetable/Fruit/Herb), Unit (seeds/plants)
+    Variants (dynamic rows): Variant Name + Price per unit
+    Description, Active toggle
+
+Import Crops tab / Modal:
+- "Import Crops" button → opens modal matching screenshot exactly:
+    Title: "Import Crops" with × close
+    Section: "Upload Excel File"
+    File input (accept .xlsx, .xls)
+    Helper: "Upload .xlsx or .xls file"
+    Link: 'Download sample excel file. "Download Excel"' (green link)
+    Buttons: Cancel | Import (green)
+  On file select: parse with SheetJS
+  Expected columns: Product Name, Variant, Price, Category, Unit
+  Bulk insert into ma_products (batch of 100 rows per Supabase call)
+  Show progress bar during import
+  Download sample: generate and download a sample .xlsx file
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 7 — PRODUCTION (Batches)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- "Create Batch" button
+- Table: Batch No | Product | Variant | Sowing Date | Seeds | Expected | Actual | Germination% | Status
+- Status: sowing | germinating | ready | dispatched (colored badges)
+- Create Batch form:
+    Product name (dropdown), Variant, Sowing Date
+    Total Seeds, Seeds per Tray (default 126), Trays Used
+    Cocopeat Used (grams), Expected Plants (auto: seeds × germination rate)
+    Actual Plants (update later), Status, Notes
+- "Plant Count Tracker" sub-screen: table showing batch-wise germination tracking
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 8 — DISPATCH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- "Today's Dispatch" sub-screen: orders with dispatch window including today
+- Dispatch List: Dispatch No | Order | Customer | Date | Vehicle | Status | Actions
+- Create Dispatch: link to order, add items, vehicle/driver info
+- Status: pending | in_transit | delivered
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 9 — EMPLOYEES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Table: Emp ID | Name | Role | Department | Phone | Status | Actions
+- Create Employee: Name, Role, Department, Phone, Email, Join Date, Salary, Address
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 10 — QUOTES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Table: Quote No | Customer | Date | Valid Until | Amount | Status
+- Status: draft | sent | accepted | rejected | expired
+- Create Quote: customer, items (product/variant/qty/price), notes, valid date
+- Convert Quote to Order button (if accepted)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SCREEN 11 — CAMPAIGN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Table: Name | Type | Zone | Dates | Budget | Status
+- Types: WhatsApp | Email | Field Visit | Phone Call
+- Create Campaign: name, type, target zone, dates, budget, notes
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DATABASE — SUPABASE (already created via schema.sql)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Tables (all with user_id RLS):
+- ma_customers   (uuid PK, org_id, name, phone, email, city, state, pincode, zone, 
+                  size_category, crop_types jsonb, gstin, address, opening_balance)
+- ma_products    (uuid PK, name, category, unit, variants jsonb [{name,price}], description)
+- ma_orders      (uuid PK, order_no, customer_id FK, order_date, status, transport_charge, 
+                  advance_payment, foc_amount, paid_amount, items_total, total_amount, 
+                  due_amount GENERATED, narration)
+- ma_order_items (uuid PK, order_id FK, product_name, variant_name, price, quantity,
+                  dispatch_from, dispatch_to, sowing_date, batch_id, dispatched_qty,
+                  remaining_qty GENERATED, status)
+- ma_batches     (uuid PK, batch_no, product_name, variant_name, sowing_date, 
+                  total_seeds, cocopeat_used, trays_used, expected_plants, actual_plants,
+                  germination_pct GENERATED, status, notes)
+- ma_dispatch    (uuid PK, dispatch_no, order_id FK, customer_id FK, dispatch_date,
+                  vehicle_no, driver_name, driver_phone, status, notes)
+- ma_dispatch_items (uuid PK, dispatch_id FK, order_item_id FK, product_name, variant_name, quantity)
+- ma_payments    (uuid PK, payment_no, customer_id FK, order_id FK, type, amount, 
+                  payment_date, method, reference_no, narration)
+- ma_employees   (uuid PK, emp_id, name, role, phone, email, department, join_date, salary, status)
+- ma_campaigns   (uuid PK, name, type, target_zone, start_date, end_date, budget, status, notes)
+- ma_quotes      (uuid PK, quote_no, customer_id FK, customer_name, quote_date, valid_until,
+                  status, items jsonb, total_amount, notes)
+
+Performance optimization:
+- All tables have indexes on user_id, status, date columns
+- Compound indexes: (user_id, status), (user_id, order_date DESC)
+- Full-text search index on ma_customers (name, phone, city)
+- Row Level Security (RLS) on all tables
+- Use .select('id, name, phone, city, zone, size_category') for list queries (not SELECT *)
+- Use .range(from, to) for pagination (50 rows per page)
+- Debounce search inputs 300ms
+- Cache customer/product lists in memory (Map with TTL 5 min)
+- Batch inserts: chunk XLSX data into groups of 100
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+JAVASCRIPT ARCHITECTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Use a simple module pattern (no framework):
+
+const App = {
+  supabase: null,
+  user: null,
+  state: {
+    screen: 'setup',
+    sidebarCollapsed: { production: false, dispatch: false, inventory: false },
+    data: { customers: [], products: [], orders: [], batches: [], dispatch: [], employees: [] },
+    pagination: { orders: 0, customers: 0 },
+    filters: {}
+  },
+  init(), navigate(screen, params), render(),
+  screens: { setup(), login(), dashboard(), orders(), createOrder(), ... },
+  db: { getCustomers(), getOrders(), createOrder(), ... },
+  utils: { toast(msg, type), modal(html), formatCurrency(n), formatDate(d), ... }
+};
+
+Key UX requirements:
+- Toast notifications (top-right, auto-dismiss 3s): success=green, error=red, info=blue
+- Loading spinners inside buttons during async ops (disable button, show spinner)
+- Confirm dialogs before delete
+- Form validation with inline error messages (red border + message below field)
+- All modals: fixed overlay, centered card, × close button, click-outside-to-close
+- Smooth transitions between screens (opacity fade 200ms)
+- Active sidebar item highlighted
+- Breadcrumb navigation
+- Empty state illustrations (SVG + message) when tables have no data
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SAMPLE DATA (seed on first login)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+On first login, check if user has any data. If not, ask "Seed demo data?" (yes/no).
+If yes, insert:
+  Products: CHILLY (variants: TALWAR ₹1.6, HYBRID ₹2.0), TOMATO (variants: ROMA ₹1.2, CHERRY ₹1.8)
+  1 Customer: AYUSH CHOUDHARY, Zone1, Small, Chhindwara MP, Tomato
+  1 Order: 100 CHILLY TALWAR, advance ₹6000, items total ₹9000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REQUIRED CDN LINKS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+OUTPUT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+
+The Supabase schema is already in schema.sql ,build the rest for a nursery bussines , deployed,   
