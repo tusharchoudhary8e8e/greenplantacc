@@ -175,9 +175,6 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
           <LogOut className="w-4 h-4" />
           <span>Logout</span>
         </button>
-        <p className="text-[11px] text-emerald-200/80 text-center mt-3 font-mono">
-          Agri Saas powered by Bizgrowguru
-        </p>
       </div>
     </aside>
   );
