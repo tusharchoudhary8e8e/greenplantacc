@@ -3,6 +3,7 @@ import { User } from "@supabase/supabase-js";
 import { getCurrentUser, onAuthStateChange, signOutUser } from "../lib/supabase";
 import { MetricSidebar, MetricTab } from "./components/MetricSidebar";
 import { MetricDashboardScreen } from "./screens/MetricDashboardScreen";
+import { MetricSowingPlansScreen } from "./screens/MetricSowingPlansScreen";
 import { MetricCreateOrderScreen } from "./screens/MetricCreateOrderScreen";
 import { MetricCustomersScreen } from "./screens/MetricCustomersScreen";
 import { MetricInventoryScreen } from "./screens/MetricInventoryScreen";
@@ -197,6 +198,10 @@ export default function App() {
                 orders={orders}
                 onNavigateToOrder={() => setActiveTab("create_order")}
               />
+            )}
+
+            {activeTab === "sowing_plans" && (
+              <MetricSowingPlansScreen orders={orders} />
             )}
 
             {(activeTab === "orders" || activeTab === "create_order") && (
