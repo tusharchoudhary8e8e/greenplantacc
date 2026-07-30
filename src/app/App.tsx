@@ -150,21 +150,35 @@ export default function App() {
       </header>
 
       {/* Mobile/Drawer Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-black/20 flex justify-end">
-          <div className="w-64 bg-white h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right">
-            <MetricSidebar
-              activeTab={activeTab}
-              setActiveTab={(tab) => {
-                setActiveTab(tab);
-                setIsMobileMenuOpen(false);
-              }}
-              onLogout={handleLogout}
-            />
-          </div>
-          <div className="flex-1" onClick={() => setIsMobileMenuOpen(false)} />
+      <div 
+        className={`fixed inset-0 z-40 transition-all duration-300 ease-in-out ${
+          isMobileMenuOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
+        }`}
+      >
+        {/* Backdrop */}
+        <div 
+          className={`absolute inset-0 bg-black/20 transition-opacity duration-300 ${
+            isMobileMenuOpen ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={() => setIsMobileMenuOpen(false)} 
+        />
+        
+        {/* Drawer */}
+        <div 
+          className={`absolute top-0 right-0 h-full shadow-2xl overflow-y-auto transform transition-transform duration-300 ease-out ${
+            isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <MetricSidebar
+            activeTab={activeTab}
+            setActiveTab={(tab) => {
+              setActiveTab(tab);
+              setIsMobileMenuOpen(false);
+            }}
+            onLogout={handleLogout}
+          />
         </div>
-      )}
+      </div>
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto min-w-0 p-6 md:p-8">
