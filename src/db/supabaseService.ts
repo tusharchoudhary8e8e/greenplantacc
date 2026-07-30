@@ -22,6 +22,8 @@ export interface Customer {
 export interface ProductVariant {
   name: string;
   price: number;
+  duration?: number;
+  description?: string;
 }
 
 export interface Product {
@@ -73,9 +75,17 @@ export interface Order {
 export interface ProductionBatch {
   id?: string;
   batch_no?: string;
+  lot_no?: string;
+  unit?: string;
+  polyhouse?: string;
+  table_no?: string;
+  tray_size?: string;
+  required_quantity?: number;
+  buffer_quantity_pct?: number;
   product_name?: string;
   variant_name?: string;
   sowing_date?: string;
+  end_date?: string;
   total_seeds?: number;
   cocopeat_used?: number;
   trays_used?: number;

@@ -14,6 +14,7 @@ import {
   MetricCampaignScreen,
   MetricEmployeesScreen,
 } from "./screens/MetricModulesScreen";
+import { CreateBatchModal } from "./components/CreateBatchModal";
 
 import {
   Customer,
@@ -41,6 +42,9 @@ export default function App() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+
+  // UI state
+  const [showCreateBatch, setShowCreateBatch] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadAllData = useCallback(async () => {
@@ -66,6 +70,12 @@ export default function App() {
     setEmployees(emp);
     setLoading(false);
   }, []);
+
+  const handleSaveBatch = async (batch: Partial<ProductionBatch>) => {
+    const saved = await SupabaseService.saveBatch(batch as ProductionBatch);
+    setBatches([saved, ...batches]);
+    setShowCreateBatch(false);
+  };
 
   useEffect(() => {
     // Check Supabase Auth State
@@ -165,7 +175,13 @@ export default function App() {
               />
             )}
 
-            {activeTab === "production" && <MetricProductionScreen batches={batches} />}
+            {activeTab === "production" && (
+              <MetricProductionScreen 
+                batches={batches} 
+                orders={orders} 
+                onCreateBatch={() => setShowCreateBatch(true)} 
+              />
+            )}
             {activeTab === "dispatch" && <MetricDispatchScreen dispatches={dispatches} />}
             {activeTab === "quotes" && <MetricQuotesScreen quotes={quotes} />}
             {activeTab === "campaign" && <MetricCampaignScreen campaigns={campaigns} />}
@@ -173,6 +189,13 @@ export default function App() {
           </>
         )}
       </main>
+
+      <CreateBatchModal 
+        isOpen={showCreateBatch} 
+        onClose={() => setShowCreateBatch(false)} 
+        products={products} 
+        onSave={handleSaveBatch} 
+      />
     </div>
   );
 }

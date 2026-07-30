@@ -105,25 +105,33 @@ CREATE INDEX IF NOT EXISTS idx_ma_order_items_status       ON ma_order_items(sta
 
 -- ─── PRODUCTION BATCHES ──────────────────────────────
 CREATE TABLE IF NOT EXISTS ma_batches (
-  id              uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id         uuid DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
-  batch_no        text UNIQUE,
-  product_name    text,
-  variant_name    text,
-  sowing_date     date,
-  total_seeds     integer,
-  cocopeat_used   decimal(10,3),
-  trays_used      integer,
-  seeds_per_tray  integer DEFAULT 126,
-  expected_plants integer,
-  actual_plants   integer,
-  germination_pct decimal(5,2) GENERATED ALWAYS AS (
+  id                  uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id             uuid DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
+  batch_no            text UNIQUE,
+  lot_no              text UNIQUE,
+  unit                text,
+  polyhouse           text,
+  table_no            text,
+  tray_size           text,
+  required_quantity   integer,
+  buffer_quantity_pct decimal(5,2),
+  product_name        text,
+  variant_name        text,
+  sowing_date         date,
+  end_date            date,
+  total_seeds         integer,
+  cocopeat_used       decimal(10,3),
+  trays_used          integer,
+  seeds_per_tray      integer DEFAULT 126,
+  expected_plants     integer,
+  actual_plants       integer,
+  germination_pct     decimal(5,2) GENERATED ALWAYS AS (
     CASE WHEN total_seeds > 0 THEN (actual_plants::decimal / total_seeds * 100) ELSE 0 END
   ) STORED,
-  status          text DEFAULT 'sowing',
-  notes           text,
-  created_at      timestamptz DEFAULT now(),
-  updated_at      timestamptz DEFAULT now()
+  status              text DEFAULT 'sowing',
+  notes               text,
+  created_at          timestamptz DEFAULT now(),
+  updated_at          timestamptz DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_ma_batches_user_id      ON ma_batches(user_id);
 CREATE INDEX IF NOT EXISTS idx_ma_batches_product_name ON ma_batches(product_name);

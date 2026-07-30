@@ -3,54 +3,168 @@ import { ClipboardList, Truck, FileText, Megaphone, UserCheck, CheckCircle2, Clo
 import { ProductionBatch, DispatchRecord, Quote, Campaign, Employee } from "../../db/supabaseService";
 
 // ─── PRODUCTION SCREEN ──────────────────────────────────────────────
-export const MetricProductionScreen: React.FC<{ batches: ProductionBatch[] }> = ({ batches }) => (
-  <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
-    <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-      <div>
-        <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">MetricAccounting Demo</h1>
-        <p className="text-sm text-slate-500 font-medium mt-0.5">Production & Sowing Batches Tracker</p>
-      </div>
-      <button className="bg-[#00a651] text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-emerald-600 transition text-sm">
-        + New Sowing Batch
-      </button>
-    </div>
+export const MetricProductionScreen: React.FC<{
+  batches: ProductionBatch[];
+  orders?: any[]; // optional temporarily until App.tsx is updated
+  onCreateBatch?: () => void;
+}> = ({ batches, orders = [], onCreateBatch }) => {
+  const [expandedRows, setExpandedRows] = React.useState<Record<string, boolean>>({});
 
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
-      <table className="w-full text-left text-sm border-collapse">
-        <thead>
-          <tr className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-100">
-            <th className="p-3.5">Batch No</th>
-            <th className="p-3.5">Crop / Variant</th>
-            <th className="p-3.5">Sowing Date</th>
-            <th className="p-3.5">Total Seeds</th>
-            <th className="p-3.5">Cocopeat (kg)</th>
-            <th className="p-3.5">Trays Used</th>
-            <th className="p-3.5">Germination %</th>
-            <th className="p-3.5">Status</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
-          {batches.map((b) => (
-            <tr key={b.id} className="hover:bg-slate-50 transition">
-              <td className="p-3.5 font-bold text-emerald-700">{b.batch_no}</td>
-              <td className="p-3.5 font-medium">{b.product_name} - {b.variant_name}</td>
-              <td className="p-3.5">{b.sowing_date}</td>
-              <td className="p-3.5 font-semibold">{(b.total_seeds || 0).toLocaleString()}</td>
-              <td className="p-3.5">{b.cocopeat_used} kg</td>
-              <td className="p-3.5">{b.trays_used}</td>
-              <td className="p-3.5 font-bold text-emerald-600">{b.germination_pct}%</td>
-              <td className="p-3.5">
-                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  {b.status}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+  const toggleRow = (id: string) => {
+    setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const getStatusBadge = (b: ProductionBatch) => {
+    // Basic logic for badges based on end_date vs today
+    if (b.status === "ready") return <span className="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-bold border border-emerald-200">Ready To Dispatch</span>;
+    if (!b.end_date) return <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-[10px] font-bold">On Time</span>;
+    
+    const end = new Date(b.end_date).getTime();
+    const now = new Date().getTime();
+    const diffDays = Math.ceil((end - now) / (1000 * 3600 * 24));
+    
+    if (diffDays === 1) return <span className="bg-yellow-50 text-yellow-700 px-3 py-1 rounded-full text-[10px] font-bold border border-yellow-200">1 Day Early</span>;
+    if (diffDays > 1) return <span className="bg-yellow-50 text-yellow-700 px-3 py-1 rounded-full text-[10px] font-bold border border-yellow-200">Expires in {diffDays} Days</span>;
+    if (diffDays < 0) return <span className="bg-red-50 text-red-700 px-3 py-1 rounded-full text-[10px] font-bold border border-red-200">Overdue by {Math.abs(diffDays)} Days</span>;
+    
+    return <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-bold border border-blue-200">On Time</span>;
+  };
+
+  return (
+    <div className="p-8 space-y-6 bg-slate-50 min-h-screen">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-emerald-800 tracking-tight">Greenza Solutions Demo</h1>
+          <div className="text-xs text-slate-500 font-medium mt-1">Sowing Batches</div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+        {/* Toolbar */}
+        <div className="flex justify-between items-center p-4 border-b border-slate-100">
+          <div className="flex gap-4">
+            <input type="text" placeholder="Search..." className="p-2 border border-slate-200 rounded-lg text-xs w-64 focus:outline-emerald-500" />
+            <select className="p-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-600 focus:outline-emerald-500">
+              <option>Status</option>
+            </select>
+            <input type="date" className="p-2 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-emerald-500" />
+            <input type="date" className="p-2 border border-slate-200 rounded-lg text-xs text-slate-600 focus:outline-emerald-500" />
+          </div>
+          <button
+            onClick={onCreateBatch}
+            className="flex items-center gap-2 bg-[#00a651] text-white px-5 py-2 rounded-lg font-semibold hover:bg-emerald-600 transition shadow-sm text-xs"
+          >
+            + Create Batch
+          </button>
+        </div>
+
+        {/* List View */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr className="text-[10px] uppercase font-bold text-slate-400 bg-slate-50/50 border-b border-slate-100">
+                <th className="py-3 px-4">CROP</th>
+                <th className="py-3 px-4">QUANTITY</th>
+                <th className="py-3 px-4">NUMBER OF TRAYS</th>
+                <th className="py-3 px-4">UNIT</th>
+                <th className="py-3 px-4">LOT NO.</th>
+                <th className="py-3 px-4 text-center">STATUS</th>
+                <th className="py-3 px-4">CREATED AT</th>
+                <th className="py-3 px-4">COMPLETE AT</th>
+                <th className="py-3 px-4 text-center">ACTION</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {batches.map((b) => {
+                const isExpanded = expandedRows[b.id || b.batch_no || ""];
+                const batchOrders = orders.flatMap(o => 
+                  o.items?.filter((item: any) => item.batch_id === b.id).map((item: any) => ({
+                    order_no: o.order_no,
+                    order_date: o.order_date,
+                    customer_name: o.customer_name,
+                    quantity: item.quantity,
+                  })) || []
+                );
+
+                return (
+                  <React.Fragment key={b.id || b.batch_no}>
+                    <tr className="hover:bg-slate-50 transition cursor-pointer group" onClick={() => toggleRow(b.id || b.batch_no || "")}>
+                      <td className="py-3 px-4 flex items-center gap-3">
+                        <button className="text-slate-400 hover:text-emerald-600">
+                          {isExpanded ? <span className="rotate-90 block">▶</span> : <span>▶</span>}
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-[10px]">🌱</div>
+                          <div>
+                            <p className="font-bold text-slate-700 text-xs">{b.product_name}</p>
+                            <p className="text-[10px] text-slate-500">{b.variant_name}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-slate-700 text-xs">{b.total_seeds?.toLocaleString()}</td>
+                      <td className="py-3 px-4 text-xs font-medium text-slate-600">
+                        {b.trays_used} <span className="text-slate-400 font-normal">| {b.seeds_per_tray} crops/tray</span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-600 text-xs font-medium">{b.unit || "Unit 1"}</td>
+                      <td className="py-3 px-4 font-mono text-emerald-700 text-xs font-bold">{b.lot_no || b.batch_no}</td>
+                      <td className="py-3 px-4 text-center">{getStatusBadge(b)}</td>
+                      <td className="py-3 px-4 text-slate-500 text-xs">{b.sowing_date}</td>
+                      <td className="py-3 px-4 text-slate-500 text-xs">{b.end_date || "-"}</td>
+                      <td className="py-3 px-4 text-center">
+                        <button className="text-slate-400 hover:text-slate-700">•••</button>
+                      </td>
+                    </tr>
+                    
+                    {isExpanded && (
+                      <tr className="bg-slate-50/50">
+                        <td colSpan={9} className="p-0 border-b border-slate-100">
+                          <div className="px-16 py-4">
+                            <table className="w-full text-left text-xs text-slate-600 bg-white shadow-sm rounded-lg overflow-hidden border border-slate-200">
+                              <thead className="bg-slate-50 border-b border-slate-200">
+                                <tr className="text-[10px] uppercase font-bold text-slate-400">
+                                  <th className="py-2 px-4">ORDER ID</th>
+                                  <th className="py-2 px-4">ORDER DATE</th>
+                                  <th className="py-2 px-4">CUSTOMER</th>
+                                  <th className="py-2 px-4 text-right">SOWED QUANTITY</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100">
+                                {batchOrders.length > 0 ? (
+                                  batchOrders.map((ord, i) => (
+                                    <tr key={i} className="hover:bg-slate-50 transition">
+                                      <td className="py-2 px-4 font-mono font-medium text-emerald-700">{ord.order_no}</td>
+                                      <td className="py-2 px-4">{ord.order_date}</td>
+                                      <td className="py-2 px-4 font-medium text-slate-700">{ord.customer_name}</td>
+                                      <td className="py-2 px-4 text-right font-bold text-emerald-600">{ord.quantity.toLocaleString()}</td>
+                                    </tr>
+                                  ))
+                                ) : (
+                                  <tr>
+                                    <td colSpan={4} className="py-3 text-center text-slate-400">No orders associated with this batch.</td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+              {batches.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center text-slate-500">No batches created yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─── DISPATCH SCREEN ───────────────────────────────────────────────
 export const MetricDispatchScreen: React.FC<{ dispatches: DispatchRecord[] }> = ({ dispatches }) => (
