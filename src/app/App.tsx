@@ -15,6 +15,8 @@ import {
   MetricCampaignScreen,
   MetricEmployeesScreen,
 } from "./screens/MetricModulesScreen";
+import { MetricDispatchPlansScreen } from "./screens/MetricDispatchPlansScreen";
+import { MetricDriversScreen } from "./screens/MetricDriversScreen";
 import { CreateBatchModal } from "./components/CreateBatchModal";
 
 import {
@@ -234,6 +236,15 @@ export default function App() {
                 onCreateBatch={() => setShowCreateBatch(true)} 
               />
             )}
+            
+            {activeTab === "dispatch_plans" && (
+              <MetricDispatchPlansScreen orders={orders} />
+            )}
+            
+            {activeTab === "drivers" && (
+              <MetricDriversScreen />
+            )}
+
             {activeTab === "dispatch" && <MetricDispatchScreen dispatches={dispatches} />}
             {activeTab === "quotes" && <MetricQuotesScreen quotes={quotes} />}
             {activeTab === "campaign" && <MetricCampaignScreen campaigns={campaigns} />}
