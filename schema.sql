@@ -1,6 +1,6 @@
 -- =====================================================
--- MetricAccounting - Supabase Schema
--- Optimized for large data with proper indexes & RLS
+-- MetricAccounting - Ironclad Supabase Security Schema
+-- Optimized for large data with RLS & Data Isolation
 -- =====================================================
 
 -- Enable UUID extension
@@ -9,7 +9,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ─── CUSTOMERS ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ma_customers (
   id            uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id       uuid REFERENCES auth.users ON DELETE CASCADE,
+  user_id       uuid DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
   org_id        text UNIQUE,
   name          text NOT NULL,
   phone         text,
@@ -33,17 +33,16 @@ CREATE INDEX IF NOT EXISTS idx_ma_customers_state     ON ma_customers(state);
 CREATE INDEX IF NOT EXISTS idx_ma_customers_name      ON ma_customers(name);
 CREATE INDEX IF NOT EXISTS idx_ma_customers_org_id    ON ma_customers(org_id);
 CREATE INDEX IF NOT EXISTS idx_ma_customers_is_active ON ma_customers(is_active);
--- Full-text search index
 CREATE INDEX IF NOT EXISTS idx_ma_customers_fts ON ma_customers USING gin(to_tsvector('english', coalesce(name,'') || ' ' || coalesce(phone,'') || ' ' || coalesce(city,'')));
 
 -- ─── PRODUCTS ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ma_products (
   id          uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id     uuid REFERENCES auth.users ON DELETE CASCADE,
+  user_id     uuid DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
   name        text NOT NULL,
   category    text,
   unit        text DEFAULT 'seeds',
-  variants    jsonb DEFAULT '[]',   -- [{name: "TALWAR", price: 1.6}]
+  variants    jsonb DEFAULT '[]',
   description text,
   is_active   boolean DEFAULT true,
   created_at  timestamptz DEFAULT now(),
@@ -57,12 +56,12 @@ CREATE INDEX IF NOT EXISTS idx_ma_products_is_active ON ma_products(is_active);
 -- ─── ORDERS ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ma_orders (
   id               uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id          uuid REFERENCES auth.users ON DELETE CASCADE,
+  user_id          uuid DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
   order_no         text UNIQUE,
   customer_id      uuid REFERENCES ma_customers ON DELETE SET NULL,
-  customer_name    text,   -- denormalized for performance
+  customer_name    text,
   order_date       date NOT NULL,
-  status           text DEFAULT 'pending',  -- pending|sowing_done|dispatched|cancelled
+  status           text DEFAULT 'pending',
   transport_charge decimal(12,2) DEFAULT 0,
   advance_payment  decimal(12,2) DEFAULT 0,
   foc_amount       decimal(12,2) DEFAULT 0,
@@ -78,7 +77,6 @@ CREATE INDEX IF NOT EXISTS idx_ma_orders_user_id     ON ma_orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_ma_orders_customer_id ON ma_orders(customer_id);
 CREATE INDEX IF NOT EXISTS idx_ma_orders_status      ON ma_orders(status);
 CREATE INDEX IF NOT EXISTS idx_ma_orders_order_date  ON ma_orders(order_date DESC);
--- Compound indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_ma_orders_user_status ON ma_orders(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_ma_orders_user_date   ON ma_orders(user_id, order_date DESC);
 
@@ -96,7 +94,7 @@ CREATE TABLE IF NOT EXISTS ma_order_items (
   batch_id        uuid,
   dispatched_qty  integer DEFAULT 0,
   remaining_qty   integer GENERATED ALWAYS AS (quantity - dispatched_qty) STORED,
-  status          text DEFAULT 'pending',  -- pending|sowing_done|dispatched
+  status          text DEFAULT 'pending',
   created_at      timestamptz DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_ma_order_items_order_id     ON ma_order_items(order_id);
@@ -108,7 +106,7 @@ CREATE INDEX IF NOT EXISTS idx_ma_order_items_status       ON ma_order_items(sta
 -- ─── PRODUCTION BATCHES ──────────────────────────────
 CREATE TABLE IF NOT EXISTS ma_batches (
   id              uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id         uuid REFERENCES auth.users ON DELETE CASCADE,
+  user_id         uuid DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
   batch_no        text UNIQUE,
   product_name    text,
   variant_name    text,
@@ -122,7 +120,7 @@ CREATE TABLE IF NOT EXISTS ma_batches (
   germination_pct decimal(5,2) GENERATED ALWAYS AS (
     CASE WHEN total_seeds > 0 THEN (actual_plants::decimal / total_seeds * 100) ELSE 0 END
   ) STORED,
-  status          text DEFAULT 'sowing',  -- sowing|germinating|ready|dispatched
+  status          text DEFAULT 'sowing',
   notes           text,
   created_at      timestamptz DEFAULT now(),
   updated_at      timestamptz DEFAULT now()
@@ -135,7 +133,7 @@ CREATE INDEX IF NOT EXISTS idx_ma_batches_status       ON ma_batches(status);
 -- ─── DISPATCH ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ma_dispatch (
   id             uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id        uuid REFERENCES auth.users ON DELETE CASCADE,
+  user_id        uuid DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
   dispatch_no    text UNIQUE,
   order_id       uuid REFERENCES ma_orders ON DELETE SET NULL,
   customer_id    uuid REFERENCES ma_customers ON DELETE SET NULL,
@@ -144,7 +142,7 @@ CREATE TABLE IF NOT EXISTS ma_dispatch (
   vehicle_no     text,
   driver_name    text,
   driver_phone   text,
-  status         text DEFAULT 'pending',  -- pending|in_transit|delivered
+  status         text DEFAULT 'pending',
   notes          text,
   created_at     timestamptz DEFAULT now(),
   updated_at     timestamptz DEFAULT now()
@@ -169,7 +167,7 @@ CREATE INDEX IF NOT EXISTS idx_ma_dispatch_items_dispatch_id ON ma_dispatch_item
 -- ─── PAYMENTS ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ma_payments (
   id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id      uuid REFERENCES auth.users ON DELETE CASCADE,
+  user_id      uuid DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
   payment_no   text UNIQUE,
   customer_id  uuid REFERENCES ma_customers ON DELETE SET NULL,
   order_id     uuid REFERENCES ma_orders ON DELETE SET NULL,
@@ -190,7 +188,7 @@ CREATE INDEX IF NOT EXISTS idx_ma_payments_date        ON ma_payments(payment_da
 -- ─── EMPLOYEES ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ma_employees (
   id          uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id     uuid REFERENCES auth.users ON DELETE CASCADE,
+  user_id     uuid DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
   emp_id      text,
   name        text NOT NULL,
   role        text,
@@ -199,7 +197,7 @@ CREATE TABLE IF NOT EXISTS ma_employees (
   department  text,
   join_date   date,
   salary      decimal(10,2),
-  status      text DEFAULT 'active',  -- active|inactive
+  status      text DEFAULT 'active',
   address     text,
   created_at  timestamptz DEFAULT now(),
   updated_at  timestamptz DEFAULT now()
@@ -211,14 +209,14 @@ CREATE INDEX IF NOT EXISTS idx_ma_employees_status     ON ma_employees(status);
 -- ─── CAMPAIGNS ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ma_campaigns (
   id          uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id     uuid REFERENCES auth.users ON DELETE CASCADE,
+  user_id     uuid DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
   name        text NOT NULL,
-  type        text,   -- email|whatsapp|call|field_visit
+  type        text,
   target_zone text,
   start_date  date,
   end_date    date,
   budget      decimal(10,2),
-  status      text DEFAULT 'planned',  -- planned|active|completed|cancelled
+  status      text DEFAULT 'planned',
   notes       text,
   created_at  timestamptz DEFAULT now(),
   updated_at  timestamptz DEFAULT now()
@@ -229,13 +227,13 @@ CREATE INDEX IF NOT EXISTS idx_ma_campaigns_status  ON ma_campaigns(status);
 -- ─── QUOTES ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ma_quotes (
   id           uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id      uuid REFERENCES auth.users ON DELETE CASCADE,
+  user_id      uuid DEFAULT auth.uid() REFERENCES auth.users ON DELETE CASCADE,
   quote_no     text UNIQUE,
   customer_id  uuid REFERENCES ma_customers ON DELETE SET NULL,
   customer_name text,
   quote_date   date DEFAULT CURRENT_DATE,
   valid_until  date,
-  status       text DEFAULT 'draft',  -- draft|sent|accepted|rejected|expired
+  status       text DEFAULT 'draft',
   items        jsonb DEFAULT '[]',
   total_amount decimal(12,2) DEFAULT 0,
   notes        text,
@@ -246,36 +244,51 @@ CREATE INDEX IF NOT EXISTS idx_ma_quotes_user_id     ON ma_quotes(user_id);
 CREATE INDEX IF NOT EXISTS idx_ma_quotes_customer_id ON ma_quotes(customer_id);
 CREATE INDEX IF NOT EXISTS idx_ma_quotes_status      ON ma_quotes(status);
 
--- ─── ROW LEVEL SECURITY ──────────────────────────────
-ALTER TABLE ma_customers  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ma_products   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ma_orders     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ma_order_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ma_batches    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ma_dispatch   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ma_dispatch_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ma_payments   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ma_employees  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ma_campaigns  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ma_quotes     ENABLE ROW LEVEL SECURITY;
+-- ─── ROW LEVEL SECURITY (STRICT PROTECTION) ─────────
+ALTER TABLE ma_customers      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ma_products       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ma_orders         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ma_order_items    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ma_batches        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ma_dispatch       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ma_dispatch_items  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ma_payments       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ma_employees      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ma_campaigns      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ma_quotes         ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies (users only see their own data)
-CREATE POLICY "users_own_customers"  ON ma_customers  FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "users_own_products"   ON ma_products   FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "users_own_orders"     ON ma_orders     FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "users_own_batches"    ON ma_batches    FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "users_own_dispatch"   ON ma_dispatch   FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "users_own_payments"   ON ma_payments   FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "users_own_employees"  ON ma_employees  FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "users_own_campaigns"  ON ma_campaigns  FOR ALL USING (auth.uid() = user_id);
-CREATE POLICY "users_own_quotes"     ON ma_quotes     FOR ALL USING (auth.uid() = user_id);
+-- Drop existing policies if re-running
+DROP POLICY IF EXISTS "users_own_customers"  ON ma_customers;
+DROP POLICY IF EXISTS "users_own_products"   ON ma_products;
+DROP POLICY IF EXISTS "users_own_orders"     ON ma_orders;
+DROP POLICY IF EXISTS "users_own_batches"    ON ma_batches;
+DROP POLICY IF EXISTS "users_own_dispatch"   ON ma_dispatch;
+DROP POLICY IF EXISTS "users_own_payments"   ON ma_payments;
+DROP POLICY IF EXISTS "users_own_employees"  ON ma_employees;
+DROP POLICY IF EXISTS "users_own_campaigns"  ON ma_campaigns;
+DROP POLICY IF EXISTS "users_own_quotes"     ON ma_quotes;
+DROP POLICY IF EXISTS "order_items_via_order" ON ma_order_items;
+DROP POLICY IF EXISTS "dispatch_items_via_dispatch" ON ma_dispatch_items;
 
--- Order items & dispatch items: policy via parent join
+-- Ironclad User Isolation Policies (Read, Write, Edit, Delete)
+CREATE POLICY "users_own_customers" ON ma_customers FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "users_own_products"  ON ma_products  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "users_own_orders"    ON ma_orders    FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "users_own_batches"   ON ma_batches   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "users_own_dispatch"  ON ma_dispatch  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "users_own_payments"  ON ma_payments  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "users_own_employees" ON ma_employees FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "users_own_campaigns" ON ma_campaigns FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "users_own_quotes"    ON ma_quotes    FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+-- Sub-table protection via parent relationship checks
 CREATE POLICY "order_items_via_order" ON ma_order_items FOR ALL
-  USING (EXISTS (SELECT 1 FROM ma_orders WHERE ma_orders.id = ma_order_items.order_id AND ma_orders.user_id = auth.uid()));
+  USING (EXISTS (SELECT 1 FROM ma_orders WHERE ma_orders.id = ma_order_items.order_id AND ma_orders.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM ma_orders WHERE ma_orders.id = ma_order_items.order_id AND ma_orders.user_id = auth.uid()));
 
 CREATE POLICY "dispatch_items_via_dispatch" ON ma_dispatch_items FOR ALL
-  USING (EXISTS (SELECT 1 FROM ma_dispatch WHERE ma_dispatch.id = ma_dispatch_items.dispatch_id AND ma_dispatch.user_id = auth.uid()));
+  USING (EXISTS (SELECT 1 FROM ma_dispatch WHERE ma_dispatch.id = ma_dispatch_items.dispatch_id AND ma_dispatch.user_id = auth.uid()))
+  WITH CHECK (EXISTS (SELECT 1 FROM ma_dispatch WHERE ma_dispatch.id = ma_dispatch_items.dispatch_id AND ma_dispatch.user_id = auth.uid()));
 
 -- ─── AUTO-UPDATED TIMESTAMP FUNCTION ─────────────────
 CREATE OR REPLACE FUNCTION update_updated_at()
