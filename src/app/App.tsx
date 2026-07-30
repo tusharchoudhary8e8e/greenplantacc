@@ -114,6 +114,8 @@ export default function App() {
     setCustomers([newCust, ...customers]);
   };
 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   // If user is not authenticated and hasn't chosen guest demo mode, show Login screen
   if (!authUser && !guestMode) {
     return (
@@ -125,16 +127,47 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans antialiased">
-      {/* Left Sidebar matching Greenza Solutions layout */}
-      <MetricSidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onLogout={handleLogout}
-      />
+    <div className="flex flex-col min-h-screen bg-[#f3faf7] font-sans antialiased">
+      {/* Top Navigation Bar */}
+      <header className="bg-white border-b border-emerald-100 flex items-center justify-between px-6 py-4 sticky top-0 z-50">
+        <div>
+          <h1 className="text-[26px] font-extrabold text-[#00a651] tracking-tight leading-none">
+            Greenza Solutions Demo
+          </h1>
+          <p className="text-sm text-slate-400 font-medium mt-1 uppercase tracking-wider">
+            {activeTab.replace('_', ' ')}
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile/Drawer Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-40 bg-black/20 flex justify-end">
+          <div className="w-64 bg-white h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right">
+            <MetricSidebar
+              activeTab={activeTab}
+              setActiveTab={(tab) => {
+                setActiveTab(tab);
+                setIsMobileMenuOpen(false);
+              }}
+              onLogout={handleLogout}
+            />
+          </div>
+          <div className="flex-1" onClick={() => setIsMobileMenuOpen(false)} />
+        </div>
+      )}
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto min-w-0">
+      <main className="flex-1 overflow-y-auto min-w-0 p-6 md:p-8">
         {loading ? (
           <div className="flex items-center justify-center h-full min-h-screen text-slate-400 font-medium">
             <div className="flex items-center gap-3">

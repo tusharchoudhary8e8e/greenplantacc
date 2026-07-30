@@ -47,34 +47,31 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
   ];
 
   return (
-    <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
-      {/* Top Header */}
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-        <div>
-          <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">
-            MetricAccounting Demo
-          </h1>
-          <p className="text-sm text-slate-500 font-medium mt-0.5">Dashboard</p>
-        </div>
-        <button
-          onClick={onNavigateToOrder}
-          className="flex items-center gap-2 bg-[#00a651] text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-emerald-600 transition shadow-sm text-sm"
-        >
-          <span>Create New Order</span>
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </div>
-
+    <div className="space-y-6">
       {/* Donut Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Financial Summary Donut Chart */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-slate-800">Financial Summary</h3>
-            <span className="text-xs font-semibold bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full">
-              Live Metrics
-            </span>
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+            <h3 className="text-sm font-bold text-slate-800">Finance Summary</h3>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                className="px-2 py-1.5 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none w-32"
+              />
+              <input
+                type="date"
+                className="px-2 py-1.5 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none w-32"
+              />
+              <button className="p-1.5 border border-slate-200 rounded text-slate-500 hover:bg-slate-50">
+                <RotateCw className="w-3.5 h-3.5" />
+              </button>
+              <button className="p-1.5 bg-[#00a651] rounded text-white hover:bg-emerald-600">
+                <Check className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
+          <p className="text-xs text-[#00a651] font-medium mb-6">Showing all data</p>
 
           <div className="flex flex-col sm:flex-row items-center gap-6">
             {/* Chart */}
@@ -130,14 +127,34 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
           </div>
         </div>
 
-        {/* Plant / Sowing Summary Donut Chart */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-slate-800">Sowing & Dispatch Summary</h3>
-            <span className="text-xs font-semibold bg-blue-50 text-blue-700 px-3 py-1 rounded-full">
-              Plant Volume
-            </span>
+        {/* Plant Summary Donut Chart */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-col justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+            <h3 className="text-sm font-bold text-slate-800">Plant Summary</h3>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                className="px-2 py-1.5 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none w-32"
+              />
+              <input
+                type="date"
+                className="px-2 py-1.5 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none w-32"
+              />
+              <select className="px-2 py-1.5 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none w-20">
+                <option>Crop</option>
+              </select>
+              <select className="px-2 py-1.5 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none w-20">
+                <option>Variety</option>
+              </select>
+              <button className="p-1.5 border border-slate-200 rounded text-slate-500 hover:bg-slate-50">
+                <RotateCw className="w-3.5 h-3.5" />
+              </button>
+              <button className="p-1.5 bg-[#00a651] rounded text-white hover:bg-emerald-600">
+                <Check className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
+          <p className="text-xs text-[#00a651] font-medium mb-6">Showing all data</p>
 
           <div className="flex flex-col sm:flex-row items-center gap-6">
             {/* Chart */}
@@ -195,59 +212,30 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
       </div>
 
       {/* Order Summary Section */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-          <h3 className="text-lg font-bold text-slate-800">Order Summary</h3>
-
-          {/* Date Filters & Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="dd-mm-yyyy"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-                className="pl-3 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-600 placeholder-slate-400 w-36"
-              />
-              <Calendar className="w-4 h-4 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
-            </div>
-            <span className="text-slate-400 text-sm">to</span>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="dd-mm-yyyy"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-                className="pl-3 pr-8 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-600 placeholder-slate-400 w-36"
-              />
-              <Calendar className="w-4 h-4 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
-            </div>
-
-            <button
-              onClick={() => {
-                setFromDate("");
-                setToDate("");
-              }}
-              className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition"
-              title="Reset dates"
-            >
-              <RotateCw className="w-4 h-4" />
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h3 className="text-sm font-bold text-slate-800">Order Summary</h3>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              className="px-2 py-1.5 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none w-32"
+            />
+            <input
+              type="date"
+              className="px-2 py-1.5 border border-slate-200 rounded text-xs text-slate-600 focus:outline-none w-32"
+            />
+            <button className="p-1.5 border border-slate-200 rounded text-slate-500 hover:bg-slate-50">
+              <RotateCw className="w-3.5 h-3.5" />
             </button>
-            <button
-              className="p-2 bg-[#00a651] text-white rounded-lg hover:bg-emerald-600 transition"
-              title="Apply Filter"
-            >
-              <Check className="w-4 h-4" />
+            <button className="p-1.5 bg-[#00a651] rounded text-white hover:bg-emerald-600">
+              <Check className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
-
-        {/* Subhead indicators */}
-        <div className="flex items-center justify-between text-xs text-slate-500 font-medium">
-          <span className="text-emerald-600 font-semibold">Showing all data</span>
-          <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full font-bold">
-            Total Customer - {customers.length || 1}
-          </span>
+        <p className="text-xs text-[#00a651] font-medium -mt-4 mb-4">Showing all data</p>
+        
+        <div className="text-sm text-slate-800 font-medium mb-4">
+          Total Customer - {customers.length || 3}
         </div>
 
         {/* Table of Orders */}
