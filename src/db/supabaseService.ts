@@ -514,7 +514,7 @@ export class SupabaseService {
           }));
           await supabase.from("ma_order_items").insert(itemPayloads);
         }
-        return ordData as Order;
+        return { ...ordData, items: order.items } as Order;
       }
     } catch {
       // Fallback

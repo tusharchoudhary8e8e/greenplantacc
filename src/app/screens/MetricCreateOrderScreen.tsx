@@ -169,12 +169,11 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
             </label>
             <div className="relative">
               <input
-                type="text"
+                type="date"
                 value={orderDate}
                 onChange={(e) => setOrderDate(e.target.value)}
-                className="w-full p-3 pr-10 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-800 font-medium"
+                className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-800 font-medium"
               />
-              <Calendar className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
             </div>
           </div>
         </div>
@@ -328,14 +327,14 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                     </label>
                     <div className="flex items-center gap-1">
                       <input
-                        type="text"
-                        value={item.dispatch_from || "29-07-2026"}
+                        type="date"
+                        value={item.dispatch_from || "2026-07-29"}
                         onChange={(e) => updateItemRow(idx, "dispatch_from", e.target.value)}
                         className="w-full p-2 border border-slate-200 rounded-lg text-[11px] text-slate-800"
                       />
                       <input
-                        type="text"
-                        value={item.dispatch_to || "02-08-2026"}
+                        type="date"
+                        value={item.dispatch_to || "2026-08-02"}
                         onChange={(e) => updateItemRow(idx, "dispatch_to", e.target.value)}
                         className="w-full p-2 border border-slate-200 rounded-lg text-[11px] text-slate-800"
                       />
@@ -348,8 +347,8 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                       Sowing Date
                     </label>
                     <input
-                      type="text"
-                      value={item.sowing_date || "18-06-2026"}
+                      type="date"
+                      value={item.sowing_date || "2026-06-18"}
                       onChange={(e) => updateItemRow(idx, "sowing_date", e.target.value)}
                       className="w-full p-2.5 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium"
                     />
