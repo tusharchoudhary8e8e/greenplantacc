@@ -133,22 +133,23 @@ export default function App() {
     <div className="flex flex-col min-h-screen bg-[#f3faf7] font-sans antialiased">
       {/* Top Navigation Bar */}
       <header className="bg-white border-b border-emerald-100 flex items-center justify-between px-6 py-4 sticky top-0 z-50">
-        <div>
-          <h1 className="text-[26px] font-extrabold text-[#00a651] tracking-tight leading-none">
-            Greenza Solutions Demo
-          </h1>
-          <p className="text-sm text-slate-400 font-medium mt-1 uppercase tracking-wider">
-            {activeTab.replace('_', ' ')}
-          </p>
-        </div>
-        
         <div className="flex items-center gap-4">
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+            className="p-2 -ml-2 text-slate-700 hover:bg-emerald-50 hover:text-[#00a651] rounded-lg transition"
+            title="Toggle Menu"
+            aria-label="Toggle Menu"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
           </button>
+          <div>
+            <h1 className="text-[26px] font-extrabold text-[#00a651] tracking-tight leading-none">
+              Greenza Solutions Demo
+            </h1>
+            <p className="text-sm text-slate-400 font-medium mt-1 uppercase tracking-wider">
+              {activeTab.replace('_', ' ')}
+            </p>
+          </div>
         </div>
       </header>
 
