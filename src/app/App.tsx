@@ -34,7 +34,6 @@ import {
 export default function App() {
   const [activeTab, setActiveTab] = useState<MetricTab>("dashboard");
   const [authUser, setAuthUser] = useState<User | null>(null);
-  const [guestMode, setGuestMode] = useState(false);
 
   // State data
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -85,13 +84,11 @@ export default function App() {
     getCurrentUser().then((u) => {
       if (u) {
         setAuthUser(u);
-        setGuestMode(false);
       }
     });
 
     const { data: authListener } = onAuthStateChange((u) => {
       setAuthUser(u);
-      if (u) setGuestMode(false);
       loadAllData();
     });
 
@@ -105,7 +102,6 @@ export default function App() {
   const handleLogout = async () => {
     await signOutUser();
     setAuthUser(null);
-    setGuestMode(false);
   };
 
   const handleOrderSaved = (newOrd: Order) => {
@@ -119,12 +115,11 @@ export default function App() {
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // If user is not authenticated and hasn't chosen guest demo mode, show Login screen
-  if (!authUser && !guestMode) {
+  // If user is not authenticated, show Login screen
+  if (!authUser) {
     return (
       <MetricLoginScreen
         onLoginSuccess={() => loadAllData()}
-        onContinueAsGuest={() => setGuestMode(true)}
       />
     );
   }

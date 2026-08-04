@@ -4,12 +4,10 @@ import { signInUser } from "../../lib/supabase";
 
 interface LoginScreenProps {
   onLoginSuccess: (userEmail: string) => void;
-  onContinueAsGuest: () => void;
 }
 
 export const MetricLoginScreen: React.FC<LoginScreenProps> = ({
   onLoginSuccess,
-  onContinueAsGuest,
 }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -135,16 +133,7 @@ export const MetricLoginScreen: React.FC<LoginScreenProps> = ({
             <ArrowRight className="w-4 h-4" />
           </button>
 
-          {/* Guest Demo Access Option */}
-          <div className="pt-4 border-t border-slate-100 text-center">
-            <button
-              type="button"
-              onClick={onContinueAsGuest}
-              className="text-xs text-slate-500 hover:text-emerald-700 font-semibold underline"
-            >
-              Continue in Local Offline Demo Mode →
-            </button>
-          </div>
+
         </form>
 
         {/* Footer info */}
