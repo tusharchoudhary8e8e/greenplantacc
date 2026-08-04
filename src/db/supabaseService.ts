@@ -157,7 +157,25 @@ export interface Employee {
 }
 
 // ─── LOCAL DEMO SEED DATA (fallback if offline / Supabase setup pending) ──────
-const DEMO_CUSTOMERS: Customer[] = [
+
+const loadFromStorage = <T>(key: string, defaultValue: T): T => {
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : defaultValue;
+  } catch {
+    return defaultValue;
+  }
+};
+
+const saveToStorage = (key: string, data: any) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.error("Storage error:", e);
+  }
+};
+
+const INITIAL_CUSTOMERS: Customer[] = [
   {
     id: "cust-1",
     org_id: "#ORG1_CUST_2026_0002",
@@ -192,16 +210,16 @@ const DEMO_CUSTOMERS: Customer[] = [
   },
 ];
 
-const DEMO_PRODUCTS: Product[] = [
+const INITIAL_PRODUCTS: Product[] = [
   {
     id: "prod-1",
     name: "CHILLY",
     category: "Vegetables",
     unit: "plants",
     variants: [
-      { name: "TALWAR", price: 1.6 },
-      { name: "VNR 212", price: 1.8 },
-      { name: "FIRE", price: 1.5 },
+      { name: "TALWAR", price: 1.6, duration: 40 },
+      { name: "VNR 212", price: 1.8, duration: 45 },
+      { name: "FIRE", price: 1.5, duration: 35 },
     ],
     is_active: true,
   },
@@ -211,9 +229,9 @@ const DEMO_PRODUCTS: Product[] = [
     category: "Vegetables",
     unit: "plants",
     variants: [
-      { name: "ABHILASH", price: 2.0 },
-      { name: "HEM SONA", price: 2.2 },
-      { name: "SAHOO", price: 1.9 },
+      { name: "ABHILASH", price: 2.0, duration: 40 },
+      { name: "HEM SONA", price: 2.2, duration: 42 },
+      { name: "SAHOO", price: 1.9, duration: 38 },
     ],
     is_active: true,
   },
@@ -223,8 +241,8 @@ const DEMO_PRODUCTS: Product[] = [
     category: "Vegetables",
     unit: "plants",
     variants: [
-      { name: "MOHINI", price: 1.4 },
-      { name: "KALPATARU", price: 1.5 },
+      { name: "MOHINI", price: 1.4, duration: 45 },
+      { name: "KALPATARU", price: 1.5, duration: 50 },
     ],
     is_active: true,
   },
@@ -234,14 +252,14 @@ const DEMO_PRODUCTS: Product[] = [
     category: "Flowers",
     unit: "plants",
     variants: [
-      { name: "ORANGE", price: 1.2 },
-      { name: "YELLOW", price: 1.2 },
+      { name: "ORANGE", price: 1.2, duration: 30 },
+      { name: "YELLOW", price: 1.2, duration: 30 },
     ],
     is_active: true,
   },
 ];
 
-const DEMO_ORDERS: Order[] = [
+const INITIAL_ORDERS: Order[] = [
   {
     id: "ord-1",
     order_no: "ORD-2026-0001",
@@ -275,7 +293,7 @@ const DEMO_ORDERS: Order[] = [
   },
 ];
 
-const DEMO_BATCHES: ProductionBatch[] = [
+const INITIAL_BATCHES: ProductionBatch[] = [
   {
     id: "batch-1",
     batch_no: "BATCH-2026-001",
@@ -294,7 +312,7 @@ const DEMO_BATCHES: ProductionBatch[] = [
   },
 ];
 
-const DEMO_DISPATCH: DispatchRecord[] = [
+const INITIAL_DISPATCH: DispatchRecord[] = [
   {
     id: "disp-1",
     dispatch_no: "DISP-2026-001",
@@ -310,7 +328,7 @@ const DEMO_DISPATCH: DispatchRecord[] = [
   },
 ];
 
-const DEMO_EMPLOYEES: Employee[] = [
+const INITIAL_EMPLOYEES: Employee[] = [
   {
     id: "emp-1",
     emp_id: "EMP-001",
@@ -337,7 +355,7 @@ const DEMO_EMPLOYEES: Employee[] = [
   },
 ];
 
-const DEMO_QUOTES: Quote[] = [
+const INITIAL_QUOTES: Quote[] = [
   {
     id: "qt-1",
     quote_no: "QT-2026-001",
@@ -354,7 +372,7 @@ const DEMO_QUOTES: Quote[] = [
   },
 ];
 
-const DEMO_CAMPAIGNS: Campaign[] = [
+const INITIAL_CAMPAIGNS: Campaign[] = [
   {
     id: "cmp-1",
     name: "Kharif Sowing Monsoon Campaign",
@@ -367,6 +385,15 @@ const DEMO_CAMPAIGNS: Campaign[] = [
     notes: "Farmer outreach for high-yield chilly saplings",
   },
 ];
+
+let DEMO_CUSTOMERS: Customer[] = loadFromStorage("demo_customers", INITIAL_CUSTOMERS);
+let DEMO_PRODUCTS: Product[] = loadFromStorage("demo_products", INITIAL_PRODUCTS);
+let DEMO_ORDERS: Order[] = loadFromStorage("demo_orders", INITIAL_ORDERS);
+let DEMO_BATCHES: ProductionBatch[] = loadFromStorage("demo_batches", INITIAL_BATCHES);
+let DEMO_DISPATCH: DispatchRecord[] = loadFromStorage("demo_dispatch", INITIAL_DISPATCH);
+let DEMO_EMPLOYEES: Employee[] = loadFromStorage("demo_employees", INITIAL_EMPLOYEES);
+let DEMO_QUOTES: Quote[] = loadFromStorage("demo_quotes", INITIAL_QUOTES);
+let DEMO_CAMPAIGNS: Campaign[] = loadFromStorage("demo_campaigns", INITIAL_CAMPAIGNS);
 
 // ─── SERVICE IMPLEMENTATION ──────────────────────────────────────────
 export class SupabaseService {
@@ -401,6 +428,7 @@ export class SupabaseService {
       org_id: cust.org_id || `#ORG1_CUST_2026_${Math.floor(1000 + Math.random() * 9000)}`,
     };
     DEMO_CUSTOMERS.unshift(newCust);
+    saveToStorage("demo_customers", DEMO_CUSTOMERS);
     return newCust;
   }
 
@@ -430,7 +458,13 @@ export class SupabaseService {
       // Fallback
     }
     const newProd = { ...prod, id: prod.id || `prod-${Date.now()}` };
-    DEMO_PRODUCTS.push(newProd);
+    const idx = DEMO_PRODUCTS.findIndex((p) => p.id === newProd.id);
+    if (idx !== -1) {
+      DEMO_PRODUCTS[idx] = newProd;
+    } else {
+      DEMO_PRODUCTS.push(newProd);
+    }
+    saveToStorage("demo_products", DEMO_PRODUCTS);
     return newProd;
   }
 
@@ -444,7 +478,15 @@ export class SupabaseService {
     } catch {
       // Fallback
     }
-    DEMO_PRODUCTS.push(...products);
+    products.forEach(p => {
+      const idx = DEMO_PRODUCTS.findIndex(dp => dp.id === p.id);
+      if (idx !== -1) {
+        DEMO_PRODUCTS[idx] = p;
+      } else {
+        DEMO_PRODUCTS.push(p);
+      }
+    });
+    saveToStorage("demo_products", DEMO_PRODUCTS);
     return products.length;
   }
 
@@ -522,6 +564,7 @@ export class SupabaseService {
 
     const localOrd = { ...fullOrder, id: `ord-${Date.now()}` };
     DEMO_ORDERS.unshift(localOrd);
+    saveToStorage("demo_orders", DEMO_ORDERS);
     return localOrd;
   }
 
@@ -551,7 +594,13 @@ export class SupabaseService {
       // Fallback
     }
     const newB = { ...b, id: b.id || `batch-${Date.now()}` };
-    DEMO_BATCHES.unshift(newB);
+    const idx = DEMO_BATCHES.findIndex(x => x.id === newB.id);
+    if (idx !== -1) {
+      DEMO_BATCHES[idx] = newB;
+    } else {
+      DEMO_BATCHES.unshift(newB);
+    }
+    saveToStorage("demo_batches", DEMO_BATCHES);
     return newB;
   }
 
