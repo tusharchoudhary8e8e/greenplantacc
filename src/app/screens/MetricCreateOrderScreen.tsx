@@ -46,6 +46,32 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
     },
   ]);
 
+  React.useEffect(() => {
+    if (products.length > 0 && items.length === 1 && items[0].product_name === "CHILLY" && !products.some(p => p.name === "CHILLY")) {
+      const defaultProd = products[0];
+      const defaultVariant = defaultProd.variants?.[0];
+      const defaultPrice = defaultVariant?.price || 0;
+      const defaultDuration = defaultVariant?.duration || 0;
+      
+      const date = new Date(orderDate);
+      date.setDate(date.getDate() - defaultDuration);
+      const calculatedSowing = date.toISOString().split("T")[0];
+
+      setItems([
+        {
+          product_name: defaultProd.name,
+          variant_name: defaultVariant?.name || "",
+          price: defaultPrice,
+          quantity: 100,
+          dispatch_from: orderDate,
+          dispatch_to: orderDate,
+          sowing_date: calculatedSowing,
+          remaining_qty: 100,
+        }
+      ]);
+    }
+  }, [products, orderDate]);
+
   // Payment States
   const [transportCharge, setTransportCharge] = useState("");
   const [advancePayment, setAdvancePayment] = useState("");
@@ -57,17 +83,31 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
   );
   const totalAmount = itemsTotal + (parseFloat(transportCharge) || 0);
 
+  const calculateSowingDate = (dispatchFrom: string, productName: string, variantName: string): string => {
+    const prod = products.find(p => p.name === productName);
+    const variant = prod?.variants?.find(v => v.name === variantName);
+    const duration = variant?.duration || 0;
+    if (!dispatchFrom) return dispatchFrom;
+    const date = new Date(dispatchFrom);
+    date.setDate(date.getDate() - duration);
+    return date.toISOString().split("T")[0];
+  };
+
   const addItemRow = () => {
+    const defaultProd = products[0] || { name: "TOMATO", variants: [{ name: "ABHILASH", price: 2.0, duration: 40 }] };
+    const defaultVariant = defaultProd.variants?.[0] || { name: "ABHILASH", price: 2.0, duration: 40 };
+    const calculatedSowing = calculateSowingDate(orderDate, defaultProd.name, defaultVariant.name);
+
     setItems([
       ...items,
       {
-        product_name: products[0]?.name || "TOMATO",
-        variant_name: products[0]?.variants?.[0]?.name || "ABHILASH",
-        price: products[0]?.variants?.[0]?.price || 2.0,
+        product_name: defaultProd.name,
+        variant_name: defaultVariant.name,
+        price: defaultVariant.price,
         quantity: 100,
         dispatch_from: orderDate,
         dispatch_to: orderDate,
-        sowing_date: orderDate,
+        sowing_date: calculatedSowing,
         remaining_qty: 100,
       },
     ]);
@@ -81,16 +121,46 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
   const updateItemRow = (index: number, field: keyof OrderItem, value: any) => {
     const updated = [...items];
     updated[index] = { ...updated[index], [field]: value };
+    
     if (field === "quantity") {
       updated[index].remaining_qty = value;
     }
+    
     if (field === "product_name") {
       const selectedProd = products.find((p) => p.name === value);
       if (selectedProd && selectedProd.variants && selectedProd.variants.length > 0) {
-        updated[index].variant_name = selectedProd.variants[0].name;
-        updated[index].price = selectedProd.variants[0].price;
+        const firstVariant = selectedProd.variants[0];
+        updated[index].variant_name = firstVariant.name;
+        updated[index].price = firstVariant.price;
+        updated[index].sowing_date = calculateSowingDate(
+          updated[index].dispatch_from || orderDate,
+          selectedProd.name,
+          firstVariant.name
+        );
       }
     }
+    
+    if (field === "variant_name") {
+      const selectedProd = products.find((p) => p.name === updated[index].product_name);
+      const selectedVar = selectedProd?.variants?.find((v) => v.name === value);
+      if (selectedVar) {
+        updated[index].price = selectedVar.price;
+        updated[index].sowing_date = calculateSowingDate(
+          updated[index].dispatch_from || orderDate,
+          updated[index].product_name,
+          selectedVar.name
+        );
+      }
+    }
+    
+    if (field === "dispatch_from") {
+      updated[index].sowing_date = calculateSowingDate(
+        value,
+        updated[index].product_name,
+        updated[index].variant_name || ""
+      );
+    }
+    
     setItems(updated);
   };
 
