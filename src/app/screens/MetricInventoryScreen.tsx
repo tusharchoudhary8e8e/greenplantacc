@@ -17,10 +17,28 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
   // Add Crop Modal State
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [cropName, setCropName] = useState("");
   const [variants, setVariants] = useState<
     { name: string; price: string; duration: string; description: string }[]
   >([{ name: "", price: "", duration: "", description: "" }]);
+
+  React.useEffect(() => {
+    if (editingProduct) {
+      setCropName(editingProduct.name);
+      setVariants(
+        editingProduct.variants?.map((v) => ({
+          name: v.name,
+          price: String(v.price),
+          duration: String(v.duration || ""),
+          description: v.description || "",
+        })) || [{ name: "", price: "", duration: "", description: "" }]
+      );
+    } else {
+      setCropName("");
+      setVariants([{ name: "", price: "", duration: "", description: "" }]);
+    }
+  }, [editingProduct, showAddProdModal]);
 
   const toggleRow = (id: string) => {
     setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -57,16 +75,18 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
     }));
 
     const newProd: Product = {
+      ...(editingProduct ? { id: editingProduct.id } : {}),
       name: cropName.toUpperCase(),
-      category: "Vegetables", // Default or you could add a field for it
-      unit: "plants",
+      category: editingProduct?.category || "Vegetables",
+      unit: editingProduct?.unit || "plants",
       variants: formattedVariants,
-      is_active: true,
+      is_active: editingProduct ? editingProduct.is_active : true,
     };
 
     await SupabaseService.saveProduct(newProd);
     onProductsUpdated();
     setShowAddProdModal(false);
+    setEditingProduct(null);
     setCropName("");
     setVariants([{ name: "", price: "", duration: "", description: "" }]);
   };
@@ -96,7 +116,10 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setShowAddProdModal(true)}
+              onClick={() => {
+                setEditingProduct(null);
+                setShowAddProdModal(true);
+              }}
               className="flex items-center gap-2 bg-[#00a651] text-white px-4 py-2 rounded-lg font-semibold hover:bg-emerald-600 transition shadow-sm text-xs"
             >
               <Plus className="w-4 h-4" />
@@ -155,9 +178,18 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
                         {priceRange}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <button className="text-slate-400 hover:text-slate-700 transition">
-                          <MoreHorizontal className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProduct(prod);
+                              setShowAddProdModal(true);
+                            }}
+                            className="px-2.5 py-1 text-[11px] font-bold text-white bg-[#00a651] rounded-md hover:bg-emerald-600 transition"
+                          >
+                            Edit
+                          </button>
+                        </div>
                       </td>
                     </tr>
 
@@ -223,8 +255,16 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white w-full max-w-xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex justify-between items-center p-5 border-b border-slate-100">
-              <h2 className="text-lg font-bold text-[#1e3a5f]">Add Crop</h2>
-              <button onClick={() => setShowAddProdModal(false)} className="text-slate-400 hover:text-slate-700">
+              <h2 className="text-lg font-bold text-[#1e3a5f]">
+                {editingProduct ? "Edit Crop" : "Add Crop"}
+              </h2>
+              <button 
+                onClick={() => {
+                  setShowAddProdModal(false);
+                  setEditingProduct(null);
+                }} 
+                className="text-slate-400 hover:text-slate-700"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -316,7 +356,10 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
 
             <div className="p-5 border-t border-slate-100 flex gap-4">
               <button
-                onClick={() => setShowAddProdModal(false)}
+                onClick={() => {
+                  setShowAddProdModal(false);
+                  setEditingProduct(null);
+                }}
                 className="flex-1 py-2.5 border border-[#00a651] text-[#00a651] rounded-lg font-semibold text-sm hover:bg-emerald-50 transition"
               >
                 Cancel
@@ -325,7 +368,7 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
                 onClick={handleCreateCrop}
                 className="flex-1 py-2.5 bg-[#84cc9a] text-white rounded-lg font-semibold text-sm hover:bg-[#6cbe86] transition flex items-center justify-center"
               >
-                Create Crop
+                {editingProduct ? "Save Changes" : "Create Crop"}
               </button>
             </div>
           </div>
