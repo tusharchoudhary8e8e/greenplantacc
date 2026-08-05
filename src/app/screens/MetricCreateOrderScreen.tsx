@@ -237,11 +237,19 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
               onChange={(e) => setSelectedCustId(e.target.value)}
               className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-800 font-medium"
             >
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
+              {customers.map((c) => {
+                const hasDuplicateName = customers.filter(
+                  (cust) => (cust.name || "").trim().toLowerCase() === (c.name || "").trim().toLowerCase()
+                ).length > 1;
+                const displayLabel = hasDuplicateName
+                  ? `${c.name} (${c.city || c.address || "No Address"})`
+                  : c.name;
+                return (
+                  <option key={c.id} value={c.id}>
+                    {displayLabel}
+                  </option>
+                );
+              })}
             </select>
           </div>
 

@@ -14,6 +14,7 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedZone, setSelectedZone] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
 
   // Form State
   const [name, setName] = useState("");
@@ -26,6 +27,36 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
   const [size, setSize] = useState<"Small" | "Medium" | "Large">("Small");
   const [cropsStr, setCropsStr] = useState("Tomato, Chilly");
   const [address, setAddress] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (editingCustomer) {
+      setName(editingCustomer.name);
+      setPhone(editingCustomer.phone || "");
+      setEmail(editingCustomer.email || "");
+      setCity(editingCustomer.city || "");
+      setStateName(editingCustomer.state || "");
+      setPincode(editingCustomer.pincode || "");
+      setZone(editingCustomer.zone || "ZONE1 ZONE");
+      setSize(editingCustomer.size_category || "Small");
+      setCropsStr(editingCustomer.crop_types?.join(", ") || "");
+      setAddress(editingCustomer.address || "");
+      setErrorMsg("");
+    } else {
+      setName("");
+      setPhone("");
+      setEmail("");
+      setCity("");
+      setStateName("");
+      setPincode("");
+      setZone("ZONE1 ZONE");
+      setSize("Small");
+      setCropsStr("");
+      setAddress("");
+      setErrorMsg("");
+    }
+  }, [editingCustomer, showAddModal]);
 
   const filteredCustomers = customers.filter((c) => {
     const matchesSearch =
@@ -38,9 +69,27 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) return;
+    if (!name || submitting) return;
+    setErrorMsg("");
+
+    const normalizedName = name.trim().toLowerCase();
+    const duplicate = customers.find(
+      (c) => c.name.trim().toLowerCase() === normalizedName && (!editingCustomer || c.id !== editingCustomer.id)
+    );
+
+    const currentAddress = address || `${city}, ${stateName}, ${pincode}`;
+
+    if (duplicate) {
+      if ((duplicate.address || "").trim().toLowerCase() === currentAddress.trim().toLowerCase()) {
+        setErrorMsg("A customer with this exact name and address already exists.");
+        return;
+      }
+    }
+
+    setSubmitting(true);
 
     const newCust: Customer = {
+      ...(editingCustomer ? { id: editingCustomer.id, org_id: editingCustomer.org_id } : {}),
       name,
       phone,
       email,
@@ -50,18 +99,29 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
       zone,
       size_category: size,
       crop_types: cropsStr.split(",").map((s) => s.trim()).filter(Boolean),
-      address: address || `${city}, ${stateName}, ${pincode}`,
-      is_active: true,
+      address: currentAddress,
+      is_active: editingCustomer ? editingCustomer.is_active : true,
     };
 
-    const saved = await SupabaseService.saveCustomer(newCust);
-    onCustomerAdded(saved);
-    setShowAddModal(false);
-    // Reset
-    setName("");
-    setPhone("");
-    setEmail("");
-    setCity("");
+    try {
+      const saved = await SupabaseService.saveCustomer(newCust);
+      onCustomerAdded(saved);
+      setShowAddModal(false);
+      setEditingCustomer(null);
+      // Reset
+      setName("");
+      setPhone("");
+      setEmail("");
+      setCity("");
+      setStateName("");
+      setPincode("");
+      setAddress("");
+      setCropsStr("");
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to save customer.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -76,7 +136,10 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
         </div>
 
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {
+            setEditingCustomer(null);
+            setShowAddModal(true);
+          }}
           className="flex items-center gap-2 bg-[#00a651] text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-emerald-600 transition shadow-sm text-sm"
         >
           <Plus className="w-4 h-4" />
@@ -130,9 +193,20 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
                   </span>
                 </div>
               </div>
-              <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-600 border border-blue-200">
-                {cust.zone || "ZONE1 ZONE"}
-              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setEditingCustomer(cust);
+                    setShowAddModal(true);
+                  }}
+                  className="px-2.5 py-1 text-[10px] font-bold text-white bg-[#00a651] rounded-md hover:bg-emerald-600 transition shadow-sm"
+                >
+                  Edit
+                </button>
+                <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-600 border border-blue-200">
+                  {cust.zone || "ZONE1 ZONE"}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-2 text-xs text-slate-600 border-t border-slate-100 pt-3">
@@ -172,8 +246,14 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-100 overflow-hidden space-y-6 p-6">
             <h3 className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-3">
-              Add New Customer
+              {editingCustomer ? "Edit Customer Detail" : "Add New Customer"}
             </h3>
+
+            {errorMsg && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 font-medium">
+                {errorMsg}
+              </div>
+            )}
 
             <form onSubmit={handleAddSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -274,16 +354,20 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setEditingCustomer(null);
+                  }}
                   className="px-5 py-2 border border-slate-300 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-[#00a651] text-white rounded-xl text-xs font-bold hover:bg-emerald-600"
+                  disabled={submitting}
+                  className="px-6 py-2 bg-[#00a651] text-white rounded-xl text-xs font-bold hover:bg-emerald-600 disabled:opacity-55"
                 >
-                  Save Customer
+                  {submitting ? "Saving..." : "Save Customer"}
                 </button>
               </div>
             </form>

@@ -110,7 +110,15 @@ export default function App() {
   };
 
   const handleCustomerAdded = (newCust: Customer) => {
-    setCustomers([newCust, ...customers]);
+    setCustomers((prev) => {
+      const idx = prev.findIndex((c) => c.id === newCust.id);
+      if (idx !== -1) {
+        const updated = [...prev];
+        updated[idx] = newCust;
+        return updated;
+      }
+      return [newCust, ...prev];
+    });
   };
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
