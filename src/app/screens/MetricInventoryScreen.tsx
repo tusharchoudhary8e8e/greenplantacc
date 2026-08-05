@@ -63,9 +63,12 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
     setVariants(newVariants);
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const handleCreateCrop = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cropName) return;
+    if (!cropName || submitting) return;
+    setSubmitting(true);
 
     const formattedVariants: ProductVariant[] = variants.map((v) => ({
       name: v.name || "Standard",
@@ -83,12 +86,18 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
       is_active: editingProduct ? editingProduct.is_active : true,
     };
 
-    await SupabaseService.saveProduct(newProd);
-    onProductsUpdated();
-    setShowAddProdModal(false);
-    setEditingProduct(null);
-    setCropName("");
-    setVariants([{ name: "", price: "", duration: "", description: "" }]);
+    try {
+      await SupabaseService.saveProduct(newProd);
+      onProductsUpdated();
+      setShowAddProdModal(false);
+      setEditingProduct(null);
+      setCropName("");
+      setVariants([{ name: "", price: "", duration: "", description: "" }]);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -366,9 +375,10 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
               </button>
               <button
                 onClick={handleCreateCrop}
-                className="flex-1 py-2.5 bg-[#84cc9a] text-white rounded-lg font-semibold text-sm hover:bg-[#6cbe86] transition flex items-center justify-center"
+                disabled={submitting}
+                className="flex-1 py-2.5 bg-[#84cc9a] text-white rounded-lg font-semibold text-sm hover:bg-[#6cbe86] transition flex items-center justify-center disabled:opacity-55"
               >
-                {editingProduct ? "Save Changes" : "Create Crop"}
+                {submitting ? "Saving..." : (editingProduct ? "Save Changes" : "Create Crop")}
               </button>
             </div>
           </div>

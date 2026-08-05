@@ -69,25 +69,35 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({
-      batch_no: `BCH-${Date.now().toString().slice(-6)}`,
-      lot_no: lotNo,
-      unit,
-      polyhouse,
-      table_no: tableNo,
-      tray_size: traySize,
-      product_name: selectedProduct,
-      variant_name: selectedVariant,
-      required_quantity: Number(requiredQuantity) || 0,
-      buffer_quantity_pct: Number(bufferQuantity) || 0,
-      total_seeds: totalSowingQuantity, // map to total_seeds for backward compatibility
-      trays_used: numberOfTrays,
-      sowing_date: startDate,
-      end_date: endDate,
-      status: "sowing",
-    });
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await onSave({
+        batch_no: `BCH-${Date.now().toString().slice(-6)}`,
+        lot_no: lotNo,
+        unit,
+        polyhouse,
+        table_no: tableNo,
+        tray_size: traySize,
+        product_name: selectedProduct,
+        variant_name: selectedVariant,
+        required_quantity: Number(requiredQuantity) || 0,
+        buffer_quantity_pct: Number(bufferQuantity) || 0,
+        total_seeds: totalSowingQuantity, // map to total_seeds for backward compatibility
+        trays_used: numberOfTrays,
+        sowing_date: startDate,
+        end_date: endDate,
+        status: "sowing",
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const selectedProdObj = products.find((p) => p.name === selectedProduct);
@@ -294,9 +304,10 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
             </button>
             <button
               type="submit"
-              className="flex-1 py-2.5 bg-[#84cc9a] text-white rounded-lg font-semibold text-sm hover:bg-[#6cbe86] transition flex items-center justify-center"
+              disabled={submitting}
+              className="flex-1 py-2.5 bg-[#84cc9a] text-white rounded-lg font-semibold text-sm hover:bg-[#6cbe86] transition flex items-center justify-center disabled:opacity-55"
             >
-              Create Batch
+              {submitting ? "Creating..." : "Create Batch"}
             </button>
           </div>
         </form>

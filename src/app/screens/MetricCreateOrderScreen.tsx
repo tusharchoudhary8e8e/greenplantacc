@@ -164,8 +164,13 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
     setItems(updated);
   };
 
+  const [submitting, setSubmitting] = useState(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+
     const newOrdPayload: Order = {
       customer_id: selectedCustomer?.id,
       customer_name: selectedCustomer?.name,
@@ -176,8 +181,14 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
       items: items,
     };
 
-    const saved = await SupabaseService.createOrder(newOrdPayload);
-    onOrderSaved(saved);
+    try {
+      const saved = await SupabaseService.createOrder(newOrdPayload);
+      onOrderSaved(saved);
+    } catch (err) {
+      console.error("Order save error:", err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -202,9 +213,10 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
           </button>
           <button
             type="submit"
-            className="px-6 py-2.5 bg-[#00a651] text-white rounded-xl font-semibold hover:bg-emerald-600 transition shadow-sm text-sm"
+            disabled={submitting}
+            className="px-6 py-2.5 bg-[#00a651] text-white rounded-xl font-semibold hover:bg-emerald-600 transition shadow-sm text-sm disabled:opacity-55"
           >
-            Save Order
+            {submitting ? "Saving..." : "Save Order"}
           </button>
         </div>
       </div>
