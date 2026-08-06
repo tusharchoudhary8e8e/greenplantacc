@@ -35,6 +35,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
   const [numberOfTrays, setNumberOfTrays] = useState(0);
   const [endDate, setEndDate] = useState("");
   const [durationDays, setDurationDays] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     // Calculate Sowing Quantity
@@ -68,8 +69,6 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
   }, [selectedProduct, selectedVariant, startDate, products]);
 
   if (!isOpen) return null;
-
-  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
