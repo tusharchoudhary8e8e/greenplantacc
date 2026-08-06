@@ -397,6 +397,15 @@ let DEMO_CAMPAIGNS: Campaign[] = loadFromStorage("demo_campaigns", INITIAL_CAMPA
 
 // ─── SERVICE IMPLEMENTATION ──────────────────────────────────────────
 export class SupabaseService {
+  static async getUserId(): Promise<string | undefined> {
+    try {
+      const { data } = await supabase.auth.getUser();
+      return data?.user?.id;
+    } catch {
+      return undefined;
+    }
+  }
+
   // Customers
   static async getCustomers(): Promise<Customer[]> {
     try {
@@ -413,9 +422,15 @@ export class SupabaseService {
 
   static async saveCustomer(cust: Customer): Promise<Customer> {
     try {
+      const userId = cust.user_id || (await SupabaseService.getUserId());
+      const payload = {
+        ...cust,
+        ...(userId ? { user_id: userId } : {}),
+        updated_at: new Date().toISOString(),
+      };
       const { data, error } = await supabase
         .from("ma_customers")
-        .upsert({ ...cust, updated_at: new Date().toISOString() })
+        .upsert(payload)
         .select()
         .single();
       if (!error && data) return data as Customer;
@@ -448,9 +463,14 @@ export class SupabaseService {
 
   static async saveProduct(prod: Product): Promise<Product> {
     try {
+      const userId = prod.user_id || (await SupabaseService.getUserId());
+      const payload = {
+        ...prod,
+        ...(userId ? { user_id: userId } : {}),
+      };
       const { data, error } = await supabase
         .from("ma_products")
-        .upsert(prod)
+        .upsert(payload)
         .select()
         .single();
       if (!error && data) return data as Product;
@@ -522,9 +542,11 @@ export class SupabaseService {
     };
 
     try {
+      const userId = order.user_id || (await SupabaseService.getUserId());
       const { data: ordData, error: ordErr } = await supabase
         .from("ma_orders")
         .insert({
+          ...(userId ? { user_id: userId } : {}),
           order_no: fullOrder.order_no,
           customer_id: fullOrder.customer_id,
           customer_name: fullOrder.customer_name,
@@ -584,9 +606,14 @@ export class SupabaseService {
 
   static async saveBatch(b: ProductionBatch): Promise<ProductionBatch> {
     try {
+      const userId = b.user_id || (await SupabaseService.getUserId());
+      const payload = {
+        ...b,
+        ...(userId ? { user_id: userId } : {}),
+      };
       const { data, error } = await supabase
         .from("ma_batches")
-        .upsert(b)
+        .upsert(payload)
         .select()
         .single();
       if (!error && data) return data as ProductionBatch;
