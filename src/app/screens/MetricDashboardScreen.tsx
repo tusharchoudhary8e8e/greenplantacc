@@ -10,19 +10,22 @@ interface DashboardProps {
 }
 
 export const MetricDashboardScreen: React.FC<DashboardProps> = ({
-  customers,
-  orders,
+  customers = [],
+  orders = [],
   onNavigateToOrder,
 }) => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeCustomers = Array.isArray(customers) ? customers : [];
+
   // Financial aggregates
-  const totalAmount = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0) || 15000;
-  const advancePayment = orders.reduce((sum, o) => sum + (o.advance_payment || 0), 0) || 6000;
-  const paidAmount = orders.reduce((sum, o) => sum + (o.paid_amount || 0), 0) || 6000;
-  const dueAmount = orders.reduce((sum, o) => sum + (o.due_amount || 0), 0) || 9000;
-  const focAmount = orders.reduce((sum, o) => sum + (o.foc_amount || 0), 0) || 0;
+  const totalAmount = safeOrders.reduce((sum, o) => sum + (o?.total_amount || 0), 0) || 15000;
+  const advancePayment = safeOrders.reduce((sum, o) => sum + (o?.advance_payment || 0), 0) || 6000;
+  const paidAmount = safeOrders.reduce((sum, o) => sum + (o?.paid_amount || 0), 0) || 6000;
+  const dueAmount = safeOrders.reduce((sum, o) => sum + (o?.due_amount || 0), 0) || 9000;
+  const focAmount = safeOrders.reduce((sum, o) => sum + (o?.foc_amount || 0), 0) || 0;
 
   const financialData = [
     { name: "Advanced Payment", value: advancePayment, color: "#10b981", percent: "40.0%" },
@@ -235,7 +238,7 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
         <p className="text-xs text-[#00a651] font-medium -mt-4 mb-4">Showing all data</p>
         
         <div className="text-sm text-slate-800 font-medium mb-4">
-          Total Customer - {customers.length || 3}
+          Total Customer - {safeCustomers.length || 0}
         </div>
 
         {/* Table of Orders */}
@@ -253,8 +256,8 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {orders.map((ord) => (
-                <tr key={ord.id} className="hover:bg-slate-50/80 transition">
+              {safeOrders.map((ord) => (
+                <tr key={ord.id || ord.order_no} className="hover:bg-slate-50/80 transition">
                   <td className="p-3.5 font-bold text-emerald-700">{ord.order_no}</td>
                   <td className="p-3.5 font-medium">{ord.customer_name}</td>
                   <td className="p-3.5">{ord.order_date}</td>

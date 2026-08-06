@@ -15,18 +15,18 @@ interface SowingGroup {
   orders: { order: Order; item: OrderItem }[];
 }
 
-export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({ orders }) => {
+export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({ orders = [] }) => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
   // Aggregate data
   const sowingGroups = useMemo(() => {
     const groups = new Map<string, SowingGroup>();
 
-    orders.forEach((order) => {
-      if (!order.items) return;
+    (orders || []).forEach((order) => {
+      if (!order || !order.items) return;
       
       order.items.forEach((item) => {
-        if (!item.sowing_date) return; // Skip items without a sowing date
+        if (!item || !item.sowing_date) return; // Skip items without a sowing date
 
         const key = `${item.sowing_date}_${item.product_name}_${item.variant_name || ""}`;
         
@@ -34,7 +34,7 @@ export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({ orde
           groups.set(key, {
             id: key,
             sowingDate: item.sowing_date,
-            productName: item.product_name,
+            productName: item.product_name || "Crop",
             variantName: item.variant_name || "",
             totalQuantity: 0,
             orders: [],
@@ -42,7 +42,7 @@ export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({ orde
         }
         
         const group = groups.get(key)!;
-        group.totalQuantity += item.quantity;
+        group.totalQuantity += (item.quantity || 0);
         group.orders.push({ order, item });
       });
     });

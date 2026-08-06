@@ -7,7 +7,7 @@ export const MetricProductionScreen: React.FC<{
   batches: ProductionBatch[];
   orders?: any[]; // optional temporarily until App.tsx is updated
   onCreateBatch?: () => void;
-}> = ({ batches, orders = [], onCreateBatch }) => {
+}> = ({ batches = [], orders = [], onCreateBatch }) => {
   const [expandedRows, setExpandedRows] = React.useState<Record<string, boolean>>({});
 
   const toggleRow = (id: string) => {
@@ -29,6 +29,9 @@ export const MetricProductionScreen: React.FC<{
     
     return <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-bold border border-blue-200">On Time</span>;
   };
+
+  const safeBatches = Array.isArray(batches) ? batches : [];
+  const safeOrders = Array.isArray(orders) ? orders : [];
 
   return (
     <div className="p-8 space-y-6 bg-slate-50 min-h-screen">
@@ -76,14 +79,14 @@ export const MetricProductionScreen: React.FC<{
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {batches.map((b) => {
+              {safeBatches.map((b) => {
                 const isExpanded = expandedRows[b.id || b.batch_no || ""];
-                const batchOrders = orders.flatMap(o => 
-                  o.items?.filter((item: any) => item.batch_id === b.id).map((item: any) => ({
+                const batchOrders = safeOrders.flatMap(o => 
+                  o.items?.filter((item: any) => item && item.batch_id === b.id).map((item: any) => ({
                     order_no: o.order_no,
                     order_date: o.order_date,
                     customer_name: o.customer_name,
-                    quantity: item.quantity,
+                    quantity: item.quantity || 0,
                   })) || []
                 );
 
@@ -97,19 +100,19 @@ export const MetricProductionScreen: React.FC<{
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center text-[10px]">🌱</div>
                           <div>
-                            <p className="font-bold text-slate-700 text-xs">{b.product_name}</p>
-                            <p className="text-[10px] text-slate-500">{b.variant_name}</p>
+                            <p className="font-bold text-slate-700 text-xs">{b.product_name || "Crop"}</p>
+                            <p className="text-[10px] text-slate-500">{b.variant_name || ""}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="py-3 px-4 font-semibold text-slate-700 text-xs">{b.total_seeds?.toLocaleString()}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-700 text-xs">{(b.total_seeds || 0).toLocaleString()}</td>
                       <td className="py-3 px-4 text-xs font-medium text-slate-600">
-                        {b.trays_used} <span className="text-slate-400 font-normal">| {b.seeds_per_tray} crops/tray</span>
+                        {b.trays_used || 0} <span className="text-slate-400 font-normal">| {b.seeds_per_tray || 120} crops/tray</span>
                       </td>
                       <td className="py-3 px-4 text-slate-600 text-xs font-medium">{b.unit || "Unit 1"}</td>
-                      <td className="py-3 px-4 font-mono text-emerald-700 text-xs font-bold">{b.lot_no || b.batch_no}</td>
+                      <td className="py-3 px-4 font-mono text-emerald-700 text-xs font-bold">{b.lot_no || b.batch_no || "-"}</td>
                       <td className="py-3 px-4 text-center">{getStatusBadge(b)}</td>
-                      <td className="py-3 px-4 text-slate-500 text-xs">{b.sowing_date}</td>
+                      <td className="py-3 px-4 text-slate-500 text-xs">{b.sowing_date || "-"}</td>
                       <td className="py-3 px-4 text-slate-500 text-xs">{b.end_date || "-"}</td>
                       <td className="py-3 px-4 text-center">
                         <button className="text-slate-400 hover:text-slate-700">•••</button>
@@ -136,7 +139,7 @@ export const MetricProductionScreen: React.FC<{
                                       <td className="py-2 px-4 font-mono font-medium text-emerald-700">{ord.order_no}</td>
                                       <td className="py-2 px-4">{ord.order_date}</td>
                                       <td className="py-2 px-4 font-medium text-slate-700">{ord.customer_name}</td>
-                                      <td className="py-2 px-4 text-right font-bold text-emerald-600">{ord.quantity.toLocaleString()}</td>
+                                      <td className="py-2 px-4 text-right font-bold text-emerald-600">{(ord.quantity || 0).toLocaleString()}</td>
                                     </tr>
                                   ))
                                 ) : (

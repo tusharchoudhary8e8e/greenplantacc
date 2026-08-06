@@ -9,12 +9,14 @@ interface InventoryProps {
 }
 
 export const MetricInventoryScreen: React.FC<InventoryProps> = ({
-  products,
+  products = [],
   onProductsUpdated,
 }) => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAddProdModal, setShowAddProdModal] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+
+  const safeProducts = Array.isArray(products) ? products : [];
 
   // Add Crop Modal State
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -158,7 +160,7 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {products.map((prod) => {
+              {safeProducts.map((prod) => {
                 const isExpanded = expandedRows[prod.id || prod.name];
                 const variantsList = prod.variants || [];
                 const prices = variantsList.map(v => v.price);

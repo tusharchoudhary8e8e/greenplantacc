@@ -8,13 +8,15 @@ interface CustomersProps {
 }
 
 export const MetricCustomersScreen: React.FC<CustomersProps> = ({
-  customers,
+  customers = [],
   onCustomerAdded,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedZone, setSelectedZone] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+
+  const safeCustomers = Array.isArray(customers) ? customers : [];
 
   // Form State
   const [name, setName] = useState("");
@@ -58,9 +60,9 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
     }
   }, [editingCustomer, showAddModal]);
 
-  const filteredCustomers = customers.filter((c) => {
+  const filteredCustomers = safeCustomers.filter((c) => {
     const matchesSearch =
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (c.phone && c.phone.includes(searchTerm)) ||
       (c.city && c.city.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesZone = selectedZone === "all" || c.zone === selectedZone;

@@ -404,7 +404,7 @@ export class SupabaseService {
         .from("ma_customers")
         .select("*")
         .order("created_at", { ascending: false });
-      if (!error && data && data.length > 0) return data as Customer[];
+      if (!error && data) return data as Customer[];
     } catch {
       // Fallback
     }
@@ -439,7 +439,7 @@ export class SupabaseService {
         .from("ma_products")
         .select("*")
         .order("name", { ascending: true });
-      if (!error && data && data.length > 0) return data as Product[];
+      if (!error && data) return data as Product[];
     } catch {
       // Fallback
     }
@@ -497,7 +497,7 @@ export class SupabaseService {
         .from("ma_orders")
         .select("*, items:ma_order_items(*)")
         .order("order_date", { ascending: false });
-      if (!error && data && data.length > 0) return data as Order[];
+      if (!error && data) return data as Order[];
     } catch {
       // Fallback
     }
@@ -575,7 +575,7 @@ export class SupabaseService {
         .from("ma_batches")
         .select("*")
         .order("sowing_date", { ascending: false });
-      if (!error && data && data.length > 0) return data as ProductionBatch[];
+      if (!error && data) return data as ProductionBatch[];
     } catch {
       // Fallback
     }
@@ -611,7 +611,7 @@ export class SupabaseService {
         .from("ma_dispatch")
         .select("*, items:ma_dispatch_items(*)")
         .order("dispatch_date", { ascending: false });
-      if (!error && data && data.length > 0) return data as DispatchRecord[];
+      if (!error && data) return data as DispatchRecord[];
     } catch {
       // Fallback
     }
@@ -625,7 +625,7 @@ export class SupabaseService {
         .from("ma_employees")
         .select("*")
         .order("name", { ascending: true });
-      if (!error && data && data.length > 0) return data as Employee[];
+      if (!error && data) return data as Employee[];
     } catch {
       // Fallback
     }
@@ -639,7 +639,7 @@ export class SupabaseService {
         .from("ma_quotes")
         .select("*")
         .order("quote_date", { ascending: false });
-      if (!error && data && data.length > 0) return data as Quote[];
+      if (!error && data) return data as Quote[];
     } catch {
       // Fallback
     }
@@ -653,7 +653,7 @@ export class SupabaseService {
         .from("ma_campaigns")
         .select("*")
         .order("start_date", { ascending: false });
-      if (!error && data && data.length > 0) return data as Campaign[];
+      if (!error && data) return data as Campaign[];
     } catch {
       // Fallback
     }
