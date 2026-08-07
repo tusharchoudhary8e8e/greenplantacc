@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Product, ProductionBatch } from "../../db/supabaseService";
+import { SearchableSelect, SearchableOption } from "./SearchableSelect";
 
 interface CreateBatchModalProps {
   isOpen: boolean;
@@ -25,6 +26,21 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
   const [selectedVariant, setSelectedVariant] = useState("");
   const [requiredQuantity, setRequiredQuantity] = useState<number | "">("");
   const [bufferQuantity, setBufferQuantity] = useState<number | "">(0);
+
+  const productOptions: SearchableOption[] = products.map((p) => ({
+    value: p.name,
+    label: p.name,
+    subLabel: `${p.variants?.length || 0} varieties`,
+    badge: p.category || "Crop",
+  }));
+
+  const selectedProdObj = products.find((p) => p.name === selectedProduct);
+
+  const variantOptions: SearchableOption[] = (selectedProdObj?.variants || []).map((v) => ({
+    value: v.name,
+    label: v.name,
+    subLabel: `Duration: ${v.duration || 0} days | Price: ₹${v.price}`,
+  }));
 
   const [startDate, setStartDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -98,8 +114,6 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
       setSubmitting(false);
     }
   };
-
-  const selectedProdObj = products.find((p) => p.name === selectedProduct);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
@@ -188,39 +202,25 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Product</label>
-                <select
+                <SearchableSelect
+                  options={productOptions}
                   value={selectedProduct}
-                  onChange={(e) => {
-                    setSelectedProduct(e.target.value);
+                  onChange={(val) => {
+                    setSelectedProduct(val);
                     setSelectedVariant("");
                   }}
-                  className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:border-emerald-500"
-                  required
-                >
-                  <option value="">Select Product</option>
-                  {products.map((p) => (
-                    <option key={p.name} value={p.name}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Type to search & select Product..."
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Variant</label>
-                <select
+                <SearchableSelect
+                  options={variantOptions}
                   value={selectedVariant}
-                  onChange={(e) => setSelectedVariant(e.target.value)}
-                  className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:border-emerald-500"
-                  required
+                  onChange={(val) => setSelectedVariant(val)}
+                  placeholder="Type to search & select Variant..."
                   disabled={!selectedProduct}
-                >
-                  <option value="">Select Variant</option>
-                  {selectedProdObj?.variants?.map((v) => (
-                    <option key={v.name} value={v.name}>
-                      {v.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Required Quantity</label>

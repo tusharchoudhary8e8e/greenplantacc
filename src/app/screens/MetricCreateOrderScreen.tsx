@@ -10,6 +10,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { Customer, Product, Order, OrderItem, SupabaseService } from "../../db/supabaseService";
+import { SearchableSelect, SearchableOption } from "../components/SearchableSelect";
 
 interface CreateOrderProps {
   customers: Customer[];
@@ -24,13 +25,37 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
   onOrderSaved,
   onCancel,
 }) => {
-  const [selectedCustId, setSelectedCustId] = useState<string>(
-    customers[0]?.id || ""
-  );
+  // NO default customer selected initially
+  const [selectedCustId, setSelectedCustId] = useState<string>("");
   const [orderDate, setOrderDate] = useState("2026-07-29");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  // Selected customer object
-  const selectedCustomer = customers.find((c) => c.id === selectedCustId) || customers[0];
+  // Selected customer object (undefined if not selected yet)
+  const selectedCustomer = customers.find((c) => c.id === selectedCustId);
+
+  // Customer options for SearchableSelect
+  const customerOptions: SearchableOption[] = customers.map((c) => {
+    const hasDuplicateName = customers.filter(
+      (cust) => (cust.name || "").trim().toLowerCase() === (c.name || "").trim().toLowerCase()
+    ).length > 1;
+    const label = hasDuplicateName
+      ? `${c.name} (${c.city || c.address || "No Address"})`
+      : c.name;
+    return {
+      value: c.id,
+      label,
+      subLabel: c.address || `${c.city || ""}, ${c.state || ""}`.trim(),
+      badge: c.zone || "ZONE1",
+    };
+  });
+
+  // Product options for SearchableSelect
+  const productOptions: SearchableOption[] = products.map((p) => ({
+    value: p.name,
+    label: p.name,
+    subLabel: `${p.variants?.length || 0} varieties`,
+    badge: p.category || "Crop",
+  }));
 
   // Order Line Items
   const [items, setItems] = useState<OrderItem[]>([
@@ -103,7 +128,7 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
       {
         product_name: defaultProd.name,
         variant_name: defaultVariant.name,
-        price: defaultVariant.price,
+        price: defaultVariant.price || 0,
         quantity: 100,
         dispatch_from: orderDate,
         dispatch_to: orderDate,
@@ -122,27 +147,23 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
     const updated = [...items];
     updated[index] = { ...updated[index], [field]: value };
     
-    if (field === "quantity") {
-      updated[index].remaining_qty = value;
-    }
-    
     if (field === "product_name") {
-      const selectedProd = products.find((p) => p.name === value);
-      if (selectedProd && selectedProd.variants && selectedProd.variants.length > 0) {
-        const firstVariant = selectedProd.variants[0];
+      const selectedProd = products.find(p => p.name === value);
+      const firstVariant = selectedProd?.variants?.[0];
+      if (firstVariant) {
         updated[index].variant_name = firstVariant.name;
         updated[index].price = firstVariant.price;
         updated[index].sowing_date = calculateSowingDate(
           updated[index].dispatch_from || orderDate,
-          selectedProd.name,
+          value,
           firstVariant.name
         );
       }
     }
-    
+
     if (field === "variant_name") {
-      const selectedProd = products.find((p) => p.name === updated[index].product_name);
-      const selectedVar = selectedProd?.variants?.find((v) => v.name === value);
+      const selectedProd = products.find(p => p.name === updated[index].product_name);
+      const selectedVar = selectedProd?.variants?.find(v => v.name === value);
       if (selectedVar) {
         updated[index].price = selectedVar.price;
         updated[index].sowing_date = calculateSowingDate(
@@ -169,11 +190,18 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
+    setErrorMsg("");
+
+    if (!selectedCustId || !selectedCustomer) {
+      setErrorMsg("Please search and select a customer before saving the order.");
+      return;
+    }
+
     setSubmitting(true);
 
     const newOrdPayload: Order = {
-      customer_id: selectedCustomer?.id,
-      customer_name: selectedCustomer?.name,
+      customer_id: selectedCustomer.id,
+      customer_name: selectedCustomer.name,
       order_date: orderDate,
       transport_charge: parseFloat(transportCharge) || 0,
       advance_payment: parseFloat(advancePayment) || 0,
@@ -186,6 +214,7 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
       onOrderSaved(saved);
     } catch (err) {
       console.error("Order save error:", err);
+      setErrorMsg("Failed to save order. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -221,6 +250,12 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
         </div>
       </div>
 
+      {errorMsg && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm font-semibold text-red-600">
+          {errorMsg}
+        </div>
+      )}
+
       {/* Section 1: Order Information */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
         <h3 className="text-base font-bold text-slate-800 border-b border-slate-100 pb-3">
@@ -230,27 +265,17 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-2">
-              Customer
+              Customer* (Search & Select)
             </label>
-            <select
+            <SearchableSelect
+              options={customerOptions}
               value={selectedCustId}
-              onChange={(e) => setSelectedCustId(e.target.value)}
-              className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-800 font-medium"
-            >
-              {customers.map((c) => {
-                const hasDuplicateName = customers.filter(
-                  (cust) => (cust.name || "").trim().toLowerCase() === (c.name || "").trim().toLowerCase()
-                ).length > 1;
-                const displayLabel = hasDuplicateName
-                  ? `${c.name} (${c.city || c.address || "No Address"})`
-                  : c.name;
-                return (
-                  <option key={c.id} value={c.id}>
-                    {displayLabel}
-                  </option>
-                );
-              })}
-            </select>
+              onChange={(val) => {
+                setSelectedCustId(val);
+                setErrorMsg("");
+              }}
+              placeholder="Type customer name to search & select..."
+            />
           </div>
 
           <div>
@@ -335,54 +360,50 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
           {items.map((item, idx) => {
             const currentProd = products.find((p) => p.name === item.product_name) || products[0];
 
+            const variantOptions: SearchableOption[] = (
+              currentProd?.variants || [{ name: item.variant_name || "TALWAR", price: 1.6 }]
+            ).map((v) => ({
+              value: v.name,
+              label: v.name,
+              subLabel: `₹${v.price} | Duration: ${v.duration || 0} days`,
+            }));
+
             return (
               <div
                 key={idx}
-                className="p-4 border border-slate-100 rounded-xl space-y-3 bg-slate-50/50"
+                className="p-5 border border-slate-200 rounded-2xl space-y-4 bg-slate-50/50 shadow-sm"
               >
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-3 items-end">
-                  {/* Product */}
-                  <div className="md:col-span-1">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                  {/* Product SearchableSelect */}
+                  <div className="md:col-span-3">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">
                       Product
                     </label>
-                    <select
+                    <SearchableSelect
+                      options={productOptions}
                       value={item.product_name}
-                      onChange={(e) => updateItemRow(idx, "product_name", e.target.value)}
-                      className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 text-slate-800 font-semibold"
-                    >
-                      {products.map((p) => (
-                        <option key={p.id} value={p.name}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => updateItemRow(idx, "product_name", val)}
+                      placeholder="Select Product..."
+                    />
                   </div>
 
-                  {/* Variant */}
-                  <div className="md:col-span-1">
+                  {/* Variant SearchableSelect */}
+                  <div className="md:col-span-2">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">
                       Variant
                     </label>
-                    <select
+                    <SearchableSelect
+                      options={variantOptions}
                       value={item.variant_name}
-                      onChange={(e) => updateItemRow(idx, "variant_name", e.target.value)}
-                      className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 text-slate-800 font-semibold"
-                    >
-                      {(currentProd?.variants || [{ name: item.variant_name || "TALWAR", price: 1.6 }]).map(
-                        (v, vIdx) => (
-                          <option key={vIdx} value={v.name}>
-                            {v.name}
-                          </option>
-                        )
-                      )}
-                    </select>
+                      onChange={(val) => updateItemRow(idx, "variant_name", val)}
+                      placeholder="Select Variant..."
+                    />
                   </div>
 
                   {/* Price */}
                   <div className="md:col-span-1">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Price
+                      Price (₹)
                     </label>
                     <input
                       type="number"
@@ -391,7 +412,7 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                       onChange={(e) =>
                         updateItemRow(idx, "price", parseFloat(e.target.value) || 0)
                       }
-                      className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 text-slate-800 font-semibold"
+                      className="w-full p-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 text-slate-800 font-semibold bg-white"
                     />
                   </div>
 
@@ -406,33 +427,33 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                       onChange={(e) =>
                         updateItemRow(idx, "quantity", parseInt(e.target.value) || 0)
                       }
-                      className="w-full p-2.5 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 text-slate-800 font-semibold"
+                      className="w-full p-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 text-slate-800 font-semibold bg-white"
                     />
                   </div>
 
-                  {/* Dispatch Window */}
-                  <div className="md:col-span-1">
+                  {/* Dispatch Window (No Overlapping!) */}
+                  <div className="md:col-span-2 space-y-1">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Dispatch Window
+                      Dispatch Window (From & To)
                     </label>
-                    <div className="flex items-center gap-1">
+                    <div className="flex flex-col gap-1.5">
                       <input
                         type="date"
                         value={item.dispatch_from || "2026-07-29"}
                         onChange={(e) => updateItemRow(idx, "dispatch_from", e.target.value)}
-                        className="w-full p-2 border border-slate-200 rounded-lg text-[11px] text-slate-800"
+                        className="w-full p-2 border border-slate-200 rounded-xl text-xs text-slate-800 bg-white font-medium focus:ring-2 focus:ring-emerald-500"
                       />
                       <input
                         type="date"
                         value={item.dispatch_to || "2026-08-02"}
                         onChange={(e) => updateItemRow(idx, "dispatch_to", e.target.value)}
-                        className="w-full p-2 border border-slate-200 rounded-lg text-[11px] text-slate-800"
+                        className="w-full p-2 border border-slate-200 rounded-xl text-xs text-slate-800 bg-white font-medium focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                   </div>
 
-                  {/* Sowing Date */}
-                  <div className="md:col-span-1">
+                  {/* Sowing Date (Dedicated Grid Column) */}
+                  <div className="md:col-span-2 space-y-1">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">
                       Sowing Date
                     </label>
@@ -440,16 +461,16 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                       type="date"
                       value={item.sowing_date || "2026-06-18"}
                       onChange={(e) => updateItemRow(idx, "sowing_date", e.target.value)}
-                      className="w-full p-2.5 border border-slate-200 rounded-lg text-xs text-slate-800 font-medium"
+                      className="w-full p-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium bg-white focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
 
                   {/* Actions */}
-                  <div className="md:col-span-1 flex items-center gap-2 pb-0.5">
+                  <div className="md:col-span-1 flex items-center justify-end pt-5">
                     <button
                       type="button"
                       onClick={() => removeItemRow(idx)}
-                      className="p-2.5 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition"
+                      className="p-2.5 border border-red-200 text-red-500 rounded-xl hover:bg-red-50 transition"
                       title="Remove item"
                     >
                       <X className="w-4 h-4" />
