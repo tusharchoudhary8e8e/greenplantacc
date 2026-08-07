@@ -156,7 +156,7 @@ export const MetricProductionScreen: React.FC<{
                   </React.Fragment>
                 );
               })}
-              {batches.length === 0 && (
+              {safeBatches.length === 0 && (
                 <tr>
                   <td colSpan={9} className="py-12 text-center text-slate-500">No batches created yet.</td>
                 </tr>
@@ -170,50 +170,83 @@ export const MetricProductionScreen: React.FC<{
 };
 
 // ─── DISPATCH SCREEN ───────────────────────────────────────────────
-export const MetricDispatchScreen: React.FC<{ dispatches: DispatchRecord[] }> = ({ dispatches }) => (
-  <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
-    <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-      <div>
-        <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">MetricAccounting Demo</h1>
-        <p className="text-sm text-slate-500 font-medium mt-0.5">Dispatch Schedule & Vehicle Tracking</p>
-      </div>
-      <button className="bg-[#00a651] text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-emerald-600 transition text-sm">
-        + Schedule Dispatch
-      </button>
-    </div>
+interface MetricDispatchScreenProps {
+  dispatches: DispatchRecord[];
+  customers?: Customer[];
+  orders?: Order[];
+  employees?: Employee[];
+  onDispatchSaved?: (newDispatch: DispatchRecord) => void;
+}
 
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
-      <table className="w-full text-left text-sm border-collapse">
-        <thead>
-          <tr className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-100">
-            <th className="p-3.5">Dispatch No</th>
-            <th className="p-3.5">Customer</th>
-            <th className="p-3.5">Dispatch Date</th>
-            <th className="p-3.5">Vehicle No</th>
-            <th className="p-3.5">Driver</th>
-            <th className="p-3.5">Status</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 text-slate-700">
-          {dispatches.map((d) => (
-            <tr key={d.id} className="hover:bg-slate-50 transition">
-              <td className="p-3.5 font-bold text-emerald-700">{d.dispatch_no}</td>
-              <td className="p-3.5 font-medium">{d.customer_name}</td>
-              <td className="p-3.5">{d.dispatch_date}</td>
-              <td className="p-3.5 font-mono">{d.vehicle_no}</td>
-              <td className="p-3.5">{d.driver_name} ({d.driver_phone})</td>
-              <td className="p-3.5">
-                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                  {d.status}
-                </span>
-              </td>
+export const MetricDispatchScreen: React.FC<MetricDispatchScreenProps> = ({
+  dispatches = [],
+  customers = [],
+  orders = [],
+  employees = [],
+  onDispatchSaved,
+}) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  return (
+    <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
+      <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+        <div>
+          <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">MetricAccounting Demo</h1>
+          <p className="text-sm text-slate-500 font-medium mt-0.5">Dispatch Schedule & Vehicle Tracking</p>
+        </div>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-[#00a651] text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-emerald-600 transition text-sm flex items-center gap-2 shadow-sm"
+        >
+          <Truck className="w-4 h-4" />
+          <span>+ Schedule Dispatch</span>
+        </button>
+      </div>
+
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
+        <table className="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-100">
+              <th className="p-3.5">Dispatch No</th>
+              <th className="p-3.5">Customer</th>
+              <th className="p-3.5">Dispatch Date</th>
+              <th className="p-3.5">Vehicle No</th>
+              <th className="p-3.5">Driver</th>
+              <th className="p-3.5">Status</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-slate-100 text-slate-700">
+            {dispatches.map((d) => (
+              <tr key={d.id || d.dispatch_no} className="hover:bg-slate-50 transition">
+                <td className="p-3.5 font-bold text-emerald-700">{d.dispatch_no}</td>
+                <td className="p-3.5 font-medium">{d.customer_name}</td>
+                <td className="p-3.5">{d.dispatch_date}</td>
+                <td className="p-3.5 font-mono">{d.vehicle_no}</td>
+                <td className="p-3.5">{d.driver_name} ({d.driver_phone})</td>
+                <td className="p-3.5">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                    {d.status || "scheduled"}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <ScheduleDispatchModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        customers={customers}
+        orders={orders}
+        employees={employees}
+        onSaveDispatch={(newD) => {
+          if (onDispatchSaved) onDispatchSaved(newD);
+        }}
+      />
     </div>
-  </div>
-);
+  );
+};
 
 // ─── QUOTES SCREEN ────────────────────────────────────────────────
 export const MetricQuotesScreen: React.FC<{ quotes: Quote[] }> = ({ quotes }) => (

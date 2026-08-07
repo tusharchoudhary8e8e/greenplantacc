@@ -645,6 +645,38 @@ export class SupabaseService {
     return DEMO_DISPATCH;
   }
 
+  static async saveDispatch(disp: Partial<DispatchRecord>): Promise<DispatchRecord> {
+    try {
+      const userId = (disp as any).user_id || (await SupabaseService.getUserId());
+      const payload = {
+        ...disp,
+        ...(userId ? { user_id: userId } : {}),
+        created_at: new Date().toISOString(),
+      };
+      const { data, error } = await supabase
+        .from("ma_dispatch")
+        .upsert(payload)
+        .select()
+        .single();
+      if (!error && data) return data as DispatchRecord;
+    } catch {
+      // Fallback
+    }
+    const newD: DispatchRecord = {
+      ...disp,
+      id: disp.id || `disp-${Date.now()}`,
+      dispatch_no: disp.dispatch_no || `DISP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+    };
+    const idx = DEMO_DISPATCH.findIndex(x => x.id === newD.id);
+    if (idx !== -1) {
+      DEMO_DISPATCH[idx] = newD;
+    } else {
+      DEMO_DISPATCH.unshift(newD);
+    }
+    saveToStorage("demo_dispatch", DEMO_DISPATCH);
+    return newD;
+  }
+
   // Employees
   static async getEmployees(): Promise<Employee[]> {
     try {

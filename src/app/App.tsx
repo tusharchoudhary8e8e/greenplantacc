@@ -300,7 +300,15 @@ function MainAppContent() {
               <MetricDriversScreen />
             )}
 
-            {activeTab === "dispatch" && <MetricDispatchScreen dispatches={dispatches} />}
+            {activeTab === "dispatch" && (
+              <MetricDispatchScreen
+                dispatches={dispatches}
+                customers={customers}
+                orders={orders}
+                employees={employees}
+                onDispatchSaved={(newD) => setDispatches([newD, ...dispatches])}
+              />
+            )}
             {activeTab === "quotes" && <MetricQuotesScreen quotes={quotes} />}
             {activeTab === "campaign" && <MetricCampaignScreen campaigns={campaigns} />}
             {activeTab === "employees" && <MetricEmployeesScreen employees={employees} />}
