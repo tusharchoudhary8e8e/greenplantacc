@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { ClipboardList, Truck, FileText, Megaphone, UserCheck, CheckCircle2, Clock } from "lucide-react";
 import { ProductionBatch, DispatchRecord, Quote, Campaign, Employee } from "../../db/supabaseService";
 
