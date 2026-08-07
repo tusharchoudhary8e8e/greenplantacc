@@ -187,6 +187,8 @@ export const MetricDispatchScreen: React.FC<MetricDispatchScreenProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  const safeDispatches = Array.isArray(dispatches) ? dispatches : [];
+
   return (
     <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
       <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
@@ -216,20 +218,28 @@ export const MetricDispatchScreen: React.FC<MetricDispatchScreenProps> = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-700">
-            {dispatches.map((d) => (
-              <tr key={d.id || d.dispatch_no} className="hover:bg-slate-50 transition">
-                <td className="p-3.5 font-bold text-emerald-700">{d.dispatch_no}</td>
-                <td className="p-3.5 font-medium">{d.customer_name}</td>
-                <td className="p-3.5">{d.dispatch_date}</td>
-                <td className="p-3.5 font-mono">{d.vehicle_no}</td>
-                <td className="p-3.5">{d.driver_name} ({d.driver_phone})</td>
-                <td className="p-3.5">
-                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                    {d.status || "scheduled"}
-                  </span>
+            {safeDispatches.length > 0 ? (
+              safeDispatches.map((d) => (
+                <tr key={d.id || d.dispatch_no} className="hover:bg-slate-50 transition">
+                  <td className="p-3.5 font-bold text-emerald-700">{d.dispatch_no}</td>
+                  <td className="p-3.5 font-medium">{d.customer_name}</td>
+                  <td className="p-3.5">{d.dispatch_date}</td>
+                  <td className="p-3.5 font-mono">{d.vehicle_no}</td>
+                  <td className="p-3.5">{d.driver_name} ({d.driver_phone || "N/A"})</td>
+                  <td className="p-3.5">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 capitalize">
+                      {d.status || "scheduled"}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={6} className="py-12 text-center text-slate-400 font-medium">
+                  No dispatched orders scheduled yet. Click "+ Schedule Dispatch" to schedule a vehicle dispatch.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

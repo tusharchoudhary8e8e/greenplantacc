@@ -37,23 +37,26 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
 
   if (!isOpen) return null;
 
+  const safeCustomers = Array.isArray(customers) ? customers : [];
+  const safeEmployees = Array.isArray(employees) ? employees : [];
+
   // Searchable Customer Options
-  const customerOptions: SearchableOption[] = customers.map((c) => ({
+  const customerOptions: SearchableOption[] = safeCustomers.map((c) => ({
     value: c.id || "",
-    label: c.name,
+    label: c.name || "Customer",
     subLabel: c.address || `${c.city || ""}, ${c.state || ""}`.trim(),
     badge: c.zone || "ZONE1",
   }));
 
   // Driver Options from Employees list
-  const driverOptions: SearchableOption[] = employees.map((emp) => ({
+  const driverOptions: SearchableOption[] = safeEmployees.map((emp) => ({
     value: emp.id || emp.name,
     label: `${emp.name} (${emp.role || "Driver"})`,
     subLabel: `Phone: ${emp.phone || "N/A"}`,
   }));
 
-  const selectedCustomer = customers.find((c) => c.id === selectedCustId);
-  const selectedDriver = employees.find((e) => e.id === selectedDriverId || e.name === selectedDriverId);
+  const selectedCustomer = safeCustomers.find((c) => c.id === selectedCustId);
+  const selectedDriver = safeEmployees.find((e) => e.id === selectedDriverId || e.name === selectedDriverId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
