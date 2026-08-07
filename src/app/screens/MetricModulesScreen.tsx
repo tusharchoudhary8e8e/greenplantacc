@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ClipboardList, Truck, FileText, Megaphone, UserCheck, CheckCircle2, Clock } from "lucide-react";
-import { ProductionBatch, DispatchRecord, Quote, Campaign, Employee } from "../../db/supabaseService";
+import { ProductionBatch, DispatchRecord, Quote, Campaign, Employee, Customer, Order } from "../../db/supabaseService";
+import { ScheduleDispatchModal } from "../components/ScheduleDispatchModal";
 
 // ─── PRODUCTION SCREEN ──────────────────────────────────────────────
 export const MetricProductionScreen: React.FC<{
