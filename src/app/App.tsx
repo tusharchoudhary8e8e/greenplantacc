@@ -5,6 +5,7 @@ import { MetricSidebar, MetricTab } from "./components/MetricSidebar";
 import { MetricDashboardScreen } from "./screens/MetricDashboardScreen";
 import { MetricSowingPlansScreen } from "./screens/MetricSowingPlansScreen";
 import { MetricCreateOrderScreen } from "./screens/MetricCreateOrderScreen";
+import { MetricOrdersListScreen } from "./screens/MetricOrdersListScreen";
 import { MetricCustomersScreen } from "./screens/MetricCustomersScreen";
 import { MetricInventoryScreen } from "./screens/MetricInventoryScreen";
 import { MetricLedgerScreen } from "./screens/MetricLedgerScreen";
@@ -159,7 +160,7 @@ function MainAppContent() {
 
   const handleOrderSaved = (newOrd: Order) => {
     setOrders([newOrd, ...orders]);
-    setActiveTab("dashboard");
+    setActiveTab("orders");
   };
 
   const handleCustomerAdded = (newCust: Customer) => {
@@ -263,12 +264,24 @@ function MainAppContent() {
               <MetricSowingPlansScreen orders={orders} />
             )}
 
-            {(activeTab === "orders" || activeTab === "create_order") && (
+            {activeTab === "orders" && (
+              <MetricOrdersListScreen
+                orders={orders}
+                customers={customers}
+                onCreateOrder={() => setActiveTab("create_order")}
+                onViewLedger={(custId) => {
+                  setSelectedLedgerCustomerId(custId);
+                  setActiveTab("ledger");
+                }}
+              />
+            )}
+
+            {activeTab === "create_order" && (
               <MetricCreateOrderScreen
                 customers={customers}
                 products={products}
                 onOrderSaved={handleOrderSaved}
-                onCancel={() => setActiveTab("dashboard")}
+                onCancel={() => setActiveTab("orders")}
               />
             )}
 
