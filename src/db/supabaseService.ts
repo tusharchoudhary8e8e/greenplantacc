@@ -59,7 +59,7 @@ export interface Order {
   customer_id?: string;
   customer_name?: string;
   order_date: string;
-  status?: "pending" | "sowing_done" | "dispatched" | "cancelled";
+  status?: "pending" | "partially_paid" | "paid" | "sowing_done" | "dispatched" | "cancelled";
   transport_charge?: number;
   advance_payment?: number;
   foc_amount?: number;
@@ -69,6 +69,21 @@ export interface Order {
   due_amount?: number;
   narration?: string;
   items?: OrderItem[];
+  created_at?: string;
+}
+
+export interface PaymentReceipt {
+  id?: string;
+  receipt_no?: string;
+  order_id?: string;
+  order_no?: string;
+  customer_id?: string;
+  customer_name?: string;
+  receipt_date: string;
+  amount: number;
+  payment_mode: "Cash" | "UPI" | "Bank Transfer" | "Cheque";
+  reference_no?: string;
+  notes?: string;
   created_at?: string;
 }
 
@@ -348,6 +363,7 @@ let DEMO_DISPATCH: DispatchRecord[] = loadFromStorage("demo_dispatch", INITIAL_D
 let DEMO_EMPLOYEES: Employee[] = loadFromStorage("demo_employees", INITIAL_EMPLOYEES);
 let DEMO_QUOTES: Quote[] = loadFromStorage("demo_quotes", INITIAL_QUOTES);
 let DEMO_CAMPAIGNS: Campaign[] = loadFromStorage("demo_campaigns", INITIAL_CAMPAIGNS);
+let DEMO_RECEIPTS: PaymentReceipt[] = loadFromStorage("demo_receipts", []);
 
 // ─── SERVICE IMPLEMENTATION ──────────────────────────────────────────
 export class SupabaseService {
@@ -759,5 +775,83 @@ export class SupabaseService {
       // Fallback
     }
     return DEMO_CAMPAIGNS;
+  }
+
+  // Payment Receipts
+  static async getPaymentReceipts(): Promise<PaymentReceipt[]> {
+    try {
+      const { data, error } = await supabase
+        .from("ma_receipts")
+        .select("*")
+        .order("receipt_date", { ascending: false });
+      if (!error && data) return data as PaymentReceipt[];
+    } catch {
+      // Fallback
+    }
+    return DEMO_RECEIPTS;
+  }
+
+  static async savePaymentReceipt(rec: Partial<PaymentReceipt>): Promise<PaymentReceipt> {
+    const receiptNo = rec.receipt_no || `REC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const newRec: PaymentReceipt = {
+      ...rec,
+      id: rec.id || `rec-${Date.now()}`,
+      receipt_no: receiptNo,
+      receipt_date: rec.receipt_date || new Date().toISOString().split("T")[0],
+      amount: Number(rec.amount) || 0,
+      payment_mode: rec.payment_mode || "UPI",
+    };
+
+    try {
+      const userId = (rec as any).user_id || (await SupabaseService.getUserId());
+      const payload = {
+        ...newRec,
+        ...(userId ? { user_id: userId } : {}),
+      };
+      await supabase.from("ma_receipts").upsert(payload);
+    } catch (e) {
+      console.error("Supabase save receipt error:", e);
+    }
+
+    // Save to local storage
+    const idx = DEMO_RECEIPTS.findIndex((r) => r.id === newRec.id);
+    if (idx !== -1) {
+      DEMO_RECEIPTS[idx] = newRec;
+    } else {
+      DEMO_RECEIPTS.unshift(newRec);
+    }
+    saveToStorage("demo_receipts", DEMO_RECEIPTS);
+
+    // If receipt is linked to a specific Order, update the Order's paid amount & status!
+    if (newRec.order_id || newRec.order_no) {
+      const targetOrd = DEMO_ORDERS.find(
+        (o) => o.id === newRec.order_id || o.order_no === newRec.order_id || o.order_no === newRec.order_no
+      );
+
+      if (targetOrd) {
+        const currentPaid = (targetOrd.paid_amount || 0) + newRec.amount;
+        const totalAmt = targetOrd.total_amount || 0;
+        const advAmt = targetOrd.advance_payment || 0;
+        const netDue = Math.max(0, totalAmt - advAmt - currentPaid);
+
+        let newStatus = targetOrd.status;
+        if (netDue === 0) {
+          newStatus = "paid";
+        } else if (currentPaid > 0) {
+          newStatus = "partially_paid";
+        }
+
+        const updatedOrd: Order = {
+          ...targetOrd,
+          paid_amount: currentPaid,
+          due_amount: netDue,
+          status: newStatus,
+        };
+
+        await SupabaseService.updateOrder(updatedOrd);
+      }
+    }
+
+    return newRec;
   }
 }

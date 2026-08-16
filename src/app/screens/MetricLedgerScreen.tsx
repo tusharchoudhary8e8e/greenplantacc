@@ -30,26 +30,31 @@ interface MetricLedgerScreenProps {
   customers: Customer[];
   orders: Order[];
   dispatches: DispatchRecord[];
+  paymentReceipts?: PaymentReceipt[];
   initialCustomerId?: string;
   onNavigateToCustomer?: (custId: string) => void;
   onNavigateToCreateOrder?: () => void;
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
+  onOpenReceivePayment?: (customerId?: string, orderId?: string) => void;
 }
 
 export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
   customers = [],
   orders = [],
   dispatches = [],
+  paymentReceipts = [],
   initialCustomerId = "",
   onNavigateToCustomer,
   onNavigateToCreateOrder,
   onEditOrder,
   onDeleteOrder,
+  onOpenReceivePayment,
 }) => {
   const safeCustomers = Array.isArray(customers) ? customers : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeDispatches = Array.isArray(dispatches) ? dispatches : [];
+  const safePaymentReceipts = Array.isArray(paymentReceipts) ? paymentReceipts : [];
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(initialCustomerId);
   const [searchTerm, setSearchTerm] = useState("");
@@ -99,6 +104,16 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
     );
   }, [safeDispatches, selectedCustomerId, selectedCustomer, customerOrders]);
 
+  // Payment receipts for selected customer
+  const customerReceipts = useMemo(() => {
+    if (!selectedCustomerId) return [];
+    return safePaymentReceipts.filter(
+      (r) =>
+        r.customer_id === selectedCustomerId ||
+        (selectedCustomer && r.customer_name && r.customer_name.trim().toLowerCase() === selectedCustomer.name.trim().toLowerCase())
+    );
+  }, [safePaymentReceipts, selectedCustomerId, selectedCustomer]);
+
   // Calculate Ledger Transactions
   const ledgerTransactions = useMemo(() => {
     if (!selectedCustomer) return [];
@@ -133,11 +148,11 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       });
     }
 
-    // 2. Orders as Bills & Payments
+    // 2. Orders as Bills & Advance Payments
     customerOrders.forEach((ord) => {
       const orderDate = ord.order_date || (ord.created_at ? ord.created_at.split("T")[0] : "2026-08-01");
       const orderTotal = ord.total_amount || 0;
-      const advancePaid = (ord.advance_payment || 0) + (ord.paid_amount || 0);
+      const advancePaid = ord.advance_payment || 0;
 
       // Find dispatches merged into this order
       const matchingDispatches = customerDispatches.filter(
@@ -163,14 +178,14 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
         mergedDispatches: matchingDispatches,
       });
 
-      // Advance / Payment Received Transaction (Credit)
+      // Advance Payment Received Transaction (Credit)
       if (advancePaid > 0) {
         txns.push({
-          id: `txn-pay-${ord.id || ord.order_no}`,
+          id: `txn-adv-${ord.id || ord.order_no}`,
           date: orderDate,
           type: "payment",
-          voucherNo: `REC-${ord.order_no || ord.id}`,
-          particulars: `Payment Received for ${ord.order_no || "Order"} (Advance/Receipt)`,
+          voucherNo: `ADV-${ord.order_no || ord.id}`,
+          particulars: `Advance Payment Received for Order #${ord.order_no || ord.id}`,
           itemsCount: 0,
           debit: 0,
           credit: advancePaid,
@@ -179,6 +194,24 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
           mergedDispatches: [],
         });
       }
+    });
+
+    // 3. Payment Receipts (Credit)
+    customerReceipts.forEach((rec) => {
+      const linkedOrd = safeOrders.find((o) => o.id === rec.order_id || o.order_no === rec.order_no);
+      txns.push({
+        id: `txn-receipt-${rec.id || rec.receipt_no}`,
+        date: rec.receipt_date,
+        type: "payment",
+        voucherNo: rec.receipt_no || `REC-${rec.id}`,
+        particulars: `Payment Rec. (${rec.payment_mode}) ${rec.reference_no ? `Ref: ${rec.reference_no}` : ""} ${rec.notes ? `• ${rec.notes}` : ""}`.trim(),
+        itemsCount: 0,
+        debit: 0,
+        credit: rec.amount,
+        order: linkedOrd,
+        dispatchCount: 0,
+        mergedDispatches: [],
+      });
     });
 
     // Sort by Date
@@ -233,19 +266,18 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
     });
   }, [ledgerTransactions, typeFilter, fromDate, toDate, searchTerm]);
 
-  // Summary Cards Data
+  // Customer Ledger Metrics Summary
   const ledgerMetrics = useMemo(() => {
     const opening = selectedCustomer?.opening_balance || 0;
     const totalBilled = customerOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0) + opening;
-    const totalPaid = customerOrders.reduce(
-      (sum, o) => sum + ((o.advance_payment || 0) + (o.paid_amount || 0)),
-      0
-    );
-    const netDue = totalBilled - totalPaid;
+    const totalReceipts = customerReceipts.reduce((sum, r) => sum + (r.amount || 0), 0);
+    const totalAdvances = customerOrders.reduce((sum, o) => sum + (o.advance_payment || 0), 0);
+    const totalPaid = totalAdvances + totalReceipts;
+    const netDue = Math.max(0, totalBilled - totalPaid);
     const totalDispatches = customerDispatches.length;
 
     return { opening, totalBilled, totalPaid, netDue, totalDispatches };
-  }, [selectedCustomer, customerOrders, customerDispatches]);
+  }, [selectedCustomer, customerOrders, customerDispatches, customerReceipts]);
 
   const toggleExpandOrder = (id: string) => {
     setExpandedOrderIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -269,7 +301,17 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {onOpenReceivePayment && (
+            <button
+              onClick={() => onOpenReceivePayment(selectedCustomerId)}
+              className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-emerald-700 transition text-xs shadow-sm"
+            >
+              <DollarSign className="w-4 h-4" />
+              <span>+ Receive Payment</span>
+            </button>
+          )}
+
           {selectedCustomer && (
             <button
               onClick={handlePrint}

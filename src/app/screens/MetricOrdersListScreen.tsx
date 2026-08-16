@@ -19,6 +19,7 @@ import {
   BookOpen,
   Pencil,
   Trash2,
+  DollarSign,
 } from "lucide-react";
 import { Order, Customer, SupabaseService } from "../../db/supabaseService";
 
@@ -29,6 +30,7 @@ interface OrdersListProps {
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
   onViewLedger?: (customerId: string) => void;
+  onOpenReceivePayment?: (customerId?: string, orderId?: string) => void;
 }
 
 export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
@@ -38,6 +40,7 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
   onEditOrder,
   onDeleteOrder,
   onViewLedger,
+  onOpenReceivePayment,
 }) => {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeCustomers = Array.isArray(customers) ? customers : [];
@@ -326,22 +329,41 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
                       <td className="py-3.5 px-4 text-center whitespace-nowrap">
                         <span
                           className={`px-3 py-1 rounded-full text-[11px] font-semibold border capitalize ${
-                            ord.status === "dispatched"
+                            ord.status === "paid" || dueAmountVal === 0
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : ord.status === "sowing_done"
+                              : ord.status === "partially_paid" || (advanceVal > 0 && dueAmountVal > 0)
                               ? "bg-blue-50 text-blue-700 border-blue-200"
+                              : ord.status === "dispatched"
+                              ? "bg-purple-50 text-purple-700 border-purple-200"
                               : ord.status === "cancelled"
                               ? "bg-red-50 text-red-700 border-red-200"
                               : "bg-amber-50 text-amber-700 border-amber-200"
                           }`}
                         >
-                          {ord.status || "Pending"}
+                          {ord.status === "paid" || dueAmountVal === 0
+                            ? "Paid"
+                            : ord.status === "partially_paid" || (advanceVal > 0 && dueAmountVal > 0)
+                            ? "Partially Paid"
+                            : ord.status || "Pending"}
                         </span>
                       </td>
 
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1">
+                          {onOpenReceivePayment && dueAmountVal > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenReceivePayment(ord.customer_id || cust?.id, ord.id || ord.order_no);
+                              }}
+                              className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition"
+                              title="Receive Payment for this Bill"
+                            >
+                              <DollarSign className="w-3.5 h-3.5 font-bold text-emerald-600" />
+                            </button>
+                          )}
+
                           {onEditOrder && (
                             <button
                               onClick={(e) => {

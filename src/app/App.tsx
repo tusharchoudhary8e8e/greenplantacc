@@ -20,6 +20,7 @@ import {
 import { MetricDispatchPlansScreen } from "./screens/MetricDispatchPlansScreen";
 import { MetricDriversScreen } from "./screens/MetricDriversScreen";
 import { CreateBatchModal } from "./components/CreateBatchModal";
+import { ReceivePaymentModal } from "./components/ReceivePaymentModal";
 
 import {
   Customer,
@@ -30,6 +31,7 @@ import {
   Quote,
   Campaign,
   Employee,
+  PaymentReceipt,
   SupabaseService,
 } from "../db/supabaseService";
 
@@ -97,16 +99,20 @@ function MainAppContent() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [paymentReceipts, setPaymentReceipts] = useState<PaymentReceipt[]>([]);
 
   // UI state
   const [showCreateBatch, setShowCreateBatch] = useState(false);
   const [selectedLedgerCustomerId, setSelectedLedgerCustomerId] = useState<string>("");
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [isReceivePaymentOpen, setIsReceivePaymentOpen] = useState(false);
+  const [receivePaymentCustId, setReceivePaymentCustId] = useState("");
+  const [receivePaymentOrderId, setReceivePaymentOrderId] = useState("");
   const [loading, setLoading] = useState(true);
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
-    const [c, p, o, b, d, q, cmp, emp] = await Promise.all([
+    const [c, p, o, b, d, q, cmp, emp, rec] = await Promise.all([
       SupabaseService.getCustomers(),
       SupabaseService.getProducts(),
       SupabaseService.getOrders(),
@@ -115,6 +121,7 @@ function MainAppContent() {
       SupabaseService.getQuotes(),
       SupabaseService.getCampaigns(),
       SupabaseService.getEmployees(),
+      SupabaseService.getPaymentReceipts(),
     ]);
 
     setCustomers(c);
@@ -125,6 +132,7 @@ function MainAppContent() {
     setQuotes(q);
     setCampaigns(cmp);
     setEmployees(emp);
+    setPaymentReceipts(rec);
     setLoading(false);
   }, []);
 
@@ -191,6 +199,18 @@ function MainAppContent() {
   const handleDeleteOrder = async (orderId: string) => {
     await SupabaseService.deleteOrder(orderId);
     setOrders((prev) => prev.filter((o) => o.id !== orderId && o.order_no !== orderId));
+  };
+
+  const handleOpenReceivePaymentModal = (custId?: string, orderId?: string) => {
+    setReceivePaymentCustId(custId || "");
+    setReceivePaymentOrderId(orderId || "");
+    setIsReceivePaymentOpen(true);
+  };
+
+  const handlePaymentSaved = async (newRec: PaymentReceipt) => {
+    setPaymentReceipts((prev) => [newRec, ...prev]);
+    const updatedOrders = await SupabaseService.getOrders();
+    setOrders(updatedOrders);
   };
 
   const handleCustomerAdded = (newCust: Customer) => {
@@ -308,6 +328,7 @@ function MainAppContent() {
                   setSelectedLedgerCustomerId(custId);
                   setActiveTab("ledger");
                 }}
+                onOpenReceivePayment={handleOpenReceivePaymentModal}
               />
             )}
 
@@ -340,9 +361,11 @@ function MainAppContent() {
                 customers={customers}
                 orders={orders}
                 dispatches={dispatches}
+                paymentReceipts={paymentReceipts}
                 initialCustomerId={selectedLedgerCustomerId}
                 onEditOrder={handleEditOrder}
                 onDeleteOrder={handleDeleteOrder}
+                onOpenReceivePayment={handleOpenReceivePaymentModal}
                 onNavigateToCreateOrder={() => {
                   setEditingOrder(null);
                   setActiveTab("create_order");
@@ -394,6 +417,16 @@ function MainAppContent() {
         onClose={() => setShowCreateBatch(false)} 
         products={products} 
         onSave={handleSaveBatch} 
+      />
+
+      <ReceivePaymentModal
+        isOpen={isReceivePaymentOpen}
+        onClose={() => setIsReceivePaymentOpen(false)}
+        customers={customers}
+        orders={orders}
+        initialCustomerId={receivePaymentCustId}
+        initialOrderId={receivePaymentOrderId}
+        onPaymentSaved={handlePaymentSaved}
       />
     </div>
   );
