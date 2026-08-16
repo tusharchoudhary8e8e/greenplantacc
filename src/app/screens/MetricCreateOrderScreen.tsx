@@ -26,8 +26,9 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
   onCancel,
 }) => {
   // NO default customer selected initially
+  const todayStr = new Date().toISOString().split("T")[0];
   const [selectedCustId, setSelectedCustId] = useState<string>("");
-  const [orderDate, setOrderDate] = useState("2026-07-29");
+  const [orderDate, setOrderDate] = useState(todayStr);
   const [errorMsg, setErrorMsg] = useState("");
 
   // Selected customer object (undefined if not selected yet)
@@ -57,27 +58,16 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
     badge: p.category || "Crop",
   }));
 
-  // Order Line Items
-  const [items, setItems] = useState<OrderItem[]>([
-    {
-      product_name: "CHILLY",
-      variant_name: "TALWAR",
-      price: 1.6,
-      quantity: 100,
-      dispatch_from: "2026-07-29",
-      dispatch_to: "2026-08-02",
-      sowing_date: "2026-06-18",
-      remaining_qty: 100,
-    },
-  ]);
+  // Order Line Items - Dynamic initial state from available products
+  const [items, setItems] = useState<OrderItem[]>([]);
 
   React.useEffect(() => {
-    if (products.length > 0 && items.length === 1 && items[0].product_name === "CHILLY" && !products.some(p => p.name === "CHILLY")) {
+    if (products.length > 0 && items.length === 0) {
       const defaultProd = products[0];
       const defaultVariant = defaultProd.variants?.[0];
       const defaultPrice = defaultVariant?.price || 0;
       const defaultDuration = defaultVariant?.duration || 0;
-      
+
       const date = new Date(orderDate);
       date.setDate(date.getDate() - defaultDuration);
       const calculatedSowing = date.toISOString().split("T")[0];
@@ -87,12 +77,12 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
           product_name: defaultProd.name,
           variant_name: defaultVariant?.name || "",
           price: defaultPrice,
-          quantity: 100,
+          quantity: 1000,
           dispatch_from: orderDate,
           dispatch_to: orderDate,
           sowing_date: calculatedSowing,
-          remaining_qty: 100,
-        }
+          remaining_qty: 1000,
+        },
       ]);
     }
   }, [products, orderDate]);
@@ -129,17 +119,16 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
         product_name: defaultProd.name,
         variant_name: defaultVariant.name,
         price: defaultVariant.price || 0,
-        quantity: 100,
+        quantity: 1000,
         dispatch_from: orderDate,
         dispatch_to: orderDate,
         sowing_date: calculatedSowing,
-        remaining_qty: 100,
+        remaining_qty: 1000,
       },
     ]);
   };
 
   const removeItemRow = (index: number) => {
-    if (items.length === 1) return;
     setItems(items.filter((_, i) => i !== index));
   };
 

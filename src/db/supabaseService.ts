@@ -259,39 +259,7 @@ const INITIAL_PRODUCTS: Product[] = [
   },
 ];
 
-const INITIAL_ORDERS: Order[] = [
-  {
-    id: "ord-1",
-    order_no: "ORD-2026-0001",
-    customer_id: "cust-1",
-    customer_name: "AYUSH CHOUDHARY",
-    order_date: "2026-07-29",
-    status: "pending",
-    transport_charge: 1500,
-    advance_payment: 6000,
-    foc_amount: 0,
-    paid_amount: 6000,
-    items_total: 160,
-    total_amount: 15000,
-    due_amount: 9000,
-    narration: "Urgent order for zone 1 tomato & chilly",
-    items: [
-      {
-        id: "item-1",
-        product_name: "CHILLY",
-        variant_name: "TALWAR",
-        price: 1.6,
-        quantity: 100,
-        dispatch_from: "2026-07-29",
-        dispatch_to: "2026-08-02",
-        sowing_date: "2026-06-18",
-        dispatched_qty: 0,
-        remaining_qty: 100,
-        status: "pending",
-      },
-    ],
-  },
-];
+const INITIAL_ORDERS: Order[] = [];
 
 const INITIAL_BATCHES: ProductionBatch[] = [
   {
@@ -312,21 +280,7 @@ const INITIAL_BATCHES: ProductionBatch[] = [
   },
 ];
 
-const INITIAL_DISPATCH: DispatchRecord[] = [
-  {
-    id: "disp-1",
-    dispatch_no: "DISP-2026-001",
-    order_id: "ord-1",
-    customer_id: "cust-1",
-    customer_name: "AYUSH CHOUDHARY",
-    dispatch_date: "2026-07-29",
-    vehicle_no: "MP-28-GB-1234",
-    driver_name: "Ramesh Kumar",
-    driver_phone: "9876543210",
-    status: "in_transit",
-    items: [{ product_name: "CHILLY", variant_name: "TALWAR", quantity: 100 }],
-  },
-];
+const INITIAL_DISPATCH: DispatchRecord[] = [];
 
 const INITIAL_EMPLOYEES: Employee[] = [
   {
