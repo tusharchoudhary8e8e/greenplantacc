@@ -21,14 +21,15 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
   onSaveDispatch,
 }) => {
   const [selectedCustId, setSelectedCustId] = useState<string>("");
+  const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [dispatchDate, setDispatchDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
   const [vehicleNo, setVehicleNo] = useState<string>("");
   const [selectedDriverId, setSelectedDriverId] = useState<string>("");
-  const [productName, setProductName] = useState<string>("TOMATO");
-  const [variantName, setVariantName] = useState<string>("ABHILASH");
-  const [dispatchQty, setDispatchQty] = useState<number | "">(5000);
+  const [productName, setProductName] = useState<string>("");
+  const [variantName, setVariantName] = useState<string>("");
+  const [dispatchQty, setDispatchQty] = useState<number | "">("");
   const [status, setStatus] = useState<"pending" | "in_transit" | "delivered">("pending");
   const [notes, setNotes] = useState<string>("");
 
@@ -39,6 +40,7 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
 
   const safeCustomers = Array.isArray(customers) ? customers : [];
   const safeEmployees = Array.isArray(employees) ? employees : [];
+  const safeOrders = Array.isArray(orders) ? orders : [];
 
   // Searchable Customer Options
   const customerOptions: SearchableOption[] = safeCustomers.map((c) => ({
@@ -48,15 +50,29 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
     badge: c.zone || "ZONE1",
   }));
 
+  const selectedCustomer = safeCustomers.find((c) => c.id === selectedCustId);
+  const selectedDriver = safeEmployees.find((e) => e.id === selectedDriverId || e.name === selectedDriverId);
+
+  // Orders belonging to selected customer
+  const customerOrders = safeOrders.filter(
+    (o) =>
+      o.customer_id === selectedCustId ||
+      (selectedCustomer && o.customer_name && o.customer_name.trim().toLowerCase() === selectedCustomer.name.trim().toLowerCase())
+  );
+
+  const orderOptions: SearchableOption[] = customerOrders.map((o) => ({
+    value: o.id || o.order_no || "",
+    label: `Bill / Order #${o.order_no || o.id}`,
+    subLabel: `Date: ${o.order_date} • Total: ₹${o.total_amount || 0}`,
+    badge: o.status || "pending",
+  }));
+
   // Driver Options from Employees list
   const driverOptions: SearchableOption[] = safeEmployees.map((emp) => ({
     value: emp.id || emp.name,
     label: `${emp.name} (${emp.role || "Driver"})`,
     subLabel: `Phone: ${emp.phone || "N/A"}`,
   }));
-
-  const selectedCustomer = safeCustomers.find((c) => c.id === selectedCustId);
-  const selectedDriver = safeEmployees.find((e) => e.id === selectedDriverId || e.name === selectedDriverId);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +95,7 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
 
     const newDispatch: DispatchRecord = {
       dispatch_no: dispatchNo,
+      order_id: selectedOrderId,
       customer_id: selectedCustomer.id,
       customer_name: selectedCustomer.name,
       dispatch_date: dispatchDate,
@@ -89,8 +106,8 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
       notes: notes,
       items: [
         {
-          product_name: productName,
-          variant_name: variantName,
+          product_name: productName || "Vegetables",
+          variant_name: variantName || "Standard",
           quantity: Number(dispatchQty) || 0,
         },
       ],
@@ -157,11 +174,35 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
           </div>
 
           {selectedCustomer && (
-            <div className="p-3 bg-emerald-50/60 border border-emerald-200/60 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span className="font-medium truncate">
-                Address: {selectedCustomer.address || `${selectedCustomer.city}, ${selectedCustomer.state}`}
-              </span>
+            <div className="space-y-3">
+              <div className="p-3 bg-emerald-50/60 border border-emerald-200/60 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-medium truncate">
+                  Address: {selectedCustomer.address || `${selectedCustomer.city}, ${selectedCustomer.state}`}
+                </span>
+              </div>
+
+              {/* Order Selection */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Link to Customer Purchase Order (Bill)
+                </label>
+                <SearchableSelect
+                  options={orderOptions}
+                  value={selectedOrderId}
+                  onChange={(val) => {
+                    setSelectedOrderId(val);
+                    const chosenOrd = customerOrders.find((o) => o.id === val || o.order_no === val);
+                    if (chosenOrd && chosenOrd.items && chosenOrd.items.length > 0) {
+                      const firstItem = chosenOrd.items[0];
+                      setProductName(firstItem.product_name || "");
+                      setVariantName(firstItem.variant_name || "");
+                      setDispatchQty(firstItem.remaining_qty || firstItem.quantity || 1000);
+                    }
+                  }}
+                  placeholder="Select order bill to dispatch from..."
+                />
+              </div>
             </div>
           )}
 
