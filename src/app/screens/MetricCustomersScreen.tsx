@@ -1,15 +1,17 @@
 import React, { useState } from "react";
-import { Plus, Search, Filter, Phone, Mail, MapPin, Building, User } from "lucide-react";
+import { Plus, Search, Filter, Phone, Mail, MapPin, Building, User, BookOpen } from "lucide-react";
 import { Customer, SupabaseService } from "../../db/supabaseService";
 
 interface CustomersProps {
   customers: Customer[];
   onCustomerAdded: (cust: Customer) => void;
+  onViewLedger?: (customerId: string) => void;
 }
 
 export const MetricCustomersScreen: React.FC<CustomersProps> = ({
   customers = [],
   onCustomerAdded,
+  onViewLedger,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedZone, setSelectedZone] = useState("all");
@@ -196,6 +198,15 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {onViewLedger && (
+                  <button
+                    onClick={() => onViewLedger(cust.id || "")}
+                    className="px-2.5 py-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-md transition shadow-sm flex items-center gap-1"
+                  >
+                    <BookOpen className="w-3 h-3 text-emerald-600" />
+                    <span>Ledger</span>
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     setEditingCustomer(cust);

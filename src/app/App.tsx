@@ -7,6 +7,7 @@ import { MetricSowingPlansScreen } from "./screens/MetricSowingPlansScreen";
 import { MetricCreateOrderScreen } from "./screens/MetricCreateOrderScreen";
 import { MetricCustomersScreen } from "./screens/MetricCustomersScreen";
 import { MetricInventoryScreen } from "./screens/MetricInventoryScreen";
+import { MetricLedgerScreen } from "./screens/MetricLedgerScreen";
 import { MetricLoginScreen } from "./screens/MetricLoginScreen";
 import {
   MetricProductionScreen,
@@ -98,6 +99,7 @@ function MainAppContent() {
 
   // UI state
   const [showCreateBatch, setShowCreateBatch] = useState(false);
+  const [selectedLedgerCustomerId, setSelectedLedgerCustomerId] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   const loadAllData = useCallback(async () => {
@@ -274,6 +276,20 @@ function MainAppContent() {
               <MetricCustomersScreen
                 customers={customers}
                 onCustomerAdded={handleCustomerAdded}
+                onViewLedger={(custId) => {
+                  setSelectedLedgerCustomerId(custId);
+                  setActiveTab("ledger");
+                }}
+              />
+            )}
+
+            {activeTab === "ledger" && (
+              <MetricLedgerScreen
+                customers={customers}
+                orders={orders}
+                dispatches={dispatches}
+                initialCustomerId={selectedLedgerCustomerId}
+                onNavigateToCreateOrder={() => setActiveTab("create_order")}
               />
             )}
 
