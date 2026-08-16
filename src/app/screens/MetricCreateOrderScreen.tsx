@@ -58,34 +58,19 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
     badge: p.category || "Crop",
   }));
 
-  // Order Line Items - Dynamic initial state from available products
-  const [items, setItems] = useState<OrderItem[]>([]);
-
-  React.useEffect(() => {
-    if (products.length > 0 && items.length === 0) {
-      const defaultProd = products[0];
-      const defaultVariant = defaultProd.variants?.[0];
-      const defaultPrice = defaultVariant?.price || 0;
-      const defaultDuration = defaultVariant?.duration || 0;
-
-      const date = new Date(orderDate);
-      date.setDate(date.getDate() - defaultDuration);
-      const calculatedSowing = date.toISOString().split("T")[0];
-
-      setItems([
-        {
-          product_name: defaultProd.name,
-          variant_name: defaultVariant?.name || "",
-          price: defaultPrice,
-          quantity: 1000,
-          dispatch_from: orderDate,
-          dispatch_to: orderDate,
-          sowing_date: calculatedSowing,
-          remaining_qty: 1000,
-        },
-      ]);
-    }
-  }, [products, orderDate]);
+  // Order Line Items - Starts completely empty (no pre-filled product, variety, price or qty)
+  const [items, setItems] = useState<OrderItem[]>([
+    {
+      product_name: "",
+      variant_name: "",
+      price: 0,
+      quantity: 0,
+      dispatch_from: todayStr,
+      dispatch_to: todayStr,
+      sowing_date: todayStr,
+      remaining_qty: 0,
+    },
+  ]);
 
   // Payment States
   const [transportCharge, setTransportCharge] = useState("");
@@ -109,21 +94,17 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
   };
 
   const addItemRow = () => {
-    const defaultProd = products[0] || { name: "TOMATO", variants: [{ name: "ABHILASH", price: 2.0, duration: 40 }] };
-    const defaultVariant = defaultProd.variants?.[0] || { name: "ABHILASH", price: 2.0, duration: 40 };
-    const calculatedSowing = calculateSowingDate(orderDate, defaultProd.name, defaultVariant.name);
-
     setItems([
       ...items,
       {
-        product_name: defaultProd.name,
-        variant_name: defaultVariant.name,
-        price: defaultVariant.price || 0,
-        quantity: 1000,
+        product_name: "",
+        variant_name: "",
+        price: 0,
+        quantity: 0,
         dispatch_from: orderDate,
         dispatch_to: orderDate,
-        sowing_date: calculatedSowing,
-        remaining_qty: 1000,
+        sowing_date: orderDate,
+        remaining_qty: 0,
       },
     ]);
   };
@@ -137,24 +118,15 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
     updated[index] = { ...updated[index], [field]: value };
     
     if (field === "product_name") {
-      const selectedProd = products.find(p => p.name === value);
-      const firstVariant = selectedProd?.variants?.[0];
-      if (firstVariant) {
-        updated[index].variant_name = firstVariant.name;
-        updated[index].price = firstVariant.price;
-        updated[index].sowing_date = calculateSowingDate(
-          updated[index].dispatch_from || orderDate,
-          value,
-          firstVariant.name
-        );
-      }
+      updated[index].variant_name = "";
+      updated[index].price = 0;
     }
 
     if (field === "variant_name") {
       const selectedProd = products.find(p => p.name === updated[index].product_name);
       const selectedVar = selectedProd?.variants?.find(v => v.name === value);
       if (selectedVar) {
-        updated[index].price = selectedVar.price;
+        updated[index].price = selectedVar.price || 0;
         updated[index].sowing_date = calculateSowingDate(
           updated[index].dispatch_from || orderDate,
           updated[index].product_name,
@@ -162,7 +134,7 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
         );
       }
     }
-    
+
     if (field === "dispatch_from") {
       updated[index].sowing_date = calculateSowingDate(
         value,
@@ -397,7 +369,8 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                     <input
                       type="number"
                       step="0.1"
-                      value={item.price}
+                      placeholder="0.00"
+                      value={item.price || ""}
                       onChange={(e) =>
                         updateItemRow(idx, "price", parseFloat(e.target.value) || 0)
                       }
@@ -412,7 +385,8 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                     </label>
                     <input
                       type="number"
-                      value={item.quantity}
+                      placeholder="Qty"
+                      value={item.quantity || ""}
                       onChange={(e) =>
                         updateItemRow(idx, "quantity", parseInt(e.target.value) || 0)
                       }
@@ -428,13 +402,13 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                     <div className="flex flex-col gap-1.5">
                       <input
                         type="date"
-                        value={item.dispatch_from || "2026-07-29"}
+                        value={item.dispatch_from || orderDate}
                         onChange={(e) => updateItemRow(idx, "dispatch_from", e.target.value)}
                         className="w-full p-2 border border-slate-200 rounded-xl text-xs text-slate-800 bg-white font-medium focus:ring-2 focus:ring-emerald-500"
                       />
                       <input
                         type="date"
-                        value={item.dispatch_to || "2026-08-02"}
+                        value={item.dispatch_to || orderDate}
                         onChange={(e) => updateItemRow(idx, "dispatch_to", e.target.value)}
                         className="w-full p-2 border border-slate-200 rounded-xl text-xs text-slate-800 bg-white font-medium focus:ring-2 focus:ring-emerald-500"
                       />
@@ -448,7 +422,7 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                     </label>
                     <input
                       type="date"
-                      value={item.sowing_date || "2026-06-18"}
+                      value={item.sowing_date || orderDate}
                       onChange={(e) => updateItemRow(idx, "sowing_date", e.target.value)}
                       className="w-full p-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium bg-white focus:ring-2 focus:ring-emerald-500"
                     />
