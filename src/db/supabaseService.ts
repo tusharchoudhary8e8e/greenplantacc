@@ -484,14 +484,18 @@ export class SupabaseService {
       (sum, i) => sum + (i.price || 0) * (i.quantity || 0),
       0
     );
-    const totalAmount = itemsTotal + (order.transport_charge || 0);
+    const transport = order.transport_charge || 0;
+    const advance = order.advance_payment || 0;
+    const foc = order.foc_amount || 0;
+    const totalAmount = Math.max(0, itemsTotal + transport - foc);
+    const dueAmount = Math.max(0, totalAmount - advance);
 
     const fullOrder: Order = {
       ...order,
       order_no: orderNo,
       items_total: itemsTotal,
       total_amount: totalAmount,
-      due_amount: totalAmount - (order.advance_payment || 0) - (order.foc_amount || 0),
+      due_amount: dueAmount,
       status: "pending",
     };
 
@@ -554,8 +558,8 @@ export class SupabaseService {
     const transport = order.transport_charge || 0;
     const advance = order.advance_payment || 0;
     const foc = order.foc_amount || 0;
-    const totalAmount = itemsTotal + transport;
-    const dueAmount = Math.max(0, totalAmount - advance - foc);
+    const totalAmount = Math.max(0, itemsTotal + transport - foc);
+    const dueAmount = Math.max(0, totalAmount - advance);
 
     const updatedOrder: Order = {
       ...order,

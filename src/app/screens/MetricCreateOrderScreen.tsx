@@ -92,7 +92,15 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
     (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
     0
   );
-  const totalAmount = itemsTotal + (parseFloat(transportCharge) || 0);
+  const transportVal = parseFloat(transportCharge) || 0;
+  const advanceVal = parseFloat(advancePayment) || 0;
+  const focVal = parseFloat(focAmount) || 0;
+
+  // Net Grand Total = Items + Transport - FOC Discount
+  const netTotalAmount = Math.max(0, itemsTotal + transportVal - focVal);
+
+  // Balance Due = Net Grand Total - Advance Paid
+  const dueBalanceAmount = Math.max(0, netTotalAmount - advanceVal);
 
   const calculateSowingDate = (dispatchFrom: string, productName: string, variantName: string): string => {
     const prod = products.find(p => p.name === productName);
@@ -181,9 +189,12 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
       customer_id: selectedCustomer.id,
       customer_name: selectedCustomer.name,
       order_date: orderDate,
-      transport_charge: parseFloat(transportCharge) || 0,
-      advance_payment: parseFloat(advancePayment) || 0,
-      foc_amount: parseFloat(focAmount) || 0,
+      transport_charge: transportVal,
+      advance_payment: advanceVal,
+      foc_amount: focVal,
+      items_total: itemsTotal,
+      total_amount: netTotalAmount,
+      due_amount: dueBalanceAmount,
       items: items,
     };
 
@@ -395,6 +406,7 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                       step="0.1"
                       placeholder="0.00"
                       value={item.price || ""}
+                      onWheel={(e) => e.currentTarget.blur()}
                       onChange={(e) =>
                         updateItemRow(idx, "price", parseFloat(e.target.value) || 0)
                       }
@@ -411,6 +423,7 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                       type="number"
                       placeholder="Qty"
                       value={item.quantity || ""}
+                      onWheel={(e) => e.currentTarget.blur()}
                       onChange={(e) =>
                         updateItemRow(idx, "quantity", parseInt(e.target.value) || 0)
                       }
@@ -508,6 +521,7 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
               type="number"
               placeholder="eg. 1500"
               value={transportCharge}
+              onWheel={(e) => e.currentTarget.blur()}
               onChange={(e) => setTransportCharge(e.target.value)}
               className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 text-slate-800"
             />
@@ -521,6 +535,7 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
               type="number"
               placeholder="eg. 10000"
               value={advancePayment}
+              onWheel={(e) => e.currentTarget.blur()}
               onChange={(e) => setAdvancePayment(e.target.value)}
               className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 text-slate-800"
             />
@@ -528,27 +543,52 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-2">
-              FOC (₹)
+              FOC Discount (₹)
             </label>
             <input
               type="number"
               placeholder="eg. 750"
               value={focAmount}
+              onWheel={(e) => e.currentTarget.blur()}
               onChange={(e) => setFocAmount(e.target.value)}
               className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 text-slate-800"
             />
           </div>
         </div>
 
-        {/* Totals Summary Footer */}
-        <div className="flex justify-between items-center pt-4 border-t border-slate-100">
-          <div className="text-xs text-slate-500">
-            Items Total: <span className="font-bold text-slate-800">₹{itemsTotal.toFixed(2)}</span>
+        {/* Live Totals Summary Breakdown Footer */}
+        <div className="pt-4 border-t border-slate-100 space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <div>
+              <span className="text-slate-500 font-medium block mb-0.5">Items Subtotal</span>
+              <span className="font-bold text-slate-800 text-sm">₹{itemsTotal.toFixed(2)}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 font-medium block mb-0.5">Transport (+)</span>
+              <span className="font-bold text-blue-600 text-sm">+₹{transportVal.toFixed(2)}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 font-medium block mb-0.5">FOC Discount (-)</span>
+              <span className="font-bold text-red-600 text-sm">-₹{focVal.toFixed(2)}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 font-medium block mb-0.5">Advance Paid (-)</span>
+              <span className="font-bold text-emerald-600 text-sm">-₹{advanceVal.toFixed(2)}</span>
+            </div>
           </div>
-          <div className="text-right">
-            <div className="text-xs text-slate-500 font-medium">Grand Total</div>
-            <div className="text-2xl font-extrabold text-slate-800">
-              ₹{totalAmount.toFixed(2)}
+
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-1">
+            <div>
+              <div className="text-xs text-slate-500 font-medium">Balance Due Amount</div>
+              <div className="text-xl font-extrabold text-amber-600">
+                ₹{dueBalanceAmount.toFixed(2)}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-slate-500 font-medium">Net Grand Total</div>
+              <div className="text-2xl font-extrabold text-emerald-700">
+                ₹{netTotalAmount.toFixed(2)}
+              </div>
             </div>
           </div>
         </div>

@@ -149,8 +149,18 @@ function MainAppContent() {
 
     loadAllData();
 
+    // Disable 2-finger touchpad / mouse wheel gesture from changing number inputs
+    const handleWheel = () => {
+      const activeEl = document.activeElement as HTMLInputElement;
+      if (activeEl && activeEl.type === "number") {
+        activeEl.blur();
+      }
+    };
+    window.addEventListener("wheel", handleWheel, { passive: true });
+
     return () => {
       authListener.subscription.unsubscribe();
+      window.removeEventListener("wheel", handleWheel);
     };
   }, [loadAllData]);
 
