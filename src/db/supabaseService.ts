@@ -544,6 +544,90 @@ export class SupabaseService {
     return localOrd;
   }
 
+  static async updateOrder(order: Order): Promise<Order> {
+    if (!order.id) return this.createOrder(order);
+
+    const itemsTotal = (order.items || []).reduce(
+      (sum, i) => sum + (i.price || 0) * (i.quantity || 0),
+      0
+    );
+    const transport = order.transport_charge || 0;
+    const advance = order.advance_payment || 0;
+    const foc = order.foc_amount || 0;
+    const totalAmount = itemsTotal + transport;
+    const dueAmount = Math.max(0, totalAmount - advance - foc);
+
+    const updatedOrder: Order = {
+      ...order,
+      items_total: itemsTotal,
+      total_amount: totalAmount,
+      due_amount: dueAmount,
+    };
+
+    try {
+      const { error: ordErr } = await supabase
+        .from("ma_orders")
+        .update({
+          customer_id: updatedOrder.customer_id,
+          customer_name: updatedOrder.customer_name,
+          order_date: updatedOrder.order_date,
+          status: updatedOrder.status,
+          transport_charge: updatedOrder.transport_charge,
+          advance_payment: updatedOrder.advance_payment,
+          foc_amount: updatedOrder.foc_amount,
+          items_total: updatedOrder.items_total,
+          total_amount: updatedOrder.total_amount,
+          narration: updatedOrder.narration,
+        })
+        .eq("id", order.id);
+
+      if (!ordErr) {
+        if (order.items) {
+          await supabase.from("ma_order_items").delete().eq("order_id", order.id);
+          if (order.items.length > 0) {
+            const itemPayloads = order.items.map((it) => ({
+              order_id: order.id,
+              product_name: it.product_name,
+              variant_name: it.variant_name,
+              price: it.price,
+              quantity: it.quantity,
+              dispatch_from: it.dispatch_from,
+              dispatch_to: it.dispatch_to,
+              sowing_date: it.sowing_date,
+              dispatched_qty: it.dispatched_qty || 0,
+              status: it.status || "pending",
+            }));
+            await supabase.from("ma_order_items").insert(itemPayloads);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Supabase order update error:", e);
+    }
+
+    const idx = DEMO_ORDERS.findIndex((o) => o.id === order.id || o.order_no === order.order_no);
+    if (idx !== -1) {
+      DEMO_ORDERS[idx] = updatedOrder;
+    } else {
+      DEMO_ORDERS.unshift(updatedOrder);
+    }
+    saveToStorage("demo_orders", DEMO_ORDERS);
+    return updatedOrder;
+  }
+
+  static async deleteOrder(orderId: string): Promise<boolean> {
+    try {
+      await supabase.from("ma_order_items").delete().eq("order_id", orderId);
+      await supabase.from("ma_orders").delete().eq("id", orderId);
+    } catch (e) {
+      console.error("Supabase delete order error:", e);
+    }
+
+    DEMO_ORDERS = DEMO_ORDERS.filter((o) => o.id !== orderId && o.order_no !== orderId);
+    saveToStorage("demo_orders", DEMO_ORDERS);
+    return true;
+  }
+
   // Production Batches
   static async getBatches(): Promise<ProductionBatch[]> {
     try {

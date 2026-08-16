@@ -101,6 +101,7 @@ function MainAppContent() {
   // UI state
   const [showCreateBatch, setShowCreateBatch] = useState(false);
   const [selectedLedgerCustomerId, setSelectedLedgerCustomerId] = useState<string>("");
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
   const loadAllData = useCallback(async () => {
@@ -158,9 +159,28 @@ function MainAppContent() {
     setAuthUser(null);
   };
 
-  const handleOrderSaved = (newOrd: Order) => {
-    setOrders([newOrd, ...orders]);
+  const handleOrderSaved = (savedOrd: Order) => {
+    setOrders((prev) => {
+      const idx = prev.findIndex((o) => (o.id && o.id === savedOrd.id) || (o.order_no && o.order_no === savedOrd.order_no));
+      if (idx !== -1) {
+        const updated = [...prev];
+        updated[idx] = savedOrd;
+        return updated;
+      }
+      return [savedOrd, ...prev];
+    });
+    setEditingOrder(null);
     setActiveTab("orders");
+  };
+
+  const handleEditOrder = (ord: Order) => {
+    setEditingOrder(ord);
+    setActiveTab("create_order");
+  };
+
+  const handleDeleteOrder = async (orderId: string) => {
+    await SupabaseService.deleteOrder(orderId);
+    setOrders((prev) => prev.filter((o) => o.id !== orderId && o.order_no !== orderId));
   };
 
   const handleCustomerAdded = (newCust: Customer) => {
@@ -268,7 +288,12 @@ function MainAppContent() {
               <MetricOrdersListScreen
                 orders={orders}
                 customers={customers}
-                onCreateOrder={() => setActiveTab("create_order")}
+                onCreateOrder={() => {
+                  setEditingOrder(null);
+                  setActiveTab("create_order");
+                }}
+                onEditOrder={handleEditOrder}
+                onDeleteOrder={handleDeleteOrder}
                 onViewLedger={(custId) => {
                   setSelectedLedgerCustomerId(custId);
                   setActiveTab("ledger");
@@ -280,8 +305,12 @@ function MainAppContent() {
               <MetricCreateOrderScreen
                 customers={customers}
                 products={products}
+                editingOrder={editingOrder}
                 onOrderSaved={handleOrderSaved}
-                onCancel={() => setActiveTab("orders")}
+                onCancel={() => {
+                  setEditingOrder(null);
+                  setActiveTab("orders");
+                }}
               />
             )}
 
@@ -302,7 +331,12 @@ function MainAppContent() {
                 orders={orders}
                 dispatches={dispatches}
                 initialCustomerId={selectedLedgerCustomerId}
-                onNavigateToCreateOrder={() => setActiveTab("create_order")}
+                onEditOrder={handleEditOrder}
+                onDeleteOrder={handleDeleteOrder}
+                onNavigateToCreateOrder={() => {
+                  setEditingOrder(null);
+                  setActiveTab("create_order");
+                }}
               />
             )}
 

@@ -20,8 +20,10 @@ import {
   FileText,
   AlertCircle,
   Sprout,
+  Pencil,
+  Trash2,
 } from "lucide-react";
-import { Customer, Order, OrderItem, DispatchRecord } from "../../db/supabaseService";
+import { Customer, Order, OrderItem, DispatchRecord, SupabaseService } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "../components/SearchableSelect";
 
 interface MetricLedgerScreenProps {
@@ -31,6 +33,8 @@ interface MetricLedgerScreenProps {
   initialCustomerId?: string;
   onNavigateToCustomer?: (custId: string) => void;
   onNavigateToCreateOrder?: () => void;
+  onEditOrder?: (order: Order) => void;
+  onDeleteOrder?: (orderId: string) => void;
 }
 
 export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
@@ -40,6 +44,8 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
   initialCustomerId = "",
   onNavigateToCustomer,
   onNavigateToCreateOrder,
+  onEditOrder,
+  onDeleteOrder,
 }) => {
   const safeCustomers = Array.isArray(customers) ? customers : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
@@ -583,18 +589,51 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
                             </span>
                           </td>
 
-                          {/* Details Toggle Button */}
+                          {/* Details Toggle Button & Actions */}
                           <td className="py-3.5 px-4 text-center">
                             {ord ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleExpandOrder(ord.id || t.voucherNo);
-                                }}
-                                className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition"
-                              >
-                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                              </button>
+                              <div className="flex items-center justify-center gap-1">
+                                {onEditOrder && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onEditOrder(ord);
+                                    }}
+                                    className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                                    title="Edit Bill"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                {onDeleteOrder && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (
+                                        window.confirm(
+                                          `Are you sure you want to delete Bill #${ord.order_no || ord.id}? This will remove it from the customer ledger.`
+                                        )
+                                      ) {
+                                        onDeleteOrder(ord.id || ord.order_no || "");
+                                      }
+                                    }}
+                                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
+                                    title="Delete Bill"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleExpandOrder(ord.id || t.voucherNo);
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-emerald-600 rounded-lg hover:bg-emerald-50 transition"
+                                  title="View/Collapse Bill Details"
+                                >
+                                  {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                </button>
+                              </div>
                             ) : (
                               <span className="text-slate-300">-</span>
                             )}
@@ -610,6 +649,8 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
                                 dispatches={t.mergedDispatches}
                                 sortField={billItemSortField}
                                 sortDir={billItemSortDir}
+                                onEditOrder={onEditOrder}
+                                onDeleteOrder={onDeleteOrder}
                                 onSortChange={(field) => {
                                   if (billItemSortField === field) {
                                     setBillItemSortDir(billItemSortDir === "asc" ? "desc" : "asc");
@@ -650,6 +691,8 @@ interface MergedBillDetailCardProps {
   sortField: "date" | "product" | "qty" | "price";
   sortDir: "asc" | "desc";
   onSortChange: (field: "date" | "product" | "qty" | "price") => void;
+  onEditOrder?: (order: Order) => void;
+  onDeleteOrder?: (orderId: string) => void;
 }
 
 const MergedBillDetailCard: React.FC<MergedBillDetailCardProps> = ({
@@ -658,6 +701,8 @@ const MergedBillDetailCard: React.FC<MergedBillDetailCardProps> = ({
   sortField,
   sortDir,
   onSortChange,
+  onEditOrder,
+  onDeleteOrder,
 }) => {
   const items = order.items || [];
 
@@ -713,35 +758,66 @@ const MergedBillDetailCard: React.FC<MergedBillDetailCardProps> = ({
           </p>
         </div>
 
-        {/* Item Sort Bar */}
-        <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100 text-xs">
-          <span className="text-slate-500 font-semibold flex items-center gap-1">
-            <Filter className="w-3.5 h-3.5 text-emerald-600" /> Sort Bill Items By:
-          </span>
-          <button
-            onClick={() => onSortChange("date")}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
-              sortField === "date" ? "bg-white text-emerald-700 shadow-sm border border-slate-200" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Dispatch Date {sortField === "date" ? (sortDir === "asc" ? "↑" : "↓") : ""}
-          </button>
-          <button
-            onClick={() => onSortChange("product")}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
-              sortField === "product" ? "bg-white text-emerald-700 shadow-sm border border-slate-200" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Product {sortField === "product" ? (sortDir === "asc" ? "↑" : "↓") : ""}
-          </button>
-          <button
-            onClick={() => onSortChange("qty")}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
-              sortField === "qty" ? "bg-white text-emerald-700 shadow-sm border border-slate-200" : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            Qty {sortField === "qty" ? (sortDir === "asc" ? "↑" : "↓") : ""}
-          </button>
+        {/* Action Controls & Sort Bar */}
+        <div className="flex flex-wrap items-center gap-3">
+          {(onEditOrder || onDeleteOrder) && (
+            <div className="flex items-center gap-2 pr-2 border-r border-slate-200">
+              {onEditOrder && (
+                <button
+                  onClick={() => onEditOrder(order)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-semibold transition"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Edit Bill</span>
+                </button>
+              )}
+              {onDeleteOrder && (
+                <button
+                  onClick={() => {
+                    const confirmStr = `Are you sure you want to delete Bill #${order.order_no || order.id}? This will remove it from the customer ledger.`;
+                    if (window.confirm(confirmStr)) {
+                      onDeleteOrder(order.id || order.order_no || "");
+                    }
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-lg text-xs font-semibold transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                  <span>Delete Bill</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Item Sort Bar */}
+          <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100 text-xs">
+            <span className="text-slate-500 font-semibold flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5 text-emerald-600" /> Sort Bill Items:
+            </span>
+            <button
+              onClick={() => onSortChange("date")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                sortField === "date" ? "bg-white text-emerald-700 shadow-sm border border-slate-200" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Dispatch Date {sortField === "date" ? (sortDir === "asc" ? "↑" : "↓") : ""}
+            </button>
+            <button
+              onClick={() => onSortChange("product")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                sortField === "product" ? "bg-white text-emerald-700 shadow-sm border border-slate-200" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Product {sortField === "product" ? (sortDir === "asc" ? "↑" : "↓") : ""}
+            </button>
+            <button
+              onClick={() => onSortChange("qty")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                sortField === "qty" ? "bg-white text-emerald-700 shadow-sm border border-slate-200" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Qty {sortField === "qty" ? (sortDir === "asc" ? "↑" : "↓") : ""}
+            </button>
+          </div>
         </div>
       </div>
 

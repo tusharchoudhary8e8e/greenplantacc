@@ -17,6 +17,8 @@ import {
   Clock,
   Printer,
   BookOpen,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { Order, Customer, SupabaseService } from "../../db/supabaseService";
 
@@ -24,6 +26,8 @@ interface OrdersListProps {
   orders: Order[];
   customers: Customer[];
   onCreateOrder: () => void;
+  onEditOrder?: (order: Order) => void;
+  onDeleteOrder?: (orderId: string) => void;
   onViewLedger?: (customerId: string) => void;
 }
 
@@ -31,6 +35,8 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
   orders = [],
   customers = [],
   onCreateOrder,
+  onEditOrder,
+  onDeleteOrder,
   onViewLedger,
 }) => {
   const safeOrders = Array.isArray(orders) ? orders : [];
@@ -336,18 +342,48 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
                       {/* Actions */}
                       <td className="py-3.5 px-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1">
+                          {onEditOrder && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditOrder(ord);
+                              }}
+                              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                              title="Edit Order"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          {onDeleteOrder && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const confirmStr = `Are you sure you want to delete Order #${ord.order_no || ord.id}? This will remove the bill from ledger records.`;
+                                if (window.confirm(confirmStr)) {
+                                  onDeleteOrder(ord.id || ord.order_no || "");
+                                }
+                              }}
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
+                              title="Delete Order"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
                           {onViewLedger && cust?.id && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onViewLedger(cust.id);
                               }}
-                              className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+                              className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition"
                               title="View Customer Ledger"
                             >
-                              <BookOpen className="w-4 h-4" />
+                              <BookOpen className="w-3.5 h-3.5" />
                             </button>
                           )}
+
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -356,7 +392,7 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
                             className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition"
                             title="Order Details"
                           >
-                            <MoreHorizontal className="w-4 h-4" />
+                            <MoreHorizontal className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>

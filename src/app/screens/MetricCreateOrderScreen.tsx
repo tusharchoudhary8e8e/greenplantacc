@@ -15,6 +15,7 @@ import { SearchableSelect, SearchableOption } from "../components/SearchableSele
 interface CreateOrderProps {
   customers: Customer[];
   products: Product[];
+  editingOrder?: Order | null;
   onOrderSaved: (newOrder: Order) => void;
   onCancel: () => void;
 }
@@ -22,14 +23,43 @@ interface CreateOrderProps {
 export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
   customers,
   products,
+  editingOrder = null,
   onOrderSaved,
   onCancel,
 }) => {
-  // NO default customer selected initially
   const todayStr = new Date().toISOString().split("T")[0];
-  const [selectedCustId, setSelectedCustId] = useState<string>("");
-  const [orderDate, setOrderDate] = useState(todayStr);
+
+  const [selectedCustId, setSelectedCustId] = useState<string>(editingOrder?.customer_id || "");
+  const [orderDate, setOrderDate] = useState<string>(editingOrder?.order_date || todayStr);
   const [errorMsg, setErrorMsg] = useState("");
+
+  const [items, setItems] = useState<OrderItem[]>(
+    editingOrder?.items && editingOrder.items.length > 0
+      ? editingOrder.items
+      : [
+          {
+            product_name: "",
+            variant_name: "",
+            price: 0,
+            quantity: 0,
+            dispatch_from: todayStr,
+            dispatch_to: todayStr,
+            sowing_date: todayStr,
+            remaining_qty: 0,
+          },
+        ]
+  );
+
+  // Payment States
+  const [transportCharge, setTransportCharge] = useState(
+    editingOrder?.transport_charge ? String(editingOrder.transport_charge) : ""
+  );
+  const [advancePayment, setAdvancePayment] = useState(
+    editingOrder?.advance_payment ? String(editingOrder.advance_payment) : ""
+  );
+  const [focAmount, setFocAmount] = useState(
+    editingOrder?.foc_amount ? String(editingOrder.foc_amount) : ""
+  );
 
   // Selected customer object (undefined if not selected yet)
   const selectedCustomer = customers.find((c) => c.id === selectedCustId);
@@ -43,7 +73,7 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
       ? `${c.name} (${c.city || c.address || "No Address"})`
       : c.name;
     return {
-      value: c.id,
+      value: c.id || "",
       label,
       subLabel: c.address || `${c.city || ""}, ${c.state || ""}`.trim(),
       badge: c.zone || "ZONE1",
@@ -57,25 +87,6 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
     subLabel: `${p.variants?.length || 0} varieties`,
     badge: p.category || "Crop",
   }));
-
-  // Order Line Items - Starts completely empty (no pre-filled product, variety, price or qty)
-  const [items, setItems] = useState<OrderItem[]>([
-    {
-      product_name: "",
-      variant_name: "",
-      price: 0,
-      quantity: 0,
-      dispatch_from: todayStr,
-      dispatch_to: todayStr,
-      sowing_date: todayStr,
-      remaining_qty: 0,
-    },
-  ]);
-
-  // Payment States
-  const [transportCharge, setTransportCharge] = useState("");
-  const [advancePayment, setAdvancePayment] = useState("");
-  const [focAmount, setFocAmount] = useState("");
 
   const itemsTotal = items.reduce(
     (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
@@ -158,9 +169,15 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
       return;
     }
 
+    if (items.length === 0 || items.some((i) => !i.product_name || !i.quantity)) {
+      setErrorMsg("Please ensure all line items have a selected crop and a quantity.");
+      return;
+    }
+
     setSubmitting(true);
 
-    const newOrdPayload: Order = {
+    const ordPayload: Order = {
+      ...(editingOrder ? editingOrder : {}),
       customer_id: selectedCustomer.id,
       customer_name: selectedCustomer.name,
       order_date: orderDate,
@@ -171,7 +188,12 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
     };
 
     try {
-      const saved = await SupabaseService.createOrder(newOrdPayload);
+      let saved: Order;
+      if (editingOrder && editingOrder.id) {
+        saved = await SupabaseService.updateOrder(ordPayload);
+      } else {
+        saved = await SupabaseService.createOrder(ordPayload);
+      }
       onOrderSaved(saved);
     } catch (err) {
       console.error("Order save error:", err);
@@ -192,7 +214,9 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
       </div>
 
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-slate-800">Create Order</h2>
+        <h2 className="text-xl font-bold text-slate-800">
+          {editingOrder ? `Edit Order: ${editingOrder.order_no || editingOrder.id}` : "Create Order"}
+        </h2>
         <div className="flex items-center gap-3">
           <button
             type="button"
