@@ -134,7 +134,7 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
         <div>
           <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">
-            MetricAccounting Demo
+            RKK Nursery
           </h1>
           <p className="text-sm text-slate-500 font-medium mt-0.5">Customers Management</p>
         </div>

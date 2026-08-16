@@ -39,7 +39,7 @@ export const MetricProductionScreen: React.FC<{
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-emerald-800 tracking-tight">Greenza Solutions Demo</h1>
+          <h1 className="text-2xl font-bold text-emerald-800 tracking-tight">RKK Nursery</h1>
           <div className="text-xs text-slate-500 font-medium mt-1">Sowing Batches</div>
         </div>
       </div>
@@ -194,7 +194,7 @@ export const MetricDispatchScreen: React.FC<MetricDispatchScreenProps> = ({
     <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
       <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
         <div>
-          <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">MetricAccounting Demo</h1>
+          <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">RKK Nursery</h1>
           <p className="text-sm text-slate-500 font-medium mt-0.5">Dispatch Schedule & Vehicle Tracking</p>
         </div>
         <button
@@ -264,7 +264,7 @@ export const MetricQuotesScreen: React.FC<{ quotes: Quote[] }> = ({ quotes }) =>
   <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
     <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
       <div>
-        <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">MetricAccounting Demo</h1>
+        <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">RKK Nursery</h1>
         <p className="text-sm text-slate-500 font-medium mt-0.5">Quotations & Pricing Quotes</p>
       </div>
       <button className="bg-[#00a651] text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-emerald-600 transition text-sm">
@@ -310,7 +310,7 @@ export const MetricCampaignScreen: React.FC<{ campaigns: Campaign[] }> = ({ camp
   <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
     <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
       <div>
-        <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">MetricAccounting Demo</h1>
+        <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">RKK Nursery</h1>
         <p className="text-sm text-slate-500 font-medium mt-0.5">Marketing & Outreach Campaigns</p>
       </div>
       <button className="bg-[#00a651] text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-emerald-600 transition text-sm">
@@ -343,7 +343,7 @@ export const MetricEmployeesScreen: React.FC<{ employees: Employee[] }> = ({ emp
   <div className="p-8 space-y-8 bg-slate-50 min-h-screen">
     <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
       <div>
-        <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">MetricAccounting Demo</h1>
+        <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">RKK Nursery</h1>
         <p className="text-sm text-slate-500 font-medium mt-0.5">Employees & Staff Management</p>
       </div>
       <button className="bg-[#00a651] text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-emerald-600 transition text-sm">

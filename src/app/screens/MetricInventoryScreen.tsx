@@ -108,7 +108,7 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
         <div>
           <h1 className="text-2xl font-bold text-emerald-800 tracking-tight">
-            Greenza Solutions Demo
+            RKK Nursery
           </h1>
           <div className="text-xs text-slate-500 font-medium mt-1 flex items-center gap-2">
             <span>Crops</span>

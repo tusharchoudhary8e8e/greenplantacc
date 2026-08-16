@@ -116,7 +116,7 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
     <div className="p-4 sm:p-8 space-y-6 bg-slate-50 min-h-screen">
       {/* Top Header */}
       <div>
-        <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">Greenza Solutions Demo</h1>
+        <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">RKK Nursery</h1>
         <p className="text-sm text-slate-500 font-medium mt-0.5">Orders</p>
       </div>
 

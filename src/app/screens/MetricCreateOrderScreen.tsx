@@ -186,7 +186,7 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
       {/* Title */}
       <div>
         <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">
-          MetricAccounting Demo
+          RKK Nursery
         </h1>
         <p className="text-sm text-slate-500 font-medium mt-0.5">Orders</p>
       </div>

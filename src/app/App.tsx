@@ -201,7 +201,7 @@ function MainAppContent() {
           </button>
           <div>
             <h1 className="text-[26px] font-extrabold text-[#00a651] tracking-tight leading-none">
-              Greenza Solutions Demo
+              RKK Nursery
             </h1>
             <p className="text-sm text-slate-400 font-medium mt-1 uppercase tracking-wider">
               {activeTab.replace('_', ' ')}
