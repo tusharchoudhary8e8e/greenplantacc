@@ -20,32 +20,46 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeCustomers = Array.isArray(customers) ? customers : [];
 
-  // Financial aggregates
-  const totalAmount = safeOrders.reduce((sum, o) => sum + (o?.total_amount || 0), 0) || 15000;
-  const advancePayment = safeOrders.reduce((sum, o) => sum + (o?.advance_payment || 0), 0) || 6000;
-  const paidAmount = safeOrders.reduce((sum, o) => sum + (o?.paid_amount || 0), 0) || 6000;
-  const dueAmount = safeOrders.reduce((sum, o) => sum + (o?.due_amount || 0), 0) || 9000;
-  const focAmount = safeOrders.reduce((sum, o) => sum + (o?.foc_amount || 0), 0) || 0;
+  // Dynamic Financial Aggregates calculated from real orders
+  const totalAmount = safeOrders.reduce((sum, o) => sum + (o?.total_amount || 0), 0);
+  const advancePayment = safeOrders.reduce((sum, o) => sum + (o?.advance_payment || 0), 0);
+  const paidAmount = safeOrders.reduce((sum, o) => sum + ((o?.advance_payment || 0) + (o?.paid_amount || 0)), 0);
+  const dueAmount = safeOrders.reduce(
+    (sum, o) => sum + (o?.due_amount !== undefined ? o.due_amount : Math.max(0, (o?.total_amount || 0) - (o?.advance_payment || 0))),
+    0
+  );
+  const focAmount = safeOrders.reduce((sum, o) => sum + (o?.foc_amount || 0), 0);
+
+  const calcPct = (val: number, total: number) => {
+    if (!total || total === 0) return "0.0%";
+    return `${((val / total) * 100).toFixed(1)}%`;
+  };
 
   const financialData = [
-    { name: "Advanced Payment", value: advancePayment, color: "#10b981", percent: "40.0%" },
-    { name: "Paid Amount", value: paidAmount, color: "#6366f1", percent: "40.0%" },
-    { name: "Due Amount", value: dueAmount, color: "#f59e0b", percent: "60.0%" },
-    { name: "FOC Amount", value: focAmount, color: "#ef4444", percent: "0.0%" },
+    { name: "Advanced Payment", value: advancePayment, color: "#10b981", percent: calcPct(advancePayment, totalAmount) },
+    { name: "Paid Amount", value: paidAmount, color: "#6366f1", percent: calcPct(paidAmount, totalAmount) },
+    { name: "Due Amount", value: dueAmount, color: "#f59e0b", percent: calcPct(dueAmount, totalAmount) },
+    { name: "FOC Amount", value: focAmount, color: "#ef4444", percent: calcPct(focAmount, totalAmount) },
   ];
 
-  // Crop / Sowing aggregates
-  const totalOrderedQty = 6000;
+  // Dynamic Crop / Sowing Aggregates calculated from real order items
+  const totalOrderedQty = safeOrders.reduce((sum, o) => {
+    return sum + (o.items || []).reduce((itemSum, item) => itemSum + (item.quantity || 0), 0);
+  }, 0);
+
+  const totalDispatchedQty = safeOrders.reduce((sum, o) => {
+    return sum + (o.items || []).reduce((itemSum, item) => itemSum + (item.dispatched_qty || 0), 0);
+  }, 0);
+
+  const remainingDispatchQty = Math.max(0, totalOrderedQty - totalDispatchedQty);
   const totalSowingQty = 0;
-  const totalDispatchedQty = 0;
-  const remainingDispatchQty = 6000;
   const extraCropQty = 0;
 
   const cropData = [
-    { name: "Total Ordered", value: totalOrderedQty, color: "#3b82f6", percent: "100.0%" },
+    { name: "Total Ordered", value: totalOrderedQty, color: "#3b82f6", percent: calcPct(totalOrderedQty, totalOrderedQty) },
     { name: "Total Sowing Done", value: totalSowingQty, color: "#10b981", percent: "0.0%" },
-    { name: "Total Dispatched", value: totalDispatchedQty, color: "#8b5cf6", percent: "0.0%" },
-    { name: "Remaining Dispatch", value: remainingDispatchQty, color: "#f59e0b", percent: "100.0%" },
+    { name: "Total Dispatched", value: totalDispatchedQty, color: "#8b5cf6", percent: calcPct(totalDispatchedQty, totalOrderedQty) },
+    { name: "Remaining Dispatch", value: remainingDispatchQty, color: "#f59e0b", percent: calcPct(remainingDispatchQty, totalOrderedQty) },
     { name: "Extra Crop", value: extraCropQty, color: "#ef4444", percent: "0.0%" },
   ];
 
