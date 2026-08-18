@@ -890,9 +890,9 @@ export class SupabaseService {
     try {
       const { data, error } = await supabase
         .from("ma_purchase_bills")
-        .select("*, items:ma_purchase_bill_items(*)")
+        .select("*")
         .order("bill_date", { ascending: false });
-      if (!error && data) return data as PurchaseBill[];
+      if (!error && data && Array.isArray(data)) return data as PurchaseBill[];
     } catch {
       // Fallback
     }

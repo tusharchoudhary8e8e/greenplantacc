@@ -118,30 +118,45 @@ function MainAppContent() {
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
-    const [c, p, o, b, d, q, cmp, emp, rec, pur] = await Promise.all([
-      SupabaseService.getCustomers(),
-      SupabaseService.getProducts(),
-      SupabaseService.getOrders(),
-      SupabaseService.getBatches(),
-      SupabaseService.getDispatches(),
-      SupabaseService.getQuotes(),
-      SupabaseService.getCampaigns(),
-      SupabaseService.getEmployees(),
-      SupabaseService.getPaymentReceipts(),
-      SupabaseService.getPurchaseBills(),
-    ]);
+    try {
+      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
 
-    setCustomers(c);
-    setProducts(p);
-    setOrders(o);
-    setBatches(b);
-    setDispatches(d);
-    setQuotes(q);
-    setCampaigns(cmp);
-    setEmployees(emp);
-    setPaymentReceipts(rec);
-    setPurchaseBills(pur);
-    setLoading(false);
+      const dataPromise = Promise.all([
+        SupabaseService.getCustomers().catch(() => []),
+        SupabaseService.getProducts().catch(() => []),
+        SupabaseService.getOrders().catch(() => []),
+        SupabaseService.getBatches().catch(() => []),
+        SupabaseService.getDispatches().catch(() => []),
+        SupabaseService.getQuotes().catch(() => []),
+        SupabaseService.getCampaigns().catch(() => []),
+        SupabaseService.getEmployees().catch(() => []),
+        SupabaseService.getPaymentReceipts().catch(() => []),
+        SupabaseService.getPurchaseBills().catch(() => []),
+      ]);
+
+      const res = await Promise.race([
+        dataPromise,
+        timeoutPromise.then(() => null),
+      ]);
+
+      if (res && Array.isArray(res)) {
+        const [c, p, o, b, d, q, cmp, emp, rec, pur] = res;
+        if (c) setCustomers(c);
+        if (p) setProducts(p);
+        if (o) setOrders(o);
+        if (b) setBatches(b);
+        if (d) setDispatches(d);
+        if (q) setQuotes(q);
+        if (cmp) setCampaigns(cmp);
+        if (emp) setEmployees(emp);
+        if (rec) setPaymentReceipts(rec);
+        if (pur) setPurchaseBills(pur);
+      }
+    } catch (e) {
+      console.error("Error loading app data:", e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const handleSavePurchaseBill = (savedBill: PurchaseBill) => {
