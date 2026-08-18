@@ -36,6 +36,7 @@ import {
   Employee,
   PaymentReceipt,
   PurchaseBill,
+  Driver,
   SupabaseService,
 } from "../db/supabaseService";
 
@@ -43,38 +44,27 @@ class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; error: Error | null }
 > {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
+  state = { hasError: false, error: null };
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };
   }
-
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("Uncaught UI Error:", error, errorInfo);
+    console.error("Uncaught error:", error, errorInfo);
   }
-
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
-          <div className="max-w-md bg-white p-8 rounded-2xl shadow-xl border border-slate-100 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto text-xl font-bold">
-              ⚠️
-            </div>
-            <h2 className="text-lg font-bold text-slate-800">Something went wrong</h2>
-            <p className="text-xs text-slate-500">
-              {this.state.error?.message || "An unexpected rendering error occurred."}
-            </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-6 py-2.5 bg-[#00a651] text-white rounded-xl font-bold text-xs hover:bg-emerald-600 transition"
-            >
-              Reload Application
-            </button>
-          </div>
+        <div className="p-8 bg-red-50 text-red-700 min-h-screen">
+          <h1 className="text-xl font-bold mb-2">Something went wrong</h1>
+          <pre className="text-xs bg-white p-4 rounded border border-red-200 overflow-auto">
+            {String(this.state.error)}
+          </pre>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded font-bold text-xs"
+          >
+            Reload App
+          </button>
         </div>
       );
     }
@@ -105,6 +95,7 @@ function MainAppContent() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [paymentReceipts, setPaymentReceipts] = useState<PaymentReceipt[]>([]);
   const [purchaseBills, setPurchaseBills] = useState<PurchaseBill[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
 
   // UI state
   const [showCreateBatch, setShowCreateBatch] = useState(false);
@@ -132,6 +123,7 @@ function MainAppContent() {
         SupabaseService.getEmployees().catch(() => []),
         SupabaseService.getPaymentReceipts().catch(() => []),
         SupabaseService.getPurchaseBills().catch(() => []),
+        SupabaseService.getDrivers().catch(() => []),
       ]);
 
       const res = await Promise.race([
@@ -140,7 +132,7 @@ function MainAppContent() {
       ]);
 
       if (res && Array.isArray(res)) {
-        const [c, p, o, b, d, q, cmp, emp, rec, pur] = res;
+        const [c, p, o, b, d, q, cmp, emp, rec, pur, drv] = res;
         if (c) setCustomers(c);
         if (p) setProducts(p);
         if (o) setOrders(o);
@@ -151,6 +143,7 @@ function MainAppContent() {
         if (emp) setEmployees(emp);
         if (rec) setPaymentReceipts(rec);
         if (pur) setPurchaseBills(pur);
+        if (drv) setDrivers(drv);
       }
     } catch (e) {
       console.error("Error loading app data:", e);
@@ -471,7 +464,7 @@ function MainAppContent() {
             )}
             
             {activeTab === "drivers" && (
-              <MetricDriversScreen />
+              <MetricDriversScreen drivers={drivers} onDriversUpdated={loadAllData} />
             )}
 
             {activeTab === "dispatch" && (

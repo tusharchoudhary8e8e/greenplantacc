@@ -466,7 +466,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-2 md:col-span-4 lg:col-span-1 border-l-4 border-l-emerald-600">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                  {selectedCustomer.zone || "ZONE1"}
+                  PARTY
                 </span>
                 <span className="text-xs font-mono text-slate-400">{selectedCustomer.org_id || ""}</span>
               </div>

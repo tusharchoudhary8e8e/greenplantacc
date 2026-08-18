@@ -67,8 +67,7 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
       (c.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (c.phone && c.phone.includes(searchTerm)) ||
       (c.city && c.city.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesZone = selectedZone === "all" || c.zone === selectedZone;
-    return matchesSearch && matchesZone;
+    return matchesSearch;
   });
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -164,17 +163,8 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
           />
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <Filter className="w-4 h-4 text-slate-400" />
-          <select
-            value={selectedZone}
-            onChange={(e) => setSelectedZone(e.target.value)}
-            className="p-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:ring-2 focus:ring-emerald-500"
-          >
-            <option value="all">All Zones</option>
-            <option value="ZONE1 ZONE">ZONE1 ZONE</option>
-            <option value="ZONE2 ZONE">ZONE2 ZONE</option>
-          </select>
+        <div className="flex items-center gap-3 w-full sm:w-auto text-xs text-slate-500 font-medium">
+          Total Registered Customers: <span className="font-bold font-mono text-emerald-700">{filteredCustomers.length}</span>
         </div>
       </div>
 
@@ -216,9 +206,6 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
                 >
                   Edit
                 </button>
-                <span className="px-2.5 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-600 border border-blue-200">
-                  {cust.zone || "ZONE1 ZONE"}
-                </span>
               </div>
             </div>
 
@@ -310,19 +297,7 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Zone
-                  </label>
-                  <select
-                    value={zone}
-                    onChange={(e) => setZone(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium"
-                  >
-                    <option value="ZONE1 ZONE">ZONE1 ZONE</option>
-                    <option value="ZONE2 ZONE">ZONE2 ZONE</option>
-                  </select>
-                </div>
+
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">

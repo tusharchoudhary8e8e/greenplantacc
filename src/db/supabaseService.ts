@@ -201,6 +201,17 @@ export interface Employee {
   created_at?: string;
 }
 
+export interface Driver {
+  id?: string;
+  name: string;
+  phone?: string;
+  vehicle_name?: string;
+  vehicle_number?: string;
+  balance?: number;
+  status?: "Active" | "Inactive";
+  created_at?: string;
+}
+
 // ─── LOCAL DEMO SEED DATA (fallback if offline / Supabase setup pending) ──────
 
 const loadFromStorage = <T>(key: string, defaultValue: T): T => {
@@ -385,6 +396,18 @@ const INITIAL_CAMPAIGNS: Campaign[] = [
   },
 ];
 
+const INITIAL_DRIVERS: Driver[] = [
+  {
+    id: "drv-1",
+    name: "Monu Kumar",
+    phone: "9752348309",
+    vehicle_name: "Mahindra Bolero",
+    vehicle_number: "MP28C1234",
+    balance: 0,
+    status: "Active",
+  },
+];
+
 let DEMO_CUSTOMERS: Customer[] = loadFromStorage("demo_customers", INITIAL_CUSTOMERS);
 let DEMO_PRODUCTS: Product[] = loadFromStorage("demo_products", INITIAL_PRODUCTS);
 let DEMO_ORDERS: Order[] = loadFromStorage("demo_orders", INITIAL_ORDERS);
@@ -394,6 +417,7 @@ let DEMO_EMPLOYEES: Employee[] = loadFromStorage("demo_employees", INITIAL_EMPLO
 let DEMO_QUOTES: Quote[] = loadFromStorage("demo_quotes", INITIAL_QUOTES);
 let DEMO_CAMPAIGNS: Campaign[] = loadFromStorage("demo_campaigns", INITIAL_CAMPAIGNS);
 let DEMO_RECEIPTS: PaymentReceipt[] = loadFromStorage("demo_receipts", []);
+let DEMO_DRIVERS: Driver[] = loadFromStorage("demo_drivers", INITIAL_DRIVERS);
 
 // ─── SERVICE IMPLEMENTATION ──────────────────────────────────────────
 export class SupabaseService {
@@ -1003,6 +1027,59 @@ export class SupabaseService {
 
     DEMO_PURCHASE_BILLS = DEMO_PURCHASE_BILLS.filter((b) => b.id !== billId && b.bill_no !== billId);
     saveToStorage("demo_purchase_bills", DEMO_PURCHASE_BILLS);
+    return true;
+  }
+
+  // Drivers
+  static async getDrivers(): Promise<Driver[]> {
+    try {
+      const { data, error } = await supabase
+        .from("ma_drivers")
+        .select("*")
+        .order("name", { ascending: true });
+      if (!error && data && Array.isArray(data)) return data as Driver[];
+    } catch {
+      // Fallback
+    }
+    return DEMO_DRIVERS;
+  }
+
+  static async saveDriver(drv: Partial<Driver>): Promise<Driver> {
+    const newD: Driver = {
+      ...drv,
+      id: drv.id || `drv-${Date.now()}`,
+      name: drv.name || "Driver",
+      phone: drv.phone || "",
+      vehicle_name: drv.vehicle_name || "",
+      vehicle_number: drv.vehicle_number || "",
+      balance: drv.balance !== undefined ? Number(drv.balance) : 0,
+      status: drv.status || "Active",
+    };
+
+    try {
+      await supabase.from("ma_drivers").upsert(newD);
+    } catch {
+      // Fallback
+    }
+
+    const idx = DEMO_DRIVERS.findIndex((d) => d.id === newD.id);
+    if (idx !== -1) {
+      DEMO_DRIVERS[idx] = newD;
+    } else {
+      DEMO_DRIVERS.unshift(newD);
+    }
+    saveToStorage("demo_drivers", DEMO_DRIVERS);
+    return newD;
+  }
+
+  static async deleteDriver(driverId: string): Promise<boolean> {
+    try {
+      await supabase.from("ma_drivers").delete().eq("id", driverId);
+    } catch {
+      // Fallback
+    }
+    DEMO_DRIVERS = DEMO_DRIVERS.filter((d) => d.id !== driverId);
+    saveToStorage("demo_drivers", DEMO_DRIVERS);
     return true;
   }
 }

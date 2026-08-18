@@ -158,11 +158,6 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      {opt.badge && (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
-                          {opt.badge}
-                        </span>
-                      )}
                       {isSelected && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
                     </div>
                   </div>
