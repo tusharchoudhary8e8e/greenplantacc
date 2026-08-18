@@ -2009,16 +2009,32 @@ export class SupabaseService {
 
   // Customers
   static async getCustomers(): Promise<Customer[]> {
+    let list: Customer[] = [];
     try {
       const { data, error } = await supabase
         .from("ma_customers")
         .select("*")
         .order("created_at", { ascending: false });
-      if (!error && data) return data as Customer[];
+      if (!error && data && Array.isArray(data) && data.length > 0) {
+        list = data as Customer[];
+      }
     } catch {
       // Fallback
     }
-    return DEMO_CUSTOMERS;
+
+    if (list.length === 0) {
+      list = DEMO_CUSTOMERS;
+    } else {
+      // Merge INITIAL_CUSTOMERS (143 Excel Parties) with Supabase database rows so all 143 are ALWAYS returned!
+      const existingNames = new Set(list.map((c) => (c.name || "").trim().toUpperCase()));
+      INITIAL_CUSTOMERS.forEach((ic) => {
+        if (!existingNames.has((ic.name || "").trim().toUpperCase())) {
+          list.push(ic);
+        }
+      });
+    }
+
+    return list;
   }
 
   static async saveCustomer(cust: Customer): Promise<Customer> {
