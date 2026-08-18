@@ -23,7 +23,7 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react";
-import { Customer, Order, OrderItem, DispatchRecord, SupabaseService } from "../../db/supabaseService";
+import { Customer, Order, OrderItem, DispatchRecord, PaymentReceipt, PurchaseBill, SupabaseService } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "../components/SearchableSelect";
 
 interface MetricLedgerScreenProps {
@@ -31,6 +31,7 @@ interface MetricLedgerScreenProps {
   orders: Order[];
   dispatches: DispatchRecord[];
   paymentReceipts?: PaymentReceipt[];
+  purchaseBills?: PurchaseBill[];
   initialCustomerId?: string;
   onNavigateToCustomer?: (custId: string) => void;
   onNavigateToCreateOrder?: () => void;
@@ -44,6 +45,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
   orders = [],
   dispatches = [],
   paymentReceipts = [],
+  purchaseBills = [],
   initialCustomerId = "",
   onNavigateToCustomer,
   onNavigateToCreateOrder,
@@ -55,6 +57,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeDispatches = Array.isArray(dispatches) ? dispatches : [];
   const safePaymentReceipts = Array.isArray(paymentReceipts) ? paymentReceipts : [];
+  const safePurchaseBills = Array.isArray(purchaseBills) ? purchaseBills : [];
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(initialCustomerId);
   const [searchTerm, setSearchTerm] = useState("");
@@ -114,6 +117,16 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
     );
   }, [safePaymentReceipts, selectedCustomerId, selectedCustomer]);
 
+  // Purchase bills for selected customer/vendor
+  const customerPurchaseBills = useMemo(() => {
+    if (!selectedCustomerId) return [];
+    return safePurchaseBills.filter(
+      (b) =>
+        b.party_id === selectedCustomerId ||
+        (selectedCustomer && b.party_name && b.party_name.trim().toLowerCase() === selectedCustomer.name.trim().toLowerCase())
+    );
+  }, [safePurchaseBills, selectedCustomerId, selectedCustomer]);
+
   // Calculate Ledger Transactions
   const ledgerTransactions = useMemo(() => {
     if (!selectedCustomer) return [];
@@ -121,13 +134,14 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
     const txns: Array<{
       id: string;
       date: string;
-      type: "opening" | "bill" | "payment";
+      type: "opening" | "bill" | "purchase_bill" | "payment";
       voucherNo: string;
       particulars: string;
       itemsCount: number;
       debit: number;
       credit: number;
       order?: Order;
+      purchaseBill?: PurchaseBill;
       dispatchCount: number;
       mergedDispatches: DispatchRecord[];
     }> = [];
@@ -148,7 +162,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       });
     }
 
-    // 2. Orders as Bills & Advance Payments
+    // 2. Orders as Sales Bills & Advance Payments (Debit = We are Owed Money)
     customerOrders.forEach((ord) => {
       const orderDate = ord.order_date || (ord.created_at ? ord.created_at.split("T")[0] : "2026-08-01");
       const orderTotal = ord.total_amount || 0;
@@ -169,7 +183,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
         date: orderDate,
         type: "bill",
         voucherNo: ord.order_no || `ORD-${ord.id}`,
-        particulars: itemSummaryStr || "Nursery Plant Purchase Order",
+        particulars: itemSummaryStr || "Sales Order Bill",
         itemsCount: ord.items?.length || 0,
         debit: orderTotal,
         credit: 0,
@@ -185,7 +199,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
           date: orderDate,
           type: "payment",
           voucherNo: `ADV-${ord.order_no || ord.id}`,
-          particulars: `Advance Payment Received for Order #${ord.order_no || ord.id}`,
+          particulars: `Advance Received for Sales Order #${ord.order_no || ord.id}`,
           itemsCount: 0,
           debit: 0,
           credit: advancePaid,
@@ -196,7 +210,48 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       }
     });
 
-    // 3. Payment Receipts (Credit)
+    // 3. Purchase Bills (Credit = We Owe Vendor Money)
+    customerPurchaseBills.forEach((pur) => {
+      const purDate = pur.bill_date || (pur.created_at ? pur.created_at.split("T")[0] : "2026-08-01");
+      const purTotal = pur.total_amount || 0;
+      const purPaid = pur.paid_amount || 0;
+
+      const itemSummaryStr = (pur.items || [])
+        .map((i) => `${i.product_name} ${i.variant_name || ""} (x${i.quantity})`)
+        .join(", ");
+
+      txns.push({
+        id: `txn-pur-${pur.id || pur.bill_no}`,
+        date: purDate,
+        type: "purchase_bill",
+        voucherNo: pur.bill_no || `PUR-${pur.id}`,
+        particulars: `Purchase Bill: ${itemSummaryStr || "Goods / Materials Supply"}`,
+        itemsCount: pur.items?.length || 0,
+        debit: 0,
+        credit: purTotal,
+        purchaseBill: pur,
+        dispatchCount: 0,
+        mergedDispatches: [],
+      });
+
+      if (purPaid > 0) {
+        txns.push({
+          id: `txn-purpaid-${pur.id || pur.bill_no}`,
+          date: purDate,
+          type: "payment",
+          voucherNo: `PAY-${pur.bill_no || pur.id}`,
+          particulars: `Payment Paid to Vendor for Purchase Bill #${pur.bill_no || pur.id}`,
+          itemsCount: 0,
+          debit: purPaid,
+          credit: 0,
+          purchaseBill: pur,
+          dispatchCount: 0,
+          mergedDispatches: [],
+        });
+      }
+    });
+
+    // 4. Payment Receipts (Credit = Money Received from Customer)
     customerReceipts.forEach((rec) => {
       const linkedOrd = safeOrders.find((o) => o.id === rec.order_id || o.order_no === rec.order_no);
       txns.push({
@@ -236,7 +291,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       ...t,
       balance: balanceMap.get(t.id) || 0,
     }));
-  }, [selectedCustomer, customerOrders, customerDispatches, sortOrder]);
+  }, [selectedCustomer, customerOrders, customerDispatches, customerReceipts, customerPurchaseBills, sortOrder]);
 
   // Filtered Ledger Transactions based on Search & Filters
   const filteredTransactions = useMemo(() => {
@@ -266,18 +321,36 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
     });
   }, [ledgerTransactions, typeFilter, fromDate, toDate, searchTerm]);
 
-  // Customer Ledger Metrics Summary
+  // Customer / Vendor Ledger Metrics Summary
   const ledgerMetrics = useMemo(() => {
     const opening = selectedCustomer?.opening_balance || 0;
-    const totalBilled = customerOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0) + opening;
+    const totalSalesBilled = customerOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0) + opening;
+    const totalPurchaseBilled = customerPurchaseBills.reduce((sum, b) => sum + (b.total_amount || 0), 0);
+
     const totalReceipts = customerReceipts.reduce((sum, r) => sum + (r.amount || 0), 0);
     const totalAdvances = customerOrders.reduce((sum, o) => sum + (o.advance_payment || 0), 0);
-    const totalPaid = totalAdvances + totalReceipts;
-    const netDue = Math.max(0, totalBilled - totalPaid);
-    const totalDispatches = customerDispatches.length;
+    const totalPaymentsReceived = totalAdvances + totalReceipts;
 
-    return { opening, totalBilled, totalPaid, netDue, totalDispatches };
-  }, [selectedCustomer, customerOrders, customerDispatches, customerReceipts]);
+    const totalPaymentsPaid = customerPurchaseBills.reduce((sum, b) => sum + (b.paid_amount || 0), 0);
+
+    const netReceivableDue = totalSalesBilled - totalPaymentsReceived;
+    const netPayableDue = totalPurchaseBilled - totalPaymentsPaid;
+
+    const netBalance = netReceivableDue - netPayableDue;
+    const isReceivable = netBalance >= 0;
+
+    return {
+      opening,
+      totalSalesBilled,
+      totalPurchaseBilled,
+      totalPaymentsReceived,
+      totalPaymentsPaid,
+      netBalance,
+      isReceivable,
+      absNetBalance: Math.abs(netBalance),
+      totalDispatches: customerDispatches.length,
+    };
+  }, [selectedCustomer, customerOrders, customerDispatches, customerReceipts, customerPurchaseBills]);
 
   const toggleExpandOrder = (id: string) => {
     setExpandedOrderIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -294,10 +367,10 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-emerald-600" />
-            <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">Customer Ledger</h1>
+            <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">Party / Customer Ledger</h1>
           </div>
           <p className="text-sm text-slate-500 font-medium mt-0.5">
-            Complete financial passbook, order bills & merged dispatch history
+            Complete financial passbook, sales bills, purchase bills & settlement history
           </p>
         </div>
 
@@ -337,21 +410,21 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       {/* Customer Selector Card */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
         <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
-          Select Customer to View Ledger
+          Select Customer / Vendor to View Ledger
         </label>
         <div className="max-w-xl">
           <SearchableSelect
             options={customerOptions}
             value={selectedCustomerId}
             onChange={(val) => setSelectedCustomerId(val)}
-            placeholder="Type customer name, phone or city to search..."
+            placeholder="Type customer or vendor name to search..."
           />
         </div>
 
         {/* Quick Customer Selection Pills */}
         {!selectedCustomerId && safeCustomers.length > 0 && (
           <div className="pt-2">
-            <p className="text-xs text-slate-400 font-medium mb-2">Quick Select Recent Customers:</p>
+            <p className="text-xs text-slate-400 font-medium mb-2">Quick Select Recent Parties:</p>
             <div className="flex flex-wrap gap-2">
               {safeCustomers.slice(0, 5).map((cust) => (
                 <button
@@ -376,9 +449,9 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
             <BookOpen className="w-8 h-8" />
           </div>
           <div className="max-w-md mx-auto space-y-1">
-            <h3 className="text-lg font-bold text-slate-800">No Customer Selected</h3>
+            <h3 className="text-lg font-bold text-slate-800">No Party Selected</h3>
             <p className="text-xs text-slate-500">
-              Please select a customer from the dropdown above to inspect their purchase bills, payments, and merged vehicle dispatch records.
+              Please select a customer or vendor from the dropdown above to view their sales bills, purchase bills, and net receivable/payable balance.
             </p>
           </div>
         </div>
@@ -410,35 +483,50 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
               </div>
             </div>
 
-            {/* Total Billed Metric */}
+            {/* Total Sales Billed Metric */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Billed</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Sales Billed</span>
               <div className="mt-2">
-                <p className="text-2xl font-black text-slate-800">₹{ledgerMetrics.totalBilled.toLocaleString()}</p>
+                <p className="text-2xl font-black text-slate-800">₹{ledgerMetrics.totalSalesBilled.toLocaleString()}</p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {customerOrders.length} Order Bills {ledgerMetrics.opening > 0 ? `+ Opening (₹${ledgerMetrics.opening})` : ""}
+                  {customerOrders.length} Sales Bills {ledgerMetrics.opening > 0 ? `+ Opening (₹${ledgerMetrics.opening})` : ""}
                 </p>
               </div>
             </div>
 
-            {/* Total Paid Metric */}
+            {/* Total Purchases Billed Metric */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Received</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Purchased</span>
               <div className="mt-2">
-                <p className="text-2xl font-black text-emerald-600">₹{ledgerMetrics.totalPaid.toLocaleString()}</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Advance & Receipts Collected</p>
+                <p className="text-2xl font-black text-blue-700">₹{ledgerMetrics.totalPurchaseBilled.toLocaleString()}</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {customerPurchaseBills.length} Vendor Purchase Bills
+                </p>
               </div>
             </div>
 
             {/* Net Outstanding Balance Metric */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between border-r-4 border-r-amber-500">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Net Outstanding Balance</span>
+            <div className={`bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between border-r-4 ${
+              ledgerMetrics.isReceivable ? "border-r-emerald-500" : "border-r-amber-500"
+            }`}>
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Net Party Balance</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                  ledgerMetrics.isReceivable ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                }`}>
+                  {ledgerMetrics.isReceivable ? "Receivable" : "Payable"}
+                </span>
+              </div>
               <div className="mt-2">
-                <p className={`text-2xl font-black ${ledgerMetrics.netDue > 0 ? "text-amber-600" : "text-emerald-700"}`}>
-                  ₹{ledgerMetrics.netDue.toLocaleString()}
+                <p className={`text-2xl font-black ${ledgerMetrics.isReceivable ? "text-emerald-700" : "text-amber-600"}`}>
+                  ₹{ledgerMetrics.absNetBalance.toLocaleString()}
                 </p>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {ledgerMetrics.netDue > 0 ? "Balance Payable by Customer" : "Account Fully Settled"}
+                  {ledgerMetrics.netBalance === 0
+                    ? "Account Fully Settled (₹0)"
+                    : ledgerMetrics.isReceivable
+                    ? "Amount to Collect from Customer"
+                    : "Amount Payable to Vendor"}
                 </p>
               </div>
             </div>

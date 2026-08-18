@@ -22,6 +22,9 @@ import { MetricDriversScreen } from "./screens/MetricDriversScreen";
 import { CreateBatchModal } from "./components/CreateBatchModal";
 import { ReceivePaymentModal } from "./components/ReceivePaymentModal";
 
+import { MetricPurchaseBillsScreen } from "./screens/MetricPurchaseBillsScreen";
+import { MetricCreatePurchaseBillScreen } from "./screens/MetricCreatePurchaseBillScreen";
+
 import {
   Customer,
   Product,
@@ -32,6 +35,7 @@ import {
   Campaign,
   Employee,
   PaymentReceipt,
+  PurchaseBill,
   SupabaseService,
 } from "../db/supabaseService";
 
@@ -100,11 +104,13 @@ function MainAppContent() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [paymentReceipts, setPaymentReceipts] = useState<PaymentReceipt[]>([]);
+  const [purchaseBills, setPurchaseBills] = useState<PurchaseBill[]>([]);
 
   // UI state
   const [showCreateBatch, setShowCreateBatch] = useState(false);
   const [selectedLedgerCustomerId, setSelectedLedgerCustomerId] = useState<string>("");
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [editingPurchaseBill, setEditingPurchaseBill] = useState<PurchaseBill | null>(null);
   const [isReceivePaymentOpen, setIsReceivePaymentOpen] = useState(false);
   const [receivePaymentCustId, setReceivePaymentCustId] = useState("");
   const [receivePaymentOrderId, setReceivePaymentOrderId] = useState("");
@@ -112,7 +118,7 @@ function MainAppContent() {
 
   const loadAllData = useCallback(async () => {
     setLoading(true);
-    const [c, p, o, b, d, q, cmp, emp, rec] = await Promise.all([
+    const [c, p, o, b, d, q, cmp, emp, rec, pur] = await Promise.all([
       SupabaseService.getCustomers(),
       SupabaseService.getProducts(),
       SupabaseService.getOrders(),
@@ -122,6 +128,7 @@ function MainAppContent() {
       SupabaseService.getCampaigns(),
       SupabaseService.getEmployees(),
       SupabaseService.getPaymentReceipts(),
+      SupabaseService.getPurchaseBills(),
     ]);
 
     setCustomers(c);
@@ -133,8 +140,33 @@ function MainAppContent() {
     setCampaigns(cmp);
     setEmployees(emp);
     setPaymentReceipts(rec);
+    setPurchaseBills(pur);
     setLoading(false);
   }, []);
+
+  const handleSavePurchaseBill = (savedBill: PurchaseBill) => {
+    setPurchaseBills((prev) => {
+      const idx = prev.findIndex((b) => (b.id && b.id === savedBill.id) || (b.bill_no && b.bill_no === savedBill.bill_no));
+      if (idx !== -1) {
+        const updated = [...prev];
+        updated[idx] = savedBill;
+        return updated;
+      }
+      return [savedBill, ...prev];
+    });
+    setEditingPurchaseBill(null);
+    setActiveTab("purchase_bills");
+  };
+
+  const handleEditPurchaseBill = (bill: PurchaseBill) => {
+    setEditingPurchaseBill(bill);
+    setActiveTab("create_purchase_bill");
+  };
+
+  const handleDeletePurchaseBill = async (billId: string) => {
+    await SupabaseService.deletePurchaseBill(billId);
+    setPurchaseBills((prev) => prev.filter((b) => b.id !== billId && b.bill_no !== billId));
+  };
 
   const handleSaveBatch = async (batch: Partial<ProductionBatch>) => {
     const saved = await SupabaseService.saveBatch(batch as ProductionBatch);
@@ -332,6 +364,36 @@ function MainAppContent() {
               />
             )}
 
+            {activeTab === "purchase_bills" && (
+              <MetricPurchaseBillsScreen
+                bills={purchaseBills}
+                customers={customers}
+                onCreateBill={() => {
+                  setEditingPurchaseBill(null);
+                  setActiveTab("create_purchase_bill");
+                }}
+                onEditBill={handleEditPurchaseBill}
+                onDeleteBill={handleDeletePurchaseBill}
+                onViewLedger={(partyId) => {
+                  setSelectedLedgerCustomerId(partyId);
+                  setActiveTab("ledger");
+                }}
+              />
+            )}
+
+            {activeTab === "create_purchase_bill" && (
+              <MetricCreatePurchaseBillScreen
+                customers={customers}
+                products={products}
+                editingBill={editingPurchaseBill}
+                onBillSaved={handleSavePurchaseBill}
+                onCancel={() => {
+                  setEditingPurchaseBill(null);
+                  setActiveTab("purchase_bills");
+                }}
+              />
+            )}
+
             {activeTab === "create_order" && (
               <MetricCreateOrderScreen
                 customers={customers}
@@ -362,6 +424,7 @@ function MainAppContent() {
                 orders={orders}
                 dispatches={dispatches}
                 paymentReceipts={paymentReceipts}
+                purchaseBills={purchaseBills}
                 initialCustomerId={selectedLedgerCustomerId}
                 onEditOrder={handleEditOrder}
                 onDeleteOrder={handleDeleteOrder}

@@ -16,11 +16,14 @@ import {
   Leaf,
   Calendar,
   BookOpen,
+  Receipt,
 } from "lucide-react";
 
 export type MetricTab =
   | "dashboard"
   | "orders"
+  | "purchase_bills"
+  | "create_purchase_bill"
   | "ledger"
   | "create_order"
   | "production"
@@ -52,8 +55,9 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
 
   const navItems = [
     { id: "dashboard" as MetricTab, label: "Dashboard", icon: LineChart },
-    { id: "orders" as MetricTab, label: "Orders", icon: ShoppingCart },
-    { id: "ledger" as MetricTab, label: "Ledger", icon: BookOpen },
+    { id: "orders" as MetricTab, label: "Sales Orders", icon: ShoppingCart },
+    { id: "purchase_bills" as MetricTab, label: "Purchase Bills", icon: Receipt },
+    { id: "ledger" as MetricTab, label: "Party Ledger", icon: BookOpen },
     {
       id: "production" as MetricTab,
       label: "Production",

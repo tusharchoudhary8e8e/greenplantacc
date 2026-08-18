@@ -87,6 +87,36 @@ export interface PaymentReceipt {
   created_at?: string;
 }
 
+export interface PurchaseBillItem {
+  id?: string;
+  bill_id?: string;
+  product_name: string;
+  variant_name?: string;
+  price: number;
+  quantity: number;
+  line_total?: number;
+}
+
+export interface PurchaseBill {
+  id?: string;
+  bill_no?: string;
+  party_id?: string;
+  party_name: string;
+  bill_date: string;
+  gst_type?: "percentage" | "amount" | "none";
+  gst_value?: number;
+  gst_amount?: number;
+  transport_charge?: number;
+  paid_amount?: number;
+  items_total?: number;
+  total_amount?: number;
+  due_amount?: number;
+  status?: "unpaid" | "partially_paid" | "paid";
+  narration?: string;
+  items?: PurchaseBillItem[];
+  created_at?: string;
+}
+
 export interface ProductionBatch {
   id?: string;
   batch_no?: string;
@@ -853,5 +883,126 @@ export class SupabaseService {
     }
 
     return newRec;
+  }
+
+  // Purchase Bills
+  static async getPurchaseBills(): Promise<PurchaseBill[]> {
+    try {
+      const { data, error } = await supabase
+        .from("ma_purchase_bills")
+        .select("*, items:ma_purchase_bill_items(*)")
+        .order("bill_date", { ascending: false });
+      if (!error && data) return data as PurchaseBill[];
+    } catch {
+      // Fallback
+    }
+    return DEMO_PURCHASE_BILLS;
+  }
+
+  static async savePurchaseBill(bill: PurchaseBill): Promise<PurchaseBill> {
+    const billNo = bill.bill_no || `PUR-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const itemsTotal = (bill.items || []).reduce(
+      (sum, i) => sum + (i.price || 0) * (i.quantity || 0),
+      0
+    );
+
+    // Calculate Custom GST
+    let gstAmount = 0;
+    if (bill.gst_type === "percentage") {
+      gstAmount = (itemsTotal * (bill.gst_value || 0)) / 100;
+    } else if (bill.gst_type === "amount") {
+      gstAmount = bill.gst_value || 0;
+    }
+
+    const transport = bill.transport_charge || 0;
+    const paid = bill.paid_amount || 0;
+    const totalAmount = itemsTotal + gstAmount + transport;
+    const dueAmount = Math.max(0, totalAmount - paid);
+
+    let status: "unpaid" | "partially_paid" | "paid" = "unpaid";
+    if (dueAmount === 0) {
+      status = "paid";
+    } else if (paid > 0) {
+      status = "partially_paid";
+    }
+
+    const fullBill: PurchaseBill = {
+      ...bill,
+      bill_no: billNo,
+      items_total: itemsTotal,
+      gst_amount: gstAmount,
+      total_amount: totalAmount,
+      due_amount: dueAmount,
+      status: status,
+    };
+
+    try {
+      const userId = bill.user_id || (await SupabaseService.getUserId());
+      const { data: billData, error: billErr } = await supabase
+        .from("ma_purchase_bills")
+        .upsert({
+          ...(userId ? { user_id: userId } : {}),
+          ...(fullBill.id ? { id: fullBill.id } : {}),
+          bill_no: fullBill.bill_no,
+          party_id: fullBill.party_id,
+          party_name: fullBill.party_name,
+          bill_date: fullBill.bill_date,
+          gst_type: fullBill.gst_type,
+          gst_value: fullBill.gst_value,
+          gst_amount: fullBill.gst_amount,
+          transport_charge: fullBill.transport_charge,
+          paid_amount: fullBill.paid_amount,
+          items_total: fullBill.items_total,
+          total_amount: fullBill.total_amount,
+          due_amount: fullBill.due_amount,
+          status: fullBill.status,
+          narration: fullBill.narration,
+        })
+        .select()
+        .single();
+
+      if (!billErr && billData) {
+        if (bill.items) {
+          await supabase.from("ma_purchase_bill_items").delete().eq("bill_id", billData.id);
+          if (bill.items.length > 0) {
+            const itemPayloads = bill.items.map((it) => ({
+              bill_id: billData.id,
+              product_name: it.product_name,
+              variant_name: it.variant_name,
+              price: it.price,
+              quantity: it.quantity,
+              line_total: (it.price || 0) * (it.quantity || 0),
+            }));
+            await supabase.from("ma_purchase_bill_items").insert(itemPayloads);
+          }
+        }
+        return { ...billData, items: bill.items } as PurchaseBill;
+      }
+    } catch {
+      // Fallback
+    }
+
+    const localBill = { ...fullBill, id: fullBill.id || `pur-${Date.now()}` };
+    const idx = DEMO_PURCHASE_BILLS.findIndex((b) => b.id === localBill.id || b.bill_no === localBill.bill_no);
+    if (idx !== -1) {
+      DEMO_PURCHASE_BILLS[idx] = localBill;
+    } else {
+      DEMO_PURCHASE_BILLS.unshift(localBill);
+    }
+    saveToStorage("demo_purchase_bills", DEMO_PURCHASE_BILLS);
+    return localBill;
+  }
+
+  static async deletePurchaseBill(billId: string): Promise<boolean> {
+    try {
+      await supabase.from("ma_purchase_bill_items").delete().eq("bill_id", billId);
+      await supabase.from("ma_purchase_bills").delete().eq("id", billId);
+    } catch (e) {
+      console.error("Supabase delete purchase bill error:", e);
+    }
+
+    DEMO_PURCHASE_BILLS = DEMO_PURCHASE_BILLS.filter((b) => b.id !== billId && b.bill_no !== billId);
+    saveToStorage("demo_purchase_bills", DEMO_PURCHASE_BILLS);
+    return true;
   }
 }
