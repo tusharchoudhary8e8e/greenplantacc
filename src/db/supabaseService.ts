@@ -1949,7 +1949,43 @@ const INITIAL_DRIVERS: Driver[] = [
   },
 ];
 
-let DEMO_CUSTOMERS: Customer[] = loadFromStorage("demo_customers", INITIAL_CUSTOMERS);
+const loadCustomersFromStorage = (): Customer[] => {
+  try {
+    const data = localStorage.getItem("demo_customers_v3");
+    if (data) {
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length >= 100) {
+        return parsed;
+      }
+    }
+
+    // Merge INITIAL_CUSTOMERS with any user-created local storage customers
+    const oldData = localStorage.getItem("demo_customers");
+    let mergedList = [...INITIAL_CUSTOMERS];
+
+    if (oldData) {
+      try {
+        const parsedOld = JSON.parse(oldData);
+        if (Array.isArray(parsedOld)) {
+          const existingNames = new Set(INITIAL_CUSTOMERS.map((c) => (c.name || "").trim().toUpperCase()));
+          parsedOld.forEach((cust: any) => {
+            if (cust && cust.name && !existingNames.has(cust.name.trim().toUpperCase())) {
+              mergedList.push(cust);
+            }
+          });
+        }
+      } catch {}
+    }
+
+    saveToStorage("demo_customers_v3", mergedList);
+    saveToStorage("demo_customers", mergedList);
+    return mergedList;
+  } catch {
+    return INITIAL_CUSTOMERS;
+  }
+};
+
+let DEMO_CUSTOMERS: Customer[] = loadCustomersFromStorage();
 let DEMO_PRODUCTS: Product[] = loadFromStorage("demo_products", INITIAL_PRODUCTS);
 let DEMO_ORDERS: Order[] = loadFromStorage("demo_orders", INITIAL_ORDERS);
 let DEMO_BATCHES: ProductionBatch[] = loadFromStorage("demo_batches", INITIAL_BATCHES);
