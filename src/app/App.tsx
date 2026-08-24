@@ -460,7 +460,14 @@ function MainAppContent() {
             )}
             
             {activeTab === "dispatch_plans" && (
-              <MetricDispatchPlansScreen orders={orders} />
+              <MetricDispatchPlansScreen
+                orders={orders}
+                dispatches={dispatches}
+                drivers={drivers}
+                customers={customers}
+                employees={employees}
+                onDispatchSaved={(newD) => setDispatches([newD, ...dispatches])}
+              />
             )}
             
             {activeTab === "drivers" && (
