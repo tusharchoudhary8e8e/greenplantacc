@@ -31,6 +31,7 @@ import {
   Employee,
   Customer,
   Order,
+  Driver,
   SupabaseService,
 } from "../../db/supabaseService";
 import { ScheduleDispatchModal } from "../components/ScheduleDispatchModal";
@@ -461,32 +462,51 @@ export const MetricDispatchScreen: React.FC<MetricDispatchScreenProps> = ({
 
                       {/* CUSTOMER */}
                       <td className="py-4 px-4">
-                        <div className="flex flex-col">
-                          <span className="font-extrabold text-slate-800 text-[13px]">
-                            {d.customer_name || "Ayush Choudhary"}
-                          </span>
-                          <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
-                            <Phone className="w-3 h-3 text-slate-400" />
-                            {d.customer_phone || "9109239066"}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono mt-0.5">
-                            {d.customer_code || "#ORG1_CUST_2026_0006"}
-                          </span>
-                        </div>
+                        {(() => {
+                          const matchedCustomer = (customers || []).find(
+                            (c) => c.id === d.customer_id || (c.name || "").toLowerCase() === (d.customer_name || "").toLowerCase()
+                          );
+                          const custName = d.customer_name || matchedCustomer?.name || "Customer";
+                          const custPhone = d.customer_phone || matchedCustomer?.phone || "";
+                          const custCode = d.customer_code || matchedCustomer?.org_id || "";
+
+                          return (
+                            <div className="flex flex-col">
+                              <span className="font-extrabold text-slate-800 text-[13px]">{custName}</span>
+                              {custPhone && (
+                                <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1 mt-0.5">
+                                  <Phone className="w-3 h-3 text-slate-400" />
+                                  {custPhone}
+                                </span>
+                              )}
+                              {custCode && (
+                                <span className="text-[10px] text-slate-400 font-mono mt-0.5">{custCode}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* VILLAGE */}
                       <td className="py-4 px-4">
-                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/60 rounded-full font-bold text-[11px] capitalize">
-                          <MapPin className="w-3 h-3 text-emerald-600" />
-                          {d.village || "chhindwara"}
-                        </span>
+                        {(() => {
+                          const matchedCustomer = (customers || []).find(
+                            (c) => c.id === d.customer_id || (c.name || "").toLowerCase() === (d.customer_name || "").toLowerCase()
+                          );
+                          const villageName = d.village || matchedCustomer?.city || matchedCustomer?.address || "N/A";
+                          return (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/60 rounded-full font-bold text-[11px] capitalize">
+                              <MapPin className="w-3 h-3 text-emerald-600" />
+                              {villageName}
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* DUE AMOUNT */}
                       <td className="py-4 px-4">
                         <span className="inline-flex items-center px-3.5 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded-full font-extrabold text-xs font-mono shadow-xs">
-                          ₹{(d.due_amount !== undefined ? d.due_amount : 20000).toLocaleString()}
+                          ₹{(d.due_amount !== undefined ? d.due_amount : 0).toLocaleString()}
                         </span>
                       </td>
 
@@ -499,35 +519,61 @@ export const MetricDispatchScreen: React.FC<MetricDispatchScreenProps> = ({
                           <span className="text-[11px] font-bold text-sky-700 font-mono mt-0.5">
                             🌱 {(d.total_plants || calcTotalPlants).toLocaleString()}
                           </span>
-                          <span className="text-[10px] text-slate-400 font-mono mt-0.5">
-                            {d.order_no || "#ORG1_ORD_2026_0009"}
-                          </span>
+                          {d.order_no && (
+                            <span className="text-[10px] text-slate-400 font-mono mt-0.5">{d.order_no}</span>
+                          )}
                         </div>
                       </td>
 
                       {/* DRIVER */}
                       <td className="py-4 px-4">
-                        <div className="flex flex-col">
-                          <span className="font-extrabold text-slate-800 capitalize text-xs">
-                            {d.driver_name || "monu"}
-                          </span>
-                          <span className="text-[11px] text-purple-600 font-mono flex items-center gap-1 mt-0.5">
-                            <Phone className="w-3 h-3 text-purple-400" />
-                            {d.driver_phone || "9752348309"}
-                          </span>
-                        </div>
+                        {(() => {
+                          const matchedDriver = (drivers || []).find(
+                            (drv) =>
+                              drv.id === d.driver_name ||
+                              (drv.name || "").toLowerCase() === (d.driver_name || "").toLowerCase()
+                          );
+                          const drvName = d.driver_name || matchedDriver?.name || "Unassigned";
+                          const drvPhone = d.driver_phone || matchedDriver?.phone || "";
+
+                          return (
+                            <div className="flex flex-col">
+                              <span className="font-extrabold text-slate-800 capitalize text-xs">{drvName}</span>
+                              {drvPhone ? (
+                                <span className="text-[11px] text-purple-600 font-mono flex items-center gap-1 mt-0.5">
+                                  <Phone className="w-3 h-3 text-purple-400" />
+                                  {drvPhone}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 font-mono mt-0.5">N/A</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* VEHICLE */}
                       <td className="py-4 px-4">
-                        <div className="flex flex-col">
-                          <span className="font-extrabold text-slate-800 capitalize text-xs">
-                            {d.vehicle_name || "mahendra"}
-                          </span>
-                          <span className="text-[11px] text-slate-500 font-mono mt-0.5">
-                            #{d.vehicle_no || "mp28c1234"}
-                          </span>
-                        </div>
+                        {(() => {
+                          const matchedDriver = (drivers || []).find(
+                            (drv) =>
+                              drv.id === d.driver_name ||
+                              (drv.name || "").toLowerCase() === (d.driver_name || "").toLowerCase()
+                          );
+                          const vName = d.vehicle_name || matchedDriver?.vehicle_name || "";
+                          const vNo = d.vehicle_no || matchedDriver?.vehicle_number || "";
+
+                          return (
+                            <div className="flex flex-col">
+                              <span className="font-extrabold text-slate-800 capitalize text-xs">
+                                {vName || "Vehicle"}
+                              </span>
+                              {vNo && (
+                                <span className="text-[11px] text-slate-500 font-mono mt-0.5">#{vNo}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* STATUS */}
@@ -540,7 +586,7 @@ export const MetricDispatchScreen: React.FC<MetricDispatchScreenProps> = ({
                       {/* CREATED BY */}
                       <td className="py-4 px-4">
                         <span className="font-bold text-slate-800 text-xs">
-                          {d.created_by || "Greenza Demo"}
+                          {d.created_by || "System Staff"}
                         </span>
                       </td>
 

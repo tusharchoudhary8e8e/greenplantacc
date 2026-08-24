@@ -9,6 +9,7 @@ interface ScheduleDispatchModalProps {
   customers: Customer[];
   orders: Order[];
   employees: Employee[];
+  drivers?: Driver[];
   onSaveDispatch: (dispatch: DispatchRecord) => void;
 }
 
@@ -18,6 +19,7 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
   customers = [],
   orders = [],
   employees = [],
+  drivers = [],
   onSaveDispatch,
 }) => {
   const [selectedCustId, setSelectedCustId] = useState<string>("");
@@ -41,17 +43,17 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
   const safeCustomers = Array.isArray(customers) ? customers : [];
   const safeEmployees = Array.isArray(employees) ? employees : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeDrivers = Array.isArray(drivers) && drivers.length > 0 ? drivers : [];
 
   // Searchable Customer Options
   const customerOptions: SearchableOption[] = safeCustomers.map((c) => ({
     value: c.id || "",
     label: c.name || "Customer",
     subLabel: c.address || `${c.city || ""}, ${c.state || ""}`.trim(),
-    badge: c.zone || "ZONE1",
   }));
 
   const selectedCustomer = safeCustomers.find((c) => c.id === selectedCustId);
-  const selectedDriver = safeEmployees.find((e) => e.id === selectedDriverId || e.name === selectedDriverId);
+  const selectedDriver = safeDrivers.find((d) => d.id === selectedDriverId || d.name === selectedDriverId);
 
   // Orders belonging to selected customer
   const customerOrders = safeOrders.filter(
@@ -67,11 +69,11 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
     badge: o.status || "pending",
   }));
 
-  // Driver Options from Employees list
-  const driverOptions: SearchableOption[] = safeEmployees.map((emp) => ({
-    value: emp.id || emp.name,
-    label: `${emp.name} (${emp.role || "Driver"})`,
-    subLabel: `Phone: ${emp.phone || "N/A"}`,
+  // Driver Options from Drivers Directory
+  const driverOptions: SearchableOption[] = safeDrivers.map((drv) => ({
+    value: drv.id || drv.name,
+    label: `${drv.name} ${drv.vehicle_name ? `(${drv.vehicle_name})` : ""}`,
+    subLabel: `Phone: ${drv.phone || "N/A"} • Vehicle No: ${drv.vehicle_number || "N/A"}`,
   }));
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,24 +86,25 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
       return;
     }
 
-    if (!vehicleNo.trim()) {
-      setErrorMsg("Please enter a vehicle number (e.g. MP-28-GB-1024).");
-      return;
-    }
-
     setSubmitting(true);
 
     const dispatchNo = `DISP-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const finalVehicleNo = vehicleNo.trim() || selectedDriver?.vehicle_number || "";
 
     const newDispatch: DispatchRecord = {
       dispatch_no: dispatchNo,
       order_id: selectedOrderId,
       customer_id: selectedCustomer.id,
       customer_name: selectedCustomer.name,
+      customer_phone: selectedCustomer.phone || "",
+      customer_code: selectedCustomer.org_id || "",
+      village: selectedCustomer.city || selectedCustomer.address || "",
       dispatch_date: dispatchDate,
-      vehicle_no: vehicleNo.trim().toUpperCase(),
-      driver_name: selectedDriver?.name || "Ramesh Kumar",
-      driver_phone: selectedDriver?.phone || "9823456789",
+      vehicle_name: selectedDriver?.vehicle_name || "",
+      vehicle_no: finalVehicleNo.toUpperCase(),
+      driver_name: selectedDriver?.name || "",
+      driver_phone: selectedDriver?.phone || "",
       status: status,
       notes: notes,
       items: [
