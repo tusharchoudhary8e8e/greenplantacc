@@ -147,15 +147,31 @@ export interface DispatchRecord {
   id?: string;
   dispatch_no?: string;
   order_id?: string;
+  order_no?: string;
   customer_id?: string;
   customer_name?: string;
+  customer_phone?: string;
+  customer_code?: string;
+  village?: string;
+  due_amount?: number;
+  total_trays?: number;
+  total_plants?: number;
   dispatch_date?: string;
+  vehicle_name?: string;
   vehicle_no?: string;
   driver_name?: string;
   driver_phone?: string;
-  status?: "pending" | "in_transit" | "delivered";
+  status?: "pending" | "in_transit" | "delivered" | "dispatched";
   notes?: string;
-  items?: { product_name: string; variant_name: string; quantity: number }[];
+  created_by?: string;
+  items?: {
+    product_name: string;
+    variant_name: string;
+    quantity: number;
+    trays?: number;
+    lot_no?: string;
+    unit?: string;
+  }[];
   created_at?: string;
 }
 
@@ -1877,7 +1893,80 @@ const INITIAL_BATCHES: ProductionBatch[] = [
   },
 ];
 
-const INITIAL_DISPATCH: DispatchRecord[] = [];
+const INITIAL_DISPATCH: DispatchRecord[] = [
+  {
+    id: "disp-101",
+    dispatch_no: "DISP-2026-0001",
+    order_id: "ord-9009",
+    order_no: "#ORG1_ORD_2026_0009",
+    customer_id: "cust-1006",
+    customer_name: "Ayush Choudhary",
+    customer_phone: "9109239066",
+    customer_code: "#ORG1_CUST_2026_0006",
+    village: "chhindwara",
+    due_amount: 20000,
+    total_trays: 209,
+    total_plants: 25000,
+    dispatch_date: "2026-08-24",
+    vehicle_name: "mahendra",
+    vehicle_no: "mp28c1234",
+    driver_name: "monu",
+    driver_phone: "9752348309",
+    status: "dispatched",
+    created_by: "Greenza Demo",
+    notes: "Express delivery to Chhindwara depot",
+    items: [
+      {
+        product_name: "TOMATO",
+        variant_name: "SAAHO",
+        quantity: 10000,
+        trays: 84,
+        lot_no: "12345",
+        unit: "Unit 1",
+      },
+      {
+        product_name: "CHILLY",
+        variant_name: "TALWAR",
+        quantity: 15000,
+        trays: 125,
+        lot_no: "1234567",
+        unit: "Unit 1",
+      },
+    ],
+  },
+  {
+    id: "disp-102",
+    dispatch_no: "DISP-2026-0002",
+    order_id: "ord-9010",
+    order_no: "#ORG1_ORD_2026_0010",
+    customer_id: "cust-1006",
+    customer_name: "Ayush Choudhary",
+    customer_phone: "9109239066",
+    customer_code: "#ORG1_CUST_2026_0006",
+    village: "chhindwara",
+    due_amount: 15000,
+    total_trays: 84,
+    total_plants: 10000,
+    dispatch_date: "2026-08-07",
+    vehicle_name: "mahendra",
+    vehicle_no: "mp28c1234",
+    driver_name: "monu",
+    driver_phone: "9752348309",
+    status: "dispatched",
+    created_by: "Greenza Demo",
+    notes: "Morning delivery batch",
+    items: [
+      {
+        product_name: "TOMATO",
+        variant_name: "ABHILASH",
+        quantity: 10000,
+        trays: 84,
+        lot_no: "98765",
+        unit: "Unit 1",
+      },
+    ],
+  },
+];
 
 const INITIAL_EMPLOYEES: Employee[] = [
   {
