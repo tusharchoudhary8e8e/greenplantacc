@@ -9,12 +9,13 @@ import {
   Link as LinkIcon,
   CheckCircle,
 } from "lucide-react";
-import { Customer, Product, Order, OrderItem, SupabaseService } from "../../db/supabaseService";
+import { Customer, Product, Order, OrderItem, ProductionBatch, SupabaseService } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "../components/SearchableSelect";
 
 interface CreateOrderProps {
   customers: Customer[];
   products: Product[];
+  batches?: ProductionBatch[];
   editingOrder?: Order | null;
   onOrderSaved: (newOrder: Order) => void;
   onCancel: () => void;
@@ -23,6 +24,7 @@ interface CreateOrderProps {
 export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
   customers,
   products,
+  batches = [],
   editingOrder = null,
   onOrderSaved,
   onCancel,
@@ -369,6 +371,71 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                 key={idx}
                 className="p-5 border border-slate-200 rounded-2xl space-y-4 bg-slate-50/50 shadow-sm"
               >
+                {/* Smart Stock Allocation Alert Banner */}
+                {(() => {
+                  const matchingSurplusBatch = (batches || []).find((b) => {
+                    if (!b.product_name || !item.product_name) return false;
+                    const isProdMatch = b.product_name.toLowerCase() === item.product_name.toLowerCase();
+                    const isVarMatch =
+                      !item.variant_name ||
+                      (b.variant_name || "").toLowerCase() === item.variant_name.toLowerCase();
+                    return isProdMatch && isVarMatch && (b.surplus_quantity || 0) > 0;
+                  });
+
+                  if (!matchingSurplusBatch || !item.product_name || !(item.quantity > 0)) return null;
+
+                  const daysElapsed = Math.max(
+                    0,
+                    Math.floor(
+                      (new Date().getTime() - new Date(matchingSurplusBatch.sowing_date || "").getTime()) /
+                        (1000 * 3600 * 24)
+                    )
+                  );
+                  const daysRemaining = Math.max(
+                    0,
+                    (matchingSurplusBatch.maturity_days || 30) - daysElapsed
+                  );
+
+                  return (
+                    <div className="p-3.5 bg-emerald-950 text-emerald-100 rounded-xl text-xs space-y-2 border border-emerald-800 shadow-md">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <Sprout className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <span className="font-extrabold text-amber-300">
+                            💡 Existing In-Progress Stock Found!
+                          </span>
+                        </div>
+                        <span className="bg-amber-400/20 text-amber-200 px-2.5 py-0.5 rounded font-mono text-[11px] border border-amber-400/30 font-bold">
+                          🌱 {(matchingSurplusBatch.surplus_quantity || 0).toLocaleString()} extra plants available
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] text-emerald-200 leading-relaxed">
+                        Batch <strong className="text-white">#{matchingSurplusBatch.batch_code || matchingSurplusBatch.batch_no}</strong> was sowed <strong className="text-white">{daysElapsed} days ago</strong> on {matchingSurplusBatch.sowing_date}. 
+                        It will be fully germinated in <strong className="text-amber-300 font-extrabold">{daysRemaining} days remaining</strong> (Ready on {matchingSurplusBatch.end_date}).
+                      </p>
+
+                      <div className="flex items-center gap-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateItemRow(idx, "batch_id", matchingSurplusBatch.id);
+                            updateItemRow(idx, "status", "sowing_done");
+                            alert(
+                              `Allocated ${item.quantity.toLocaleString()} plants from Batch #${
+                                matchingSurplusBatch.batch_code || matchingSurplusBatch.batch_no
+                              }! Plants will be ready in ${daysRemaining} days (on ${matchingSurplusBatch.end_date}).`
+                            );
+                          }}
+                          className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-3.5 py-1.5 rounded-lg text-xs transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <CheckCircle className="w-4 h-4 text-slate-950" />
+                          <span>Reserve {item.quantity.toLocaleString()} plants from Existing Batch #{matchingSurplusBatch.batch_code || matchingSurplusBatch.batch_no}</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
                   {/* Product SearchableSelect */}
                   <div className="md:col-span-3">

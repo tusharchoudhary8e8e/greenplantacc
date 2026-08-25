@@ -406,6 +406,7 @@ function MainAppContent() {
               <MetricCreateOrderScreen
                 customers={customers}
                 products={products}
+                batches={batches}
                 editingOrder={editingOrder}
                 onOrderSaved={handleOrderSaved}
                 onCancel={() => {
@@ -447,6 +448,7 @@ function MainAppContent() {
             {activeTab === "inventory" && (
               <MetricInventoryScreen
                 products={products}
+                batches={batches}
                 onProductsUpdated={loadAllData}
               />
             )}
@@ -495,6 +497,7 @@ function MainAppContent() {
         isOpen={showCreateBatch} 
         onClose={() => setShowCreateBatch(false)} 
         products={products} 
+        orders={orders}
         onSave={handleSaveBatch} 
       />
 

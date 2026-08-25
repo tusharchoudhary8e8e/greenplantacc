@@ -120,6 +120,7 @@ export interface PurchaseBill {
 export interface ProductionBatch {
   id?: string;
   batch_no?: string;
+  batch_code?: string;
   lot_no?: string;
   unit?: string;
   polyhouse?: string;
@@ -134,12 +135,17 @@ export interface ProductionBatch {
   total_seeds?: number;
   cocopeat_used?: number;
   trays_used?: number;
+  trays_sown?: number;
   seeds_per_tray?: number;
   expected_plants?: number;
   actual_plants?: number;
   germination_pct?: number;
   status?: "sowing" | "germinating" | "ready" | "dispatched";
   notes?: string;
+  linked_order_ids?: string[];
+  allocated_quantity?: number;
+  surplus_quantity?: number;
+  maturity_days?: number;
   created_at?: string;
 }
 
@@ -1876,20 +1882,46 @@ const INITIAL_ORDERS: Order[] = [];
 
 const INITIAL_BATCHES: ProductionBatch[] = [
   {
-    id: "batch-1",
+    id: "batch-101",
     batch_no: "BATCH-2026-001",
+    batch_code: "BATCH-2026-001",
+    product_name: "TOMATO",
+    variant_name: "SAAHO",
+    sowing_date: "2026-08-15", // Sowed 10 days ago (relative to Aug 25)
+    end_date: "2026-09-14",     // Ready in 20 days (30 days total maturity)
+    maturity_days: 30,
+    total_seeds: 42000,
+    expected_plants: 40000,
+    actual_plants: 40000,
+    allocated_quantity: 30000,
+    surplus_quantity: 10000,
+    linked_order_ids: ["ord-9009"],
+    trays_used: 333,
+    trays_sown: 333,
+    germination_pct: 95.2,
+    status: "germinating",
+    notes: "Batch #101: 30k allocated for customer orders, 10k surplus available in greenhouse.",
+  },
+  {
+    id: "batch-102",
+    batch_no: "BATCH-2026-002",
+    batch_code: "BATCH-2026-002",
     product_name: "CHILLY",
     variant_name: "TALWAR",
-    sowing_date: "2026-06-18",
-    total_seeds: 6000,
-    cocopeat_used: 12.0,
-    trays_used: 48,
-    seeds_per_tray: 126,
-    expected_plants: 5800,
-    actual_plants: 5650,
-    germination_pct: 94.17,
-    status: "ready",
-    notes: "Healthy growth observed",
+    sowing_date: "2026-08-10",
+    end_date: "2026-09-14",
+    maturity_days: 35,
+    total_seeds: 26000,
+    expected_plants: 25000,
+    actual_plants: 25000,
+    allocated_quantity: 15000,
+    surplus_quantity: 10000,
+    linked_order_ids: [],
+    trays_used: 200,
+    trays_sown: 200,
+    germination_pct: 96.0,
+    status: "germinating",
+    notes: "Batch #102: 15k allocated, 10k extra surplus available.",
   },
 ];
 

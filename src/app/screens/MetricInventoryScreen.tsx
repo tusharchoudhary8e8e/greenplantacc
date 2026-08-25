@@ -1,15 +1,17 @@
 import React, { useState, useMemo } from "react";
 import { Upload, Plus, ChevronDown, ChevronRight, Copy, Trash2, MoreHorizontal, X } from "lucide-react";
-import { Product, ProductVariant, SupabaseService } from "../../db/supabaseService";
+import { Product, ProductVariant, ProductionBatch, SupabaseService } from "../../db/supabaseService";
 import { ImportCropsModal } from "./ImportCropsModal";
 
 interface InventoryProps {
   products: Product[];
+  batches?: ProductionBatch[];
   onProductsUpdated: () => void;
 }
 
 export const MetricInventoryScreen: React.FC<InventoryProps> = ({
   products = [],
+  batches = [],
   onProductsUpdated,
 }) => {
   const [showImportModal, setShowImportModal] = useState(false);
@@ -115,6 +117,84 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Live Surplus Stock Card */}
+      {(() => {
+        const surplusBatches = (batches || []).filter((b) => (b.surplus_quantity || 0) > 0);
+        const totalSurplusPlants = surplusBatches.reduce((s, b) => s + (b.surplus_quantity || 0), 0);
+
+        return (
+          <div className="bg-emerald-950 text-emerald-100 p-6 rounded-2xl shadow-sm border border-emerald-800 space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-emerald-800/80 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded text-xs">
+                    {surplusBatches.length} Batches
+                  </span>
+                  <h3 className="text-base font-extrabold text-white tracking-tight">
+                    🌱 Live Surplus Growing Stock (Unallocated Extra Plants)
+                  </h3>
+                </div>
+                <p className="text-xs text-emerald-300 font-medium mt-1">
+                  Extra plants currently growing in greenhouses available for new incoming customer orders
+                </p>
+              </div>
+
+              <div className="bg-emerald-900/80 px-4 py-2 rounded-xl border border-emerald-700 font-mono text-xs flex items-center gap-2">
+                <span className="text-emerald-300 font-semibold">Total Surplus Stock:</span>
+                <span className="text-amber-300 font-black text-sm">🌱 {totalSurplusPlants.toLocaleString()} plants</span>
+              </div>
+            </div>
+
+            {surplusBatches.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {surplusBatches.map((b) => {
+                  const daysElapsed = Math.max(
+                    0,
+                    Math.floor(
+                      (new Date().getTime() - new Date(b.sowing_date || "").getTime()) /
+                        (1000 * 3600 * 24)
+                    )
+                  );
+                  const daysRemaining = Math.max(0, (b.maturity_days || 30) - daysElapsed);
+
+                  return (
+                    <div
+                      key={b.id || b.batch_no}
+                      className="bg-emerald-900/60 p-4 rounded-xl border border-emerald-800/80 space-y-2 hover:border-emerald-700 transition"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-amber-300 font-extrabold text-sm">
+                            {b.product_name} - {b.variant_name}
+                          </span>
+                          <div className="text-[11px] text-emerald-300 font-mono mt-0.5">
+                            Batch #{b.batch_code || b.batch_no} • {b.polyhouse || "Greenhouse A"}
+                          </div>
+                        </div>
+                        <span className="bg-amber-400/20 text-amber-200 border border-amber-400/40 px-2.5 py-1 rounded font-extrabold font-mono text-xs">
+                          🌱 {(b.surplus_quantity || 0).toLocaleString()} extra
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-emerald-800/60 text-emerald-200 font-medium">
+                        <span>Sowed {daysElapsed} days ago ({b.sowing_date})</span>
+                        <span className="bg-emerald-800 text-amber-300 px-2 py-0.5 rounded font-extrabold border border-emerald-700">
+                          ⏳ {daysRemaining} Days Left (Ready {b.end_date})
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-4 text-emerald-400 text-xs italic">
+                No surplus stock currently growing in greenhouses.
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
         {/* Table Toolbar */}

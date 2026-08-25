@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { X } from "lucide-react";
-import { Product, ProductionBatch } from "../../db/supabaseService";
+import { X, CheckSquare, Square, Sprout, AlertCircle } from "lucide-react";
+import { Product, ProductionBatch, Order } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "./SearchableSelect";
 
 interface CreateBatchModalProps {
   isOpen: boolean;
   onClose: () => void;
   products: Product[];
+  orders?: Order[];
   onSave: (batch: Partial<ProductionBatch>) => void;
 }
 
@@ -14,6 +15,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
   isOpen,
   onClose,
   products,
+  orders = [],
   onSave,
 }) => {
   const [lotNo, setLotNo] = useState("");
@@ -26,6 +28,9 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
   const [selectedVariant, setSelectedVariant] = useState("");
   const [requiredQuantity, setRequiredQuantity] = useState<number | "">("");
   const [bufferQuantity, setBufferQuantity] = useState<number | "">(0);
+
+  // Selected Order IDs for this batch
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
 
   const productOptions: SearchableOption[] = products.map((p) => ({
     value: p.name,
@@ -53,6 +58,46 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
   const [durationDays, setDurationDays] = useState(0);
   const [submitting, setSubmitting] = useState(false);
 
+  // Pending Customer Orders matching selected Product & Variant
+  const matchingOrders = React.useMemo(() => {
+    if (!selectedProduct) return [];
+    return (orders || []).filter((ord) => {
+      if (!ord.items || ord.items.length === 0) return false;
+      return ord.items.some(
+        (i) =>
+          i.product_name.toLowerCase() === selectedProduct.toLowerCase() &&
+          (!selectedVariant || (i.variant_name || "").toLowerCase() === selectedVariant.toLowerCase())
+      );
+    });
+  }, [orders, selectedProduct, selectedVariant]);
+
+  // Sum of quantities of selected customer orders
+  const allocatedDemand = React.useMemo(() => {
+    let sum = 0;
+    matchingOrders.forEach((ord) => {
+      if (selectedOrderIds.includes(ord.id || "")) {
+        ord.items?.forEach((i) => {
+          if (
+            i.product_name.toLowerCase() === selectedProduct.toLowerCase() &&
+            (!selectedVariant || (i.variant_name || "").toLowerCase() === selectedVariant.toLowerCase())
+          ) {
+            sum += i.quantity || 0;
+          }
+        });
+      }
+    });
+    return sum;
+  }, [matchingOrders, selectedOrderIds, selectedProduct, selectedVariant]);
+
+  // Auto update required quantity if allocated demand changes and user hasn't typed a higher number
+  useEffect(() => {
+    if (allocatedDemand > 0 && (Number(requiredQuantity) || 0) < allocatedDemand) {
+      setRequiredQuantity(allocatedDemand);
+    }
+  }, [allocatedDemand]);
+
+  const surplusQuantity = Math.max(0, (Number(requiredQuantity) || 0) - allocatedDemand);
+
   useEffect(() => {
     // Calculate Sowing Quantity
     const reqQty = Number(requiredQuantity) || 0;
@@ -71,7 +116,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
     if (selectedProduct && selectedVariant) {
       const product = products.find((p) => p.name === selectedProduct);
       const variant = product?.variants?.find((v) => v.name === selectedVariant);
-      const duration = variant?.duration || 0;
+      const duration = variant?.duration || 30;
       setDurationDays(duration);
 
       if (startDate && duration > 0) {
@@ -86,27 +131,39 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
 
   if (!isOpen) return null;
 
+  const toggleOrderSelection = (orderId: string) => {
+    setSelectedOrderIds((prev) =>
+      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
     try {
       await onSave({
-        batch_no: `BCH-${Date.now().toString().slice(-6)}`,
-        lot_no: lotNo,
-        unit,
-        polyhouse,
-        table_no: tableNo,
+        batch_no: `BATCH-2026-${Math.floor(100 + Math.random() * 900)}`,
+        batch_code: `BATCH-2026-${Math.floor(100 + Math.random() * 900)}`,
+        lot_no: lotNo || `${Math.floor(10000 + Math.random() * 90000)}`,
+        unit: unit || "Unit 1",
+        polyhouse: polyhouse || "Polyhouse A",
+        table_no: tableNo || "Table 1",
         tray_size: traySize,
         product_name: selectedProduct,
         variant_name: selectedVariant,
         required_quantity: Number(requiredQuantity) || 0,
+        allocated_quantity: allocatedDemand,
+        surplus_quantity: surplusQuantity,
+        linked_order_ids: selectedOrderIds,
+        maturity_days: durationDays || 30,
         buffer_quantity_pct: Number(bufferQuantity) || 0,
-        total_seeds: totalSowingQuantity, // map to total_seeds for backward compatibility
+        total_seeds: totalSowingQuantity,
         trays_used: numberOfTrays,
+        trays_sown: numberOfTrays,
         sowing_date: startDate,
         end_date: endDate,
-        status: "sowing",
+        status: "germinating",
       });
     } catch (err) {
       console.error(err);
@@ -223,12 +280,13 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Required Quantity</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Total Sowing Quantity (Seeds/Plants)</label>
                 <input
                   type="number"
                   value={requiredQuantity}
                   onChange={(e) => setRequiredQuantity(Number(e.target.value))}
-                  className="w-full p-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-emerald-500"
+                  className="w-full p-2 border border-slate-200 rounded-lg text-sm font-extrabold focus:outline-none focus:border-emerald-500 text-emerald-800"
+                  placeholder="e.g. 40000"
                   required
                 />
               </div>
@@ -242,7 +300,7 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Total Sowing Quantity</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Total Seeds Sown</label>
                 <input
                   type="number"
                   value={totalSowingQuantity}
@@ -260,6 +318,86 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
                 />
               </div>
             </div>
+
+            {/* Customer Orders Linking */}
+            {selectedProduct && (
+              <div className="mt-4 pt-4 border-t border-slate-100 space-y-3">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Sprout className="w-4 h-4 text-emerald-600" />
+                    <span>Link Pending Customer Orders</span>
+                  </h4>
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                    {matchingOrders.length} Matching Orders
+                  </span>
+                </div>
+
+                {matchingOrders.length > 0 ? (
+                  <div className="space-y-2 max-h-36 overflow-y-auto border border-slate-200 rounded-xl p-2.5 bg-slate-50/50">
+                    {matchingOrders.map((ord) => {
+                      const isSelected = selectedOrderIds.includes(ord.id || "");
+                      const ordQty = (ord.items || [])
+                        .filter(
+                          (i) =>
+                            i.product_name.toLowerCase() === selectedProduct.toLowerCase() &&
+                            (!selectedVariant || (i.variant_name || "").toLowerCase() === selectedVariant.toLowerCase())
+                        )
+                        .reduce((s, i) => s + (i.quantity || 0), 0);
+
+                      return (
+                        <div
+                          key={ord.id}
+                          onClick={() => toggleOrderSelection(ord.id || "")}
+                          className={`p-2.5 rounded-lg border text-xs cursor-pointer flex items-center justify-between transition ${
+                            isSelected
+                              ? "bg-emerald-50 border-emerald-300 text-emerald-900 font-semibold shadow-xs"
+                              : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 text-emerald-600 shrink-0" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-400 shrink-0" />
+                            )}
+                            <div>
+                              <div className="font-bold text-slate-800">{ord.customer_name}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                #{ord.order_no || ord.id} • {ord.order_date}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="font-extrabold font-mono text-emerald-700 bg-white px-2 py-1 rounded border border-emerald-100">
+                            🌱 {ordQty.toLocaleString()} plants
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic bg-slate-50 p-2.5 rounded-lg">
+                    No pending orders found for {selectedProduct} {selectedVariant}. Total sowing quantity will be stored as Surplus Inventory.
+                  </p>
+                )}
+
+                {/* Stock Allocation & Surplus Breakdown Box */}
+                <div className="bg-emerald-950/90 text-emerald-100 p-3.5 rounded-xl text-xs space-y-1.5 shadow-md">
+                  <div className="flex justify-between items-center font-bold">
+                    <span>Allocated for Linked Orders:</span>
+                    <span className="font-mono text-emerald-300">🌱 {allocatedDemand.toLocaleString()} plants</span>
+                  </div>
+                  <div className="flex justify-between items-center font-extrabold text-amber-300 border-t border-emerald-800/80 pt-1.5">
+                    <span className="flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                      Unallocated Extra Surplus Stock:
+                    </span>
+                    <span className="font-mono text-sm bg-amber-400/20 text-amber-200 px-2 py-0.5 rounded border border-amber-400/30">
+                      🌱 {surplusQuantity.toLocaleString()} plants
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Batch Timeline */}
