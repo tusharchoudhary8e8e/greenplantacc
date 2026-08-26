@@ -68,6 +68,19 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
   );
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(initialCustomerId);
+
+  // Sync viewMode when initialMode prop changes (e.g. switching sidebar tabs)
+  React.useEffect(() => {
+    if (initialMode) {
+      setViewMode(initialMode);
+    }
+  }, [initialMode]);
+
+  React.useEffect(() => {
+    if (initialCustomerId) {
+      setSelectedCustomerId(initialCustomerId);
+    }
+  }, [initialCustomerId]);
   const [searchTerm, setSearchTerm] = useState("");
   const [partySearchTerm, setPartySearchTerm] = useState("");
   const [partyFilter, setPartyFilter] = useState<"all" | "get" | "give" | "zero">("all");
@@ -468,11 +481,19 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
         <div>
           <div className="flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-emerald-600" />
-            <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">Party Balances & Financial Ledger</h1>
+            {viewMode === "party_balances" ? (
+              <Wallet className="w-6 h-6 text-red-500" />
+            ) : (
+              <BookOpen className="w-6 h-6 text-emerald-600" />
+            )}
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+              {viewMode === "party_balances" ? "Party Balances Directory" : "Party Passbook & Ledger"}
+            </h1>
           </div>
           <p className="text-sm text-slate-500 font-medium mt-0.5">
-            Real-time party balances directory, receivables, payables & settlement statements
+            {viewMode === "party_balances"
+              ? "Overall party receivables (You'll Get), payables (You'll Give) & summary balance directory"
+              : "Individual party sales bills, purchase bills, payment receipts & running balance ledger"}
           </p>
         </div>
 

@@ -434,6 +434,7 @@ function MainAppContent() {
 
             {(activeTab === "ledger" || activeTab === "party_balances") && (
               <MetricLedgerScreen
+                key={activeTab}
                 customers={customers}
                 orders={orders}
                 dispatches={dispatches}
