@@ -356,14 +356,14 @@ function MainAppContent() {
             {activeTab === "bank_accounts" && (
               <MetricBankAccountsScreen
                 onBack={() => setActiveTab("dashboard")}
-                onAccountsUpdated={loadData}
+                onAccountsUpdated={loadAllData}
               />
             )}
 
             {activeTab === "expenses" && (
               <MetricExpensesScreen
                 onBack={() => setActiveTab("dashboard")}
-                onExpensesUpdated={loadData}
+                onExpensesUpdated={loadAllData}
               />
             )}
 
