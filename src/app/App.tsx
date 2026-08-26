@@ -109,12 +109,9 @@ function MainAppContent() {
   const [receivePaymentOrderId, setReceivePaymentOrderId] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const loadAllData = useCallback(async () => {
-    setLoading(true);
+  const refreshAppData = useCallback(async () => {
     try {
-      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
-
-      const dataPromise = Promise.all([
+      const [c, p, o, b, d, q, cmp, emp, rec, pur, drv] = await Promise.all([
         SupabaseService.getCustomers().catch(() => []),
         SupabaseService.getProducts().catch(() => []),
         SupabaseService.getOrders().catch(() => []),
@@ -127,32 +124,32 @@ function MainAppContent() {
         SupabaseService.getPurchaseBills().catch(() => []),
         SupabaseService.getDrivers().catch(() => []),
       ]);
+      if (c) setCustomers(c);
+      if (p) setProducts(p);
+      if (o) setOrders(o);
+      if (b) setBatches(b);
+      if (d) setDispatches(d);
+      if (q) setQuotes(q);
+      if (cmp) setCampaigns(cmp);
+      if (emp) setEmployees(emp);
+      if (rec) setPaymentReceipts(rec);
+      if (pur) setPurchaseBills(pur);
+      if (drv) setDrivers(drv);
+    } catch (e) {
+      console.error("Error refreshing data:", e);
+    }
+  }, []);
 
-      const res = await Promise.race([
-        dataPromise,
-        timeoutPromise.then(() => null),
-      ]);
-
-      if (res && Array.isArray(res)) {
-        const [c, p, o, b, d, q, cmp, emp, rec, pur, drv] = res;
-        if (c) setCustomers(c);
-        if (p) setProducts(p);
-        if (o) setOrders(o);
-        if (b) setBatches(b);
-        if (d) setDispatches(d);
-        if (q) setQuotes(q);
-        if (cmp) setCampaigns(cmp);
-        if (emp) setEmployees(emp);
-        if (rec) setPaymentReceipts(rec);
-        if (pur) setPurchaseBills(pur);
-        if (drv) setDrivers(drv);
-      }
+  const loadAllData = useCallback(async () => {
+    setLoading(true);
+    try {
+      await refreshAppData();
     } catch (e) {
       console.error("Error loading app data:", e);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshAppData]);
 
   const handleSavePurchaseBill = (savedBill: PurchaseBill) => {
     setPurchaseBills((prev) => {
@@ -356,14 +353,14 @@ function MainAppContent() {
             {activeTab === "bank_accounts" && (
               <MetricBankAccountsScreen
                 onBack={() => setActiveTab("dashboard")}
-                onAccountsUpdated={loadAllData}
+                onAccountsUpdated={refreshAppData}
               />
             )}
 
             {activeTab === "expenses" && (
               <MetricExpensesScreen
                 onBack={() => setActiveTab("dashboard")}
-                onExpensesUpdated={loadAllData}
+                onExpensesUpdated={refreshAppData}
               />
             )}
 
