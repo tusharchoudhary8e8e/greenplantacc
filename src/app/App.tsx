@@ -351,7 +351,12 @@ function MainAppContent() {
             )}
 
             {activeTab === "sowing_plans" && (
-              <MetricSowingPlansScreen orders={orders} />
+              <MetricSowingPlansScreen
+                orders={orders}
+                batches={batches}
+                customers={customers}
+                onOpenCreateBatch={() => setShowCreateBatch(true)}
+              />
             )}
 
             {activeTab === "orders" && (
