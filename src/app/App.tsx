@@ -440,6 +440,7 @@ function MainAppContent() {
                 paymentReceipts={paymentReceipts}
                 purchaseBills={purchaseBills}
                 initialCustomerId={selectedLedgerCustomerId}
+                onBack={() => setActiveTab("dashboard")}
                 onEditOrder={handleEditOrder}
                 onDeleteOrder={handleDeleteOrder}
                 onOpenReceivePayment={handleOpenReceivePaymentModal}
