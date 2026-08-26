@@ -23,6 +23,8 @@ import {
   Pencil,
   Trash2,
   Wallet,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 import { Customer, Order, OrderItem, DispatchRecord, PaymentReceipt, PurchaseBill, SupabaseService } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "../components/SearchableSelect";
@@ -69,7 +71,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(initialCustomerId);
 
-  // Sync viewMode when initialMode prop changes (e.g. switching sidebar tabs)
+  // Sync viewMode when initialMode prop changes
   React.useEffect(() => {
     if (initialMode) {
       setViewMode(initialMode);
@@ -81,9 +83,11 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       setSelectedCustomerId(initialCustomerId);
     }
   }, [initialCustomerId]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [partySearchTerm, setPartySearchTerm] = useState("");
   const [partyFilter, setPartyFilter] = useState<"all" | "get" | "give" | "zero">("all");
+  const [partySortBy, setPartySortBy] = useState<"get_high" | "give_high" | "name">("get_high");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | "bill" | "payment">("all");
@@ -427,7 +431,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
   }, [partyBalancesList]);
 
   const filteredPartyBalances = useMemo(() => {
-    return partyBalancesList.filter((p) => {
+    const list = partyBalancesList.filter((p) => {
       if (partySearchTerm) {
         const query = partySearchTerm.toLowerCase();
         const nameMatch = p.customer.name.toLowerCase().includes(query);
@@ -441,7 +445,20 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
 
       return true;
     });
-  }, [partyBalancesList, partySearchTerm, partyFilter]);
+
+    list.sort((a, b) => {
+      if (partySortBy === "get_high") {
+        return b.netBalance - a.netBalance; // Highest positive balance (You'll Get) first
+      } else if (partySortBy === "give_high") {
+        return a.netBalance - b.netBalance; // Highest negative balance (You'll Give) first
+      } else if (partySortBy === "name") {
+        return a.customer.name.localeCompare(b.customer.name);
+      }
+      return 0;
+    });
+
+    return list;
+  }, [partyBalancesList, partySearchTerm, partyFilter, partySortBy]);
 
   const toggleExpandOrder = (id: string) => {
     setExpandedOrderIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -453,7 +470,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
 
   return (
     <div className="p-4 sm:p-8 space-y-6 bg-slate-50 min-h-screen">
-      {/* Top Mode Toggle Bar (Matching media_1787739698118.png) */}
+      {/* Top Mode Toggle Bar */}
       <div className="flex items-center gap-3 justify-center bg-white p-2 rounded-2xl border border-slate-200 shadow-xs max-w-md mx-auto">
         <button
           onClick={() => setViewMode("transaction_details")}
@@ -473,7 +490,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
               : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
           }`}
         >
-          Party Details
+          Party Details & Balances
         </button>
       </div>
 
@@ -481,19 +498,11 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
         <div>
           <div className="flex items-center gap-2">
-            {viewMode === "party_balances" ? (
-              <Wallet className="w-6 h-6 text-red-500" />
-            ) : (
-              <BookOpen className="w-6 h-6 text-emerald-600" />
-            )}
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
-              {viewMode === "party_balances" ? "Party Balances Directory" : "Party Passbook & Ledger"}
-            </h1>
+            <BookOpen className="w-6 h-6 text-emerald-600" />
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Party Ledger & Balances</h1>
           </div>
           <p className="text-sm text-slate-500 font-medium mt-0.5">
-            {viewMode === "party_balances"
-              ? "Overall party receivables (You'll Get), payables (You'll Give) & summary balance directory"
-              : "Individual party sales bills, purchase bills, payment receipts & running balance ledger"}
+            Complete financial passbook, receivables (You'll Get), payables (You'll Give) & settlement statements
           </p>
         </div>
 
@@ -530,40 +539,55 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
         </div>
       </div>
 
+      {/* Shared Overall Financial Summary Cards (Always Visible at Top) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs font-extrabold uppercase text-emerald-700 tracking-wider">Total You'll Get (Receivables)</span>
+            <div className="text-2xl font-black text-emerald-700 font-mono mt-1">
+              ₹ {totalYoullGet.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-[11px] text-emerald-600 font-medium mt-1">Outstanding sales balance to collect</p>
+          </div>
+          <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-700">
+            <ArrowDownLeft className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs font-extrabold uppercase text-red-600 tracking-wider">Total You'll Give (Payables)</span>
+            <div className="text-2xl font-black text-red-600 font-mono mt-1">
+              ₹ {totalYoullGive.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-[11px] text-red-500 font-medium mt-1">Outstanding bills payable to vendors</p>
+          </div>
+          <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center text-red-600">
+            <ArrowUpRight className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-xs font-extrabold uppercase text-slate-500 tracking-wider">Total Registered Parties</span>
+            <div className="text-2xl font-black text-slate-800 font-mono mt-1">
+              {safeCustomers.length} Parties
+            </div>
+            <p className="text-[11px] text-slate-400 font-medium mt-1">Registered farmers & suppliers</p>
+          </div>
+          <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600">
+            <User className="w-6 h-6" />
+          </div>
+        </div>
+      </div>
+
       {/* VIEW MODE 1: PARTY DETAILS & BALANCES DIRECTORY (Matching media_1787739698118.png) */}
       {viewMode === "party_balances" && (
         <div className="space-y-6">
-          {/* Total Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 shadow-xs">
-              <span className="text-xs font-extrabold uppercase text-emerald-700 tracking-wider">Total You'll Get (Receivables)</span>
-              <div className="text-2xl font-black text-emerald-700 font-mono mt-1">
-                ₹ {totalYoullGet.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-              </div>
-              <p className="text-[11px] text-emerald-600 font-medium mt-1">Outstanding sales balance to collect from farmers</p>
-            </div>
-
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-5 shadow-xs">
-              <span className="text-xs font-extrabold uppercase text-red-600 tracking-wider">Total You'll Give (Payables)</span>
-              <div className="text-2xl font-black text-red-600 font-mono mt-1">
-                ₹ {totalYoullGive.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-              </div>
-              <p className="text-[11px] text-red-500 font-medium mt-1">Outstanding bills payable to vendors & suppliers</p>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-              <span className="text-xs font-extrabold uppercase text-slate-500 tracking-wider">Total Active Parties</span>
-              <div className="text-2xl font-black text-slate-800 font-mono mt-1">
-                {safeCustomers.length} Parties
-              </div>
-              <p className="text-[11px] text-slate-400 font-medium mt-1">Registered farmers & nursery partners</p>
-            </div>
-          </div>
-
           {/* Party Balances Directory Container */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            {/* Search & Filter Toolbar */}
-            <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Search & Filter & Sort Toolbar for Give/Take */}
+            <div className="p-4 border-b border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="relative flex-1 w-full max-w-md">
                 <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
                 <input
@@ -575,31 +599,49 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
                 />
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto">
-                <button
-                  onClick={() => setPartyFilter("all")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                    partyFilter === "all" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  All ({partyBalancesList.length})
-                </button>
-                <button
-                  onClick={() => setPartyFilter("get")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                    partyFilter === "get" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                  }`}
-                >
-                  You'll Get
-                </button>
-                <button
-                  onClick={() => setPartyFilter("give")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                    partyFilter === "give" ? "bg-red-600 text-white" : "bg-red-50 text-red-600 hover:bg-red-100"
-                  }`}
-                >
-                  You'll Give
-                </button>
+              <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+                {/* Give / Take Filter Pills */}
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
+                  <button
+                    onClick={() => setPartyFilter("all")}
+                    className={`px-3 py-1 rounded-lg font-bold transition ${
+                      partyFilter === "all" ? "bg-slate-800 text-white" : "bg-transparent text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    All ({partyBalancesList.length})
+                  </button>
+                  <button
+                    onClick={() => setPartyFilter("get")}
+                    className={`px-3 py-1 rounded-lg font-bold transition ${
+                      partyFilter === "get" ? "bg-emerald-600 text-white" : "bg-transparent text-emerald-700 hover:text-emerald-900"
+                    }`}
+                  >
+                    You'll Get
+                  </button>
+                  <button
+                    onClick={() => setPartyFilter("give")}
+                    className={`px-3 py-1 rounded-lg font-bold transition ${
+                      partyFilter === "give" ? "bg-red-600 text-white" : "bg-transparent text-red-600 hover:text-red-900"
+                    }`}
+                  >
+                    You'll Give
+                  </button>
+                </div>
+
+                {/* Sort Option Dropdown for Give and Take */}
+                <div className="flex items-center gap-1.5 bg-white border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-slate-400 font-medium">Sort:</span>
+                  <select
+                    value={partySortBy}
+                    onChange={(e: any) => setPartySortBy(e.target.value)}
+                    className="bg-transparent text-xs font-extrabold text-slate-800 focus:outline-none cursor-pointer"
+                  >
+                    <option value="get_high">Highest You'll Get 🟢</option>
+                    <option value="give_high">Highest You'll Give 🔴</option>
+                    <option value="name">Party Name (A - Z)</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -668,7 +710,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
           {/* Customer Selector Card */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-500">
-              Select Customer / Vendor to View Ledger
+              Select Customer / Vendor to View Ledger Passbook
             </label>
             <div className="max-w-xl">
               <SearchableSelect
@@ -711,6 +753,14 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
                 <p className="text-xs text-slate-500">
                   Please select a customer or vendor from the dropdown above to view their sales bills, purchase bills, and net receivable/payable balance.
                 </p>
+                <div className="pt-3">
+                  <button
+                    onClick={() => setViewMode("party_balances")}
+                    className="px-4 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl text-xs font-extrabold transition"
+                  >
+                    View All Party Balances Directory →
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -718,10 +768,10 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
           {/* Active Customer View */}
           {selectedCustomer && (
             <div className="space-y-6">
-              {/* Customer Summary Bar & Financial Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Customer Details & Specific Balance */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Customer Details Box */}
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-2 md:col-span-4 lg:col-span-1 border-l-4 border-l-emerald-600">
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-2 border-l-4 border-l-emerald-600">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
                       PARTY
@@ -741,10 +791,10 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
                   </div>
                 </div>
 
-                {/* Net Balance Card */}
+                {/* Selected Customer Net Balance Card */}
                 <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-1">
                   <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    NET RUNNING BALANCE
+                    PARTY NET RUNNING BALANCE
                   </span>
                   <div className="flex items-baseline gap-2">
                     <span
@@ -771,31 +821,18 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
                   </p>
                 </div>
 
-                {/* Total Sales / Billed Card */}
+                {/* Total Payments Received / Billed */}
                 <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-1">
                   <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    TOTAL SALES BILLED
-                  </span>
-                  <div className="text-2xl font-black text-slate-800 font-mono">
-                    ₹{ledgerMetrics.totalSalesBilled.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                  </div>
-                  <div className="flex justify-between items-center text-[11px] text-slate-500 pt-1 font-medium">
-                    <span>{customerOrders.length} Sales Orders</span>
-                    <span>Opening: ₹{ledgerMetrics.opening.toLocaleString()}</span>
-                  </div>
-                </div>
-
-                {/* Total Payments Received Card */}
-                <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 space-y-1">
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    TOTAL PAYMENTS RECEIVED
+                    TOTAL PAYMENTS SETTLED
                   </span>
                   <div className="text-2xl font-black text-emerald-600 font-mono">
                     ₹{ledgerMetrics.totalPaymentsReceived.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </div>
-                  <p className="text-[11px] text-emerald-600 font-medium pt-1">
-                    Settled via cash, UPI, & bank receipts
-                  </p>
+                  <div className="flex justify-between items-center text-[11px] text-slate-500 pt-1 font-medium">
+                    <span>{customerOrders.length} Sales Orders</span>
+                    <span>Billed: ₹{ledgerMetrics.totalSalesBilled.toLocaleString()}</span>
+                  </div>
                 </div>
               </div>
 

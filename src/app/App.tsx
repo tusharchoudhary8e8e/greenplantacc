@@ -432,16 +432,14 @@ function MainAppContent() {
               />
             )}
 
-            {(activeTab === "ledger" || activeTab === "party_balances") && (
+            {activeTab === "ledger" && (
               <MetricLedgerScreen
-                key={activeTab}
                 customers={customers}
                 orders={orders}
                 dispatches={dispatches}
                 paymentReceipts={paymentReceipts}
                 purchaseBills={purchaseBills}
                 initialCustomerId={selectedLedgerCustomerId}
-                initialMode={activeTab === "party_balances" ? "party_balances" : "transaction_details"}
                 onEditOrder={handleEditOrder}
                 onDeleteOrder={handleDeleteOrder}
                 onOpenReceivePayment={handleOpenReceivePaymentModal}

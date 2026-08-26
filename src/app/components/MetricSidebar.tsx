@@ -60,7 +60,6 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
     { id: "orders" as MetricTab, label: "Sales Orders", icon: ShoppingCart },
     { id: "purchase_bills" as MetricTab, label: "Purchase Bills", icon: Receipt },
     { id: "ledger" as MetricTab, label: "Party Ledger", icon: BookOpen },
-    { id: "party_balances" as MetricTab, label: "Party Balances", icon: Wallet },
     {
       id: "production" as MetricTab,
       label: "Production",
