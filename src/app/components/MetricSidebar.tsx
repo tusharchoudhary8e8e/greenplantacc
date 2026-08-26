@@ -27,6 +27,8 @@ export type MetricTab =
   | "create_purchase_bill"
   | "ledger"
   | "party_balances"
+  | "bank_accounts"
+  | "expenses"
   | "create_order"
   | "production"
   | "sowing_plans"
@@ -60,6 +62,8 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
     { id: "orders" as MetricTab, label: "Sales Orders", icon: ShoppingCart },
     { id: "purchase_bills" as MetricTab, label: "Purchase Bills", icon: Receipt },
     { id: "ledger" as MetricTab, label: "Party Ledger", icon: BookOpen },
+    { id: "bank_accounts" as MetricTab, label: "Bank Accounts", icon: Building2 },
+    { id: "expenses" as MetricTab, label: "Expenses", icon: Receipt },
     {
       id: "production" as MetricTab,
       label: "Production",

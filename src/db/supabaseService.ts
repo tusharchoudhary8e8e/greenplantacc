@@ -234,6 +234,45 @@ export interface Driver {
   created_at?: string;
 }
 
+export interface BankAccount {
+  id?: string;
+  account_name: string;
+  account_number?: string;
+  ifsc_code?: string;
+  bank_name?: string;
+  account_type?: "Current" | "Savings" | "Overdraft";
+  balance: number;
+  is_online_payment?: boolean;
+  is_printing_default?: boolean;
+  created_at?: string;
+}
+
+export interface ExpenseRecord {
+  id?: string;
+  expense_no?: string;
+  expense_date: string;
+  category_name: string;
+  items?: { name: string; amount: number }[];
+  shipping_charge?: number;
+  round_off?: number;
+  total_amount: number;
+  payment_type: string; // "Cash" or BankAccount.id
+  payment_status?: "paid" | "unpaid";
+  notes?: string;
+  created_at?: string;
+}
+
+export interface BankTransaction {
+  id?: string;
+  transaction_date: string;
+  type: "deposit" | "withdraw" | "transfer";
+  from_account: string;
+  to_account: string;
+  amount: number;
+  notes?: string;
+  created_at?: string;
+}
+
 // ─── LOCAL DEMO SEED DATA (fallback if offline / Supabase setup pending) ──────
 
 const loadFromStorage = <T>(key: string, defaultValue: T): T => {
@@ -2794,6 +2833,139 @@ export class SupabaseService {
     }
     DEMO_DRIVERS = DEMO_DRIVERS.filter((d) => d.id !== driverId);
     saveToStorage("demo_drivers", DEMO_DRIVERS);
+    return true;
+  }
+
+  // ─── BANK ACCOUNTS MANAGEMENT ─────────────────────────────────────
+  static async getBankAccounts(): Promise<BankAccount[]> {
+    let list = loadFromStorage<BankAccount[]>("demo_bank_accounts", [
+      {
+        id: "bank-sbi-curr",
+        account_name: "SBI Current A/C",
+        account_number: "43025939805",
+        ifsc_code: "SBIN0001234",
+        bank_name: "State Bank of India",
+        account_type: "Current",
+        balance: 1620580.05,
+        is_online_payment: true,
+        is_printing_default: true,
+      },
+      {
+        id: "bank-sbi-od",
+        account_name: "SBI OD A/C",
+        account_number: "43025939999",
+        ifsc_code: "SBIN0001234",
+        bank_name: "State Bank of India",
+        account_type: "Overdraft",
+        balance: 5300.0,
+        is_online_payment: false,
+        is_printing_default: false,
+      },
+    ]);
+    return list;
+  }
+
+  static async saveBankAccount(acc: Partial<BankAccount>): Promise<BankAccount> {
+    const list = await this.getBankAccounts();
+    const newAcc: BankAccount = {
+      ...acc,
+      id: acc.id || `bank-${Date.now()}`,
+      account_name: acc.account_name || "New Bank Account",
+      balance: acc.balance !== undefined ? Number(acc.balance) : 0,
+      account_type: acc.account_type || "Current",
+    };
+
+    const idx = list.findIndex((a) => a.id === newAcc.id);
+    if (idx !== -1) {
+      list[idx] = newAcc;
+    } else {
+      list.push(newAcc);
+    }
+    saveToStorage("demo_bank_accounts", list);
+    return newAcc;
+  }
+
+  static async deleteBankAccount(accId: string): Promise<boolean> {
+    let list = await this.getBankAccounts();
+    list = list.filter((a) => a.id !== accId);
+    saveToStorage("demo_bank_accounts", list);
+    return true;
+  }
+
+  static async recordDepositWithdraw(txn: BankTransaction): Promise<boolean> {
+    let list = await this.getBankAccounts();
+
+    if (txn.type === "deposit") {
+      // Transfer Cash -> Bank
+      const target = list.find((a) => a.id === txn.to_account || a.account_name === txn.to_account);
+      if (target) {
+        target.balance += Number(txn.amount);
+      }
+    } else if (txn.type === "withdraw") {
+      // Transfer Bank -> Cash
+      const source = list.find((a) => a.id === txn.from_account || a.account_name === txn.from_account);
+      if (source) {
+        source.balance = Math.max(0, source.balance - Number(txn.amount));
+      }
+    }
+
+    saveToStorage("demo_bank_accounts", list);
+    return true;
+  }
+
+  // ─── EXPENSES MANAGEMENT ──────────────────────────────────────────
+  static async getExpenses(): Promise<ExpenseRecord[]> {
+    let list = loadFromStorage<ExpenseRecord[]>("demo_expenses", [
+      { id: "exp-1", expense_no: "EXP-001", expense_date: "2026-08-26", category_name: "Transport", total_amount: 338100, payment_type: "Cash", payment_status: "paid" },
+      { id: "exp-2", expense_no: "EXP-002", expense_date: "2026-08-25", category_name: "Salary", total_amount: 495265, payment_type: "bank-sbi-curr", payment_status: "paid" },
+      { id: "exp-3", expense_no: "EXP-003", expense_date: "2026-08-24", category_name: "Manufacturing Expense", total_amount: 293880, payment_type: "Cash", payment_status: "paid" },
+      { id: "exp-4", expense_no: "EXP-004", expense_date: "2026-08-23", category_name: "Personal expenses", total_amount: 1015199.04, payment_type: "Cash", payment_status: "paid" },
+      { id: "exp-5", expense_no: "EXP-005", expense_date: "2026-08-22", category_name: "Payment-in Discount", total_amount: 234589.51, payment_type: "Cash", payment_status: "paid" },
+      { id: "exp-6", expense_no: "EXP-006", expense_date: "2026-08-21", category_name: "Petrol", total_amount: 130841, payment_type: "bank-sbi-curr", payment_status: "paid" },
+      { id: "exp-7", expense_no: "EXP-007", expense_date: "2026-08-20", category_name: "College fee", total_amount: 34218.88, payment_type: "Cash", payment_status: "paid" },
+      { id: "exp-8", expense_no: "EXP-008", expense_date: "2026-08-19", category_name: "Bank communication and interest", total_amount: 7849, payment_type: "bank-sbi-curr", payment_status: "paid" },
+    ]);
+    return list;
+  }
+
+  static async saveExpense(exp: Partial<ExpenseRecord>): Promise<ExpenseRecord> {
+    const list = await this.getExpenses();
+    const newExp: ExpenseRecord = {
+      ...exp,
+      id: exp.id || `exp-${Date.now()}`,
+      expense_no: exp.expense_no || `EXP-${String(list.length + 1).padStart(3, "0")}`,
+      expense_date: exp.expense_date || new Date().toISOString().split("T")[0],
+      category_name: exp.category_name || "General Expense",
+      total_amount: exp.total_amount !== undefined ? Number(exp.total_amount) : 0,
+      payment_type: exp.payment_type || "Cash",
+      payment_status: exp.payment_status || "paid",
+    };
+
+    const idx = list.findIndex((e) => e.id === newExp.id);
+    if (idx !== -1) {
+      list[idx] = newExp;
+    } else {
+      list.unshift(newExp);
+    }
+    saveToStorage("demo_expenses", list);
+
+    // If paid via a Bank Account, update that Bank Account's balance dynamically!
+    if (newExp.payment_status === "paid" && newExp.payment_type !== "Cash") {
+      let bankList = await this.getBankAccounts();
+      const bAcc = bankList.find((a) => a.id === newExp.payment_type || a.account_name === newExp.payment_type);
+      if (bAcc) {
+        bAcc.balance = Math.max(0, bAcc.balance - newExp.total_amount);
+        saveToStorage("demo_bank_accounts", bankList);
+      }
+    }
+
+    return newExp;
+  }
+
+  static async deleteExpense(expId: string): Promise<boolean> {
+    let list = await this.getExpenses();
+    list = list.filter((e) => e.id !== expId);
+    saveToStorage("demo_expenses", list);
     return true;
   }
 }

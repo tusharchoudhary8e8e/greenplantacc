@@ -24,6 +24,8 @@ import { ReceivePaymentModal } from "./components/ReceivePaymentModal";
 
 import { MetricPurchaseBillsScreen } from "./screens/MetricPurchaseBillsScreen";
 import { MetricCreatePurchaseBillScreen } from "./screens/MetricCreatePurchaseBillScreen";
+import { MetricBankAccountsScreen } from "./screens/MetricBankAccountsScreen";
+import { MetricExpensesScreen } from "./screens/MetricExpensesScreen";
 
 import {
   Customer,
@@ -346,7 +348,22 @@ function MainAppContent() {
               <MetricDashboardScreen
                 customers={customers}
                 orders={orders}
-                onNavigateToOrder={() => setActiveTab("create_order")}
+                purchaseBills={purchaseBills}
+                onNavigateToTab={(tab) => setActiveTab(tab as any)}
+              />
+            )}
+
+            {activeTab === "bank_accounts" && (
+              <MetricBankAccountsScreen
+                onBack={() => setActiveTab("dashboard")}
+                onAccountsUpdated={loadData}
+              />
+            )}
+
+            {activeTab === "expenses" && (
+              <MetricExpensesScreen
+                onBack={() => setActiveTab("dashboard")}
+                onExpensesUpdated={loadData}
               />
             )}
 
