@@ -121,57 +121,60 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
     }, 400);
   };
 
-  return (
-    <div className="p-4 sm:p-8 space-y-6 bg-slate-50 min-h-screen">
-      {/* Top Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-emerald-700 tracking-tight">RKK Nursery</h1>
-        <p className="text-sm text-slate-500 font-medium mt-0.5">Orders</p>
-      </div>
+  const activeOrdersCount = useMemo(() => {
+    return filteredOrders.filter((o) => (o.status || "pending") !== "cancelled").length;
+  }, [filteredOrders]);
 
-      {/* Top Action Bar (Order Counter + Export & Create Buttons) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-emerald-50/60 p-4 rounded-2xl border border-emerald-100/80">
-        <div className="flex items-center gap-2">
-          <span className="w-7 h-7 rounded-lg bg-emerald-600 text-white font-bold text-xs flex items-center justify-center">
-            {filteredOrders.length}
+  return (
+    <div className="p-4 sm:p-6 space-y-5 bg-[#f4f4f0] min-h-screen font-sans">
+      {/* Top Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-[10px] border border-[#e8e8e8]">
+        <div>
+          <span className="text-[11px] font-bold text-[#888] uppercase tracking-wider block">
+            RKK Nursery — <span className="text-[#1a2e1a]">Sales &amp; Fulfillments Log</span>
           </span>
-          <span className="text-sm font-bold text-emerald-900">Orders</span>
+          <div className="flex items-center gap-3 mt-1">
+            <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight">
+              Sales Orders Log
+            </h1>
+            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e6f4ed] text-[#2d7a4f] border border-[#b8ddc8]">
+              {activeOrdersCount} {activeOrdersCount === 1 ? "Order Active" : "Orders Active"}
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Export Button */}
+        <div className="flex items-center gap-2.5">
           <button
             onClick={handleExportCSV}
             disabled={isExporting}
-            className="flex items-center gap-2 px-4 py-2 bg-white text-emerald-700 border border-emerald-300 hover:bg-emerald-50 rounded-xl text-xs font-semibold transition shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 border border-[#ccc] text-[#444] bg-white hover:bg-slate-50 rounded-[7px] font-semibold text-xs transition cursor-pointer"
           >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>{isExporting ? "Exporting..." : "Export"}</span>
+            <Download className="w-3.5 h-3.5 text-[#666]" />
+            <span>{isExporting ? "Exporting..." : "Export Log"}</span>
           </button>
 
-          {/* Create Order Button */}
           <button
             onClick={onCreateOrder}
-            className="flex items-center gap-2 bg-[#00a651] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-emerald-600 transition text-xs sm:text-sm shadow-sm"
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#1e4d2b] text-white hover:bg-[#163d21] rounded-[7px] font-bold text-xs transition cursor-pointer shadow-xs"
           >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Create Order</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ Create Order</span>
           </button>
         </div>
       </div>
 
       {/* Filter & Search Controls Bar */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 space-y-3">
+      <div className="bg-white p-3.5 rounded-[10px] border border-[#e8e8e8]">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search Box */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="w-3.5 h-3.5 text-[#aaa] absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search Customer, Order ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 text-slate-800"
+              className="w-full pl-9 pr-3 py-1.5 border border-[#e0e0e0] rounded-[7px] text-xs font-medium text-[#1a1a1a] focus:ring-1 focus:ring-[#1e4d2b] bg-[#f9f9f7]"
             />
           </div>
 
@@ -179,9 +182,9 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="p-2 border border-slate-200 rounded-xl text-xs text-slate-700 font-medium bg-white focus:ring-2 focus:ring-emerald-500 min-w-[130px]"
+            className="p-1.5 border border-[#e0e0e0] rounded-[7px] text-xs text-[#444] font-medium bg-white focus:ring-1 focus:ring-[#1e4d2b]"
           >
-            <option value="all">Status: All</option>
+            <option value="all">Status: All Orders</option>
             <option value="pending">Pending</option>
             <option value="sowing_done">Sowing Done</option>
             <option value="dispatched">Dispatched</option>
@@ -193,7 +196,7 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
-            className="p-2 border border-slate-200 rounded-xl text-xs text-slate-700 bg-white focus:ring-2 focus:ring-emerald-500"
+            className="p-1.5 border border-[#e0e0e0] rounded-[7px] text-xs text-[#444] bg-white focus:ring-1 focus:ring-[#1e4d2b]"
             title="From Date"
           />
 
@@ -202,7 +205,7 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
             type="date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
-            className="p-2 border border-slate-200 rounded-xl text-xs text-slate-700 bg-white focus:ring-2 focus:ring-emerald-500"
+            className="p-1.5 border border-[#e0e0e0] rounded-[7px] text-xs text-[#444] bg-white focus:ring-1 focus:ring-[#1e4d2b]"
             title="To Date"
           />
 
@@ -210,40 +213,31 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
           {(searchTerm || statusFilter !== "all" || fromDate || toDate) && (
             <button
               onClick={handleClearFilters}
-              className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 font-medium px-2 py-1"
+              className="text-xs text-[#888] hover:text-[#1a1a1a] font-medium underline px-1"
             >
-              <X className="w-3.5 h-3.5" />
-              <span>Clear</span>
+              Clear Filter
             </button>
           )}
-
-          {/* Search Action Button */}
-          <button
-            onClick={() => {}}
-            className="bg-[#00a651] text-white px-5 py-2 rounded-xl text-xs font-semibold hover:bg-emerald-600 transition shadow-sm ml-auto sm:ml-0"
-          >
-            Search
-          </button>
         </div>
       </div>
 
       {/* Orders Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-[10px] border border-[#e8e8e8] overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
+          <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-slate-50 text-[11px] font-bold uppercase text-slate-500 border-b border-slate-100">
-                <th className="py-3.5 px-4">ORDER ID</th>
-                <th className="py-3.5 px-4">ORDER DATE</th>
-                <th className="py-3.5 px-4">CUSTOMER</th>
-                <th className="py-3.5 px-4">ITEMS</th>
-                <th className="py-3.5 px-4 text-right">DUE AMOUNT</th>
-                <th className="py-3.5 px-4 text-right">TOTAL AMOUNT</th>
-                <th className="py-3.5 px-4 text-center">STATUS</th>
-                <th className="py-3.5 px-4 text-center">ACTIONS</th>
+              <tr className="bg-[#f9f9f7] text-[10px] font-bold uppercase tracking-wider text-[#888] border-b border-[#f0f0ec]">
+                <th className="py-3 px-4">ORDER ID</th>
+                <th className="py-3 px-4">ORDER DATE</th>
+                <th className="py-3 px-4">CUSTOMER</th>
+                <th className="py-3 px-4">ITEMS</th>
+                <th className="py-3 px-4 text-right">DUE AMOUNT</th>
+                <th className="py-3 px-4 text-right">TOTAL AMOUNT</th>
+                <th className="py-3 px-4 text-center">STATUS</th>
+                <th className="py-3 px-4 text-center">ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+            <tbody className="divide-y divide-[#f0f0ec] font-medium text-[#333]">
               {filteredOrders.map((ord) => {
                 const orderIdKey = ord.id || ord.order_no || "";
                 const isExpanded = expandedOrderIds[orderIdKey];
@@ -286,65 +280,57 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
                       </td>
 
                       {/* Customer Info */}
-                      <td className="py-3.5 px-4">
-                        <div>
-                          <p className="font-bold text-slate-800 text-xs">{ord.customer_name || "Customer"}</p>
-                          <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-0.5">
-                            {cust?.phone && (
-                              <span className="flex items-center gap-1 text-slate-600 font-mono">
-                                <Phone className="w-3 h-3 text-emerald-600" /> {cust.phone}
-                              </span>
-                            )}
-                            {(cust?.city || cust?.address) && (
-                              <span className="flex items-center gap-1 text-emerald-700 font-medium">
-                                <MapPin className="w-3 h-3 text-emerald-500" /> {cust.city || cust.address}
-                              </span>
-                            )}
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-[#e6f4ed] text-[#2d7a4f] flex items-center justify-center font-bold text-xs shrink-0">
+                            {(ord.customer_name || "C").charAt(0).toUpperCase()}
                           </div>
-                          <p className="text-[10px] font-mono text-slate-400 mt-0.5">
-                            {cust?.org_id || "#ORG1_CUST_2026_0001"}
-                          </p>
+                          <div>
+                            <p className="font-bold text-[#1a1a1a] text-xs">{ord.customer_name || "Customer"}</p>
+                            <span className="text-[10px] text-[#888] block">
+                              {cust?.city ? `${cust.city} • ` : ""}Premium Distributor
+                            </span>
+                          </div>
                         </div>
                       </td>
 
                       {/* Items */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1">
-                          <Sprout className="w-3 h-3 text-emerald-600" />
-                          <span>T-{itemsCount}</span>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="font-mono text-[#555]">
+                          {(ord.items?.reduce((s, i) => s + (i.quantity || 1), 0) || 1).toLocaleString()}
                         </span>
                       </td>
 
                       {/* Due Amount */}
-                      <td className="py-3.5 px-4 text-right font-bold text-slate-800 whitespace-nowrap">
-                        ₹{dueAmountVal.toLocaleString()}
+                      <td className="py-3 px-4 text-right font-mono font-bold text-[#e05c00] whitespace-nowrap">
+                        ₹ {dueAmountVal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Total Amount */}
-                      <td className="py-3.5 px-4 text-right font-bold text-slate-900 whitespace-nowrap">
-                        ₹{totalAmountVal.toLocaleString()}
+                      <td className="py-3 px-4 text-right font-mono font-bold text-[#1a1a1a] whitespace-nowrap">
+                        ₹ {totalAmountVal.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                       </td>
 
-                      {/* Status */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                      {/* Status Badge */}
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
                         <span
-                          className={`px-3 py-1 rounded-full text-[11px] font-semibold border capitalize ${
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                             ord.status === "paid" || dueAmountVal === 0
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              ? "bg-[#d4edda] text-[#155724]"
                               : ord.status === "partially_paid" || (advanceVal > 0 && dueAmountVal > 0)
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
+                              ? "bg-blue-100 text-blue-800"
                               : ord.status === "dispatched"
-                              ? "bg-purple-50 text-purple-700 border-purple-200"
+                              ? "bg-purple-100 text-purple-800"
                               : ord.status === "cancelled"
-                              ? "bg-red-50 text-red-700 border-red-200"
-                              : "bg-amber-50 text-amber-700 border-amber-200"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-[#fff3cd] text-[#856404]"
                           }`}
                         >
                           {ord.status === "paid" || dueAmountVal === 0
-                            ? "Paid"
+                            ? "PAID"
                             : ord.status === "partially_paid" || (advanceVal > 0 && dueAmountVal > 0)
-                            ? "Partially Paid"
-                            : ord.status || "Pending"}
+                            ? "PARTIALLY PAID"
+                            : (ord.status || "PENDING").toUpperCase()}
                         </span>
                       </td>
 
@@ -485,6 +471,11 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Sub-footer matching photo 2 */}
+        <div className="py-4 text-center border-t border-[#f0f0ec]">
+          <span className="text-[11px] font-medium text-[#aaa]">End of active dispatch list</span>
         </div>
       </div>
     </div>

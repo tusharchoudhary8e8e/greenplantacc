@@ -154,133 +154,160 @@ export const MetricBankAccountsScreen: React.FC<MetricBankAccountsScreenProps> =
   };
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 bg-slate-50 min-h-screen pb-24">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+    <div className="p-4 sm:p-6 space-y-5 bg-[#f4f4f0] min-h-screen pb-24 font-sans">
+      {/* Top Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-[10px] border border-[#e8e8e8]">
         <div className="flex items-center gap-3">
           {onBack && (
             <button
               onClick={onBack}
-              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition flex items-center gap-1.5 font-bold text-xs shrink-0 cursor-pointer"
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
             >
-              <ArrowLeft className="w-4 h-4 text-slate-600" />
-              <span>Back</span>
+              <ArrowLeft className="w-4 h-4" />
             </button>
           )}
           <div>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-emerald-600" />
-              <span>Bank Accounts List</span>
+            <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight">
+              Bank Accounts List
             </h1>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Manage bank accounts, online payment options & cash ↔ bank deposits/withdrawals
+            <p className="text-xs text-[#888] font-medium mt-0.5">
+              Manage bank accounts, online payment options &amp; cash – bank deposits/withdrawals
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3.5 top-2.5 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-[#aaa]" />
             <input
               type="text"
-              placeholder="Search bank name, A/C..."
+              placeholder="Search banks, acc. no..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500"
+              className="w-full pl-9 pr-3 py-1.5 border border-[#e0e0e0] rounded-[7px] text-xs font-medium text-[#1a1a1a] focus:ring-1 focus:ring-[#1e4d2b] bg-white"
             />
           </div>
         </div>
       </div>
 
-      {/* Summary Total Card */}
-      <div className="bg-emerald-600 text-white rounded-2xl p-6 shadow-md flex items-center justify-between">
-        <div>
-          <span className="text-xs font-extrabold uppercase text-emerald-100 tracking-wider">Total Bank Balance</span>
-          <div className="text-3xl font-black font-mono mt-1">
-            ₹ {totalBankBalance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+      {/* Main Split Panel Layout matching Reference Photo 4 */}
+      <div className="flex flex-col xl:flex-row gap-5 items-start">
+        {/* LEFT PANEL: Total Bank Balance Card */}
+        <div className="w-full xl:w-[320px] bg-white p-5 rounded-[10px] border border-[#e8e8e8] space-y-4 shrink-0">
+          <div className="flex items-center gap-2 text-[#444]">
+            <CreditCard className="w-4 h-4 text-[#1e4d2b]" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#888]">
+              Total Bank Balance
+            </span>
           </div>
-          <p className="text-xs text-emerald-100 font-medium mt-1">
-            Combined balance across {bankAccounts.length} active bank accounts
-          </p>
+
+          <div>
+            <div className="text-3xl font-extrabold text-[#1a1a1a] font-mono leading-none">
+              ₹ {totalBankBalance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-[11px] text-[#888] font-medium mt-2">
+              Combined balance across {bankAccounts.length} active bank accounts
+            </p>
+          </div>
+
+          {/* Direct Integration Banner Box */}
+          <div className="bg-[#e6f4ed] p-3 rounded-[8px] border border-[#b8ddc8] flex items-start gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-[#2d7a4f] shrink-0 mt-0.5" />
+            <p className="text-[11px] text-[#155724] font-medium leading-relaxed">
+              Direct integration with active banking ledger balances. Safe, encrypted live sync.
+            </p>
+          </div>
         </div>
-        <div className="w-14 h-14 bg-emerald-500/50 rounded-2xl flex items-center justify-center text-white shrink-0">
-          <CreditCard className="w-7 h-7" />
+
+        {/* RIGHT PANEL: Active Accounts Roster */}
+        <div className="flex-1 w-full bg-white p-5 rounded-[10px] border border-[#e8e8e8] space-y-4">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#aaa] block">
+            ACTIVE ACCOUNTS
+          </span>
+
+          <div className="space-y-3">
+            {filteredAccounts.map((acc) => {
+              // Extract initials for bank logo badge
+              const nameParts = acc.account_name.split(" ");
+              const abbrev = nameParts.length >= 2 ? (nameParts[0][0] + nameParts[1][0]).toUpperCase() : acc.account_name.slice(0, 3).toUpperCase();
+              const last4 = acc.account_number ? acc.account_number.slice(-8) : "XXXX";
+
+              return (
+                <div
+                  key={acc.id}
+                  className="bg-[#f9f9f7] p-3.5 rounded-[8px] border border-[#f0f0ec] hover:border-[#e0e0dc] transition flex items-center justify-between gap-4"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-[6px] bg-[#1d70b8] text-white font-black text-xs flex items-center justify-center shrink-0 tracking-tighter">
+                      {abbrev}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xs font-bold text-[#1a1a1a]">
+                          {acc.account_name}
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[11px] text-[#888] font-mono">
+                          Acc No: ending -{last4}
+                        </span>
+                        <span className="px-2 py-0.2 rounded text-[9px] font-bold bg-[#dbeafe] text-[#1d4ed8]">
+                          {(acc.account_type || "CURRENT").toUpperCase()} A/C
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-extrabold text-[#1a1a1a] font-mono">
+                      ₹ {acc.balance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    </span>
+                    <button
+                      onClick={() => handleDeleteAccount(acc.id || "")}
+                      className="p-1 text-[#aaa] hover:text-red-600 transition"
+                      title="Delete Account"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredAccounts.length === 0 && !loading && (
+              <div className="text-center py-8 space-y-2">
+                <Building2 className="w-8 h-8 text-[#ccc] mx-auto" />
+                <p className="text-xs text-[#888] font-medium">No bank accounts found.</p>
+              </div>
+            )}
+
+            <div className="text-center pt-2">
+              <span className="text-[11px] text-[#aaa] font-medium">End of bank accounts roster</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Accounts Directory */}
-      <div className="space-y-4">
-        {filteredAccounts.map((acc) => (
-          <div
-            key={acc.id}
-            className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition space-y-3"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-800 uppercase tracking-tight">
-                  {acc.account_name}
-                </h3>
-                {acc.account_number && (
-                  <span className="text-xs font-mono text-slate-500 block mt-0.5">
-                    {acc.account_number}
-                  </span>
-                )}
-              </div>
+      {/* Bottom Action Bar matching Reference Photo 4 */}
+      <div className="bg-white p-3 rounded-[10px] border border-[#e8e8e8] flex items-center justify-end gap-3">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-1.5 px-4 py-2 border border-[#1e4d2b] text-[#1e4d2b] bg-white hover:bg-[#e6f4ed] rounded-[7px] font-bold text-xs transition cursor-pointer"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>+ Add Bank</span>
+        </button>
 
-              <div className="text-right">
-                <span className="text-lg font-black text-emerald-600 font-mono block">
-                  ₹ {acc.balance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                </span>
-                {acc.account_type && (
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    {acc.account_type} A/C
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Badges & Actions Row */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-              <div className="flex flex-wrap items-center gap-2">
-                {acc.is_online_payment && (
-                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>ONLINE PAYMENT</span>
-                  </span>
-                )}
-                {acc.is_printing_default && (
-                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    <span>PRINTING</span>
-                  </span>
-                )}
-              </div>
-
-              <button
-                onClick={() => handleDeleteAccount(acc.id || "")}
-                className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg transition"
-                title="Delete Account"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        ))}
-
-        {filteredAccounts.length === 0 && !loading && (
-          <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center space-y-3">
-            <Building2 className="w-10 h-10 text-slate-300 mx-auto" />
-            <div className="text-xs font-semibold text-slate-500">
-              No bank accounts found. Click "+ Add Bank" to add your bank details!
-            </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-4 py-2 bg-red-500 text-white rounded-xl font-extrabold text-xs hover:bg-red-600 shadow-xs"
-            >
-              + Add First Bank Account
-            </button>
-          </div>
-        )}
+        <button
+          onClick={() => {
+            setSelectedOption(null);
+            setShowTransferModal(true);
+          }}
+          className="flex items-center gap-1.5 px-4 py-2 bg-[#1e4d2b] text-white hover:bg-[#163d21] rounded-[7px] font-bold text-xs transition cursor-pointer shadow-xs"
+        >
+          <ArrowRightLeft className="w-3.5 h-3.5" />
+          <span>Deposit/Withdraw</span>
+        </button>
       </div>
 
       {/* Bottom Action Bar (Matching media_1787761210923.png) */}

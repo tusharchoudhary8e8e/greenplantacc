@@ -349,35 +349,34 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
 
   return (
     <div className="p-4 sm:p-8 space-y-6 bg-slate-50 min-h-screen">
-      {/* Header Bar with Go Back Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-[10px] border border-[#e8e8e8]">
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleBackAction}
-            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition flex items-center gap-1.5 font-bold text-xs shrink-0 cursor-pointer"
-            title="Go Back"
-          >
-            <ArrowLeft className="w-4 h-4 text-slate-600" />
-            <span>Back</span>
-          </button>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+          )}
           <div>
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-emerald-600" />
-              <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">Party Ledger & Transactions</h1>
-            </div>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Live transaction feed, sales bills, payments & party balances directory
+            <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight">
+              Party Ledger &amp; Transactions
+            </h1>
+            <p className="text-xs text-[#888] font-medium mt-0.5">
+              View customer receivables, vendor payables &amp; transaction history
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           {onOpenReceivePayment && (
             <button
               onClick={() => onOpenReceivePayment(selectedCustomerId)}
-              className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-emerald-700 transition text-xs shadow-sm cursor-pointer"
+              className="flex items-center gap-1.5 bg-[#1e4d2b] text-white px-3.5 py-2 rounded-[7px] font-bold text-xs hover:bg-[#163d21] transition cursor-pointer shadow-xs"
             >
-              <DollarSign className="w-4 h-4" />
+              <DollarSign className="w-3.5 h-3.5" />
               <span>+ Receive Payment</span>
             </button>
           )}
@@ -385,33 +384,33 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
           {onNavigateToCreateOrder && (
             <button
               onClick={onNavigateToCreateOrder}
-              className="flex items-center gap-2 bg-[#00a651] text-white px-5 py-2 rounded-xl font-semibold hover:bg-emerald-600 transition text-xs shadow-sm cursor-pointer"
+              className="flex items-center gap-1.5 border border-[#1e4d2b] text-[#1e4d2b] bg-white px-3.5 py-2 rounded-[7px] font-bold text-xs hover:bg-[#e6f4ed] transition cursor-pointer"
             >
-              <Sprout className="w-4 h-4" />
+              <Sprout className="w-3.5 h-3.5" />
               <span>+ Add New Sale</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* Top Mode Toggle Bar (Matching media_1787741586595.png) */}
-      <div className="flex items-center gap-3 justify-center bg-white p-2 rounded-2xl border border-slate-200 shadow-xs max-w-md mx-auto">
+      {/* Top Mode Toggle Bar */}
+      <div className="flex items-center gap-2 justify-center bg-white p-1.5 rounded-[10px] border border-[#e8e8e8] max-w-sm mx-auto">
         <button
           onClick={() => setViewMode("transaction_details")}
-          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-extrabold transition text-center cursor-pointer ${
+          className={`flex-1 py-2 px-3 rounded-[6px] text-xs font-bold transition text-center cursor-pointer ${
             viewMode === "transaction_details"
-              ? "bg-[#ff4d4d] text-white shadow-xs"
-              : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+              ? "bg-[#1e4d2b] text-white shadow-xs"
+              : "bg-white text-[#666] hover:bg-[#f4f4f0]"
           }`}
         >
           Transaction Details
         </button>
         <button
           onClick={() => setViewMode("party_balances")}
-          className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-extrabold transition text-center cursor-pointer ${
+          className={`flex-1 py-2 px-3 rounded-[6px] text-xs font-bold transition text-center cursor-pointer ${
             viewMode === "party_balances"
-              ? "bg-[#ff4d4d] text-white shadow-xs"
-              : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200"
+              ? "bg-[#1e4d2b] text-white shadow-xs"
+              : "bg-white text-[#666] hover:bg-[#f4f4f0]"
           }`}
         >
           Party Details
@@ -419,43 +418,43 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       </div>
 
       {/* Financial Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-sans">
+        <div className="bg-white border border-[#e8e8e8] rounded-[10px] p-4 flex items-center justify-between">
           <div>
-            <span className="text-xs font-extrabold uppercase text-emerald-700 tracking-wider">Total You'll Get (Receivables)</span>
-            <div className="text-2xl font-black text-emerald-700 font-mono mt-1">
+            <span className="text-[11px] font-bold uppercase text-[#888] tracking-wider">You'll Get (Receivables)</span>
+            <div className="text-xl font-black text-[#2d7a4f] font-mono mt-1">
               ₹ {totalYoullGet.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-[11px] text-emerald-600 font-medium mt-1">Outstanding sales balance to collect</p>
+            <p className="text-[11px] text-[#888] font-medium mt-0.5">Outstanding sales balance to collect</p>
           </div>
-          <div className="w-11 h-11 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-700 shrink-0">
-            <ArrowDownLeft className="w-5 h-5" />
+          <div className="w-9 h-9 bg-[#e6f4ed] rounded-[8px] flex items-center justify-center text-[#2d7a4f] shrink-0">
+            <ArrowDownLeft className="w-4 h-4" />
           </div>
         </div>
 
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+        <div className="bg-white border border-[#e8e8e8] rounded-[10px] p-4 flex items-center justify-between">
           <div>
-            <span className="text-xs font-extrabold uppercase text-red-600 tracking-wider">Total You'll Give (Payables)</span>
-            <div className="text-2xl font-black text-red-600 font-mono mt-1">
+            <span className="text-[11px] font-bold uppercase text-[#888] tracking-wider">You'll Give (Payables)</span>
+            <div className="text-xl font-black text-[#e05c00] font-mono mt-1">
               ₹ {totalYoullGive.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-[11px] text-red-500 font-medium mt-1">Outstanding bills payable to suppliers</p>
+            <p className="text-[11px] text-[#888] font-medium mt-0.5">Outstanding bills payable to suppliers</p>
           </div>
-          <div className="w-11 h-11 bg-red-100 rounded-xl flex items-center justify-center text-red-600 shrink-0">
-            <ArrowUpRight className="w-5 h-5" />
+          <div className="w-9 h-9 bg-amber-50 rounded-[8px] flex items-center justify-center text-[#e05c00] shrink-0">
+            <ArrowUpRight className="w-4 h-4" />
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex items-center justify-between">
+        <div className="bg-white border border-[#e8e8e8] rounded-[10px] p-4 flex items-center justify-between">
           <div>
-            <span className="text-xs font-extrabold uppercase text-slate-500 tracking-wider">Registered Parties</span>
-            <div className="text-2xl font-black text-slate-800 font-mono mt-1">
+            <span className="text-[11px] font-bold uppercase text-[#888] tracking-wider">Registered Parties</span>
+            <div className="text-xl font-black text-[#1a1a1a] font-mono mt-1">
               {safeCustomers.length} Parties
             </div>
-            <p className="text-[11px] text-slate-400 font-medium mt-1">Active farmers & suppliers</p>
+            <p className="text-[11px] text-[#888] font-medium mt-0.5">Active farmers &amp; suppliers</p>
           </div>
-          <div className="w-11 h-11 bg-slate-100 rounded-xl flex items-center justify-center text-slate-600 shrink-0">
-            <User className="w-5 h-5" />
+          <div className="w-9 h-9 bg-[#f4f4f0] rounded-[8px] flex items-center justify-center text-[#555] shrink-0">
+            <User className="w-4 h-4" />
           </div>
         </div>
       </div>

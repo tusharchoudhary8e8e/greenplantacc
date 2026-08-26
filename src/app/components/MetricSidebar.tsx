@@ -57,139 +57,115 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
   const [dispatchExpanded, setDispatchExpanded] = React.useState(true);
   const [invExpanded, setInvExpanded] = React.useState(true);
 
-  const navItems = [
-    { id: "dashboard" as MetricTab, label: "Dashboard", icon: LineChart },
-    { id: "orders" as MetricTab, label: "Sales Orders", icon: ShoppingCart },
-    { id: "purchase_bills" as MetricTab, label: "Purchase Bills", icon: Receipt },
-    { id: "ledger" as MetricTab, label: "Party Ledger", icon: BookOpen },
-    { id: "bank_accounts" as MetricTab, label: "Bank Accounts", icon: Building2 },
-    { id: "expenses" as MetricTab, label: "Expenses", icon: Receipt },
+  // Grouped Navigation Structure matching reference photo UI
+  const groups = [
     {
-      id: "production" as MetricTab,
-      label: "Production",
-      icon: ClipboardList,
-      hasChildren: true,
-      expanded: prodExpanded,
-      toggle: () => setProdExpanded(!prodExpanded),
-      children: [
-        { id: "sowing_plans" as MetricTab, label: "Sowing Plans", icon: Sprout },
-        { id: "production" as MetricTab, label: "Sowing Batches", icon: Leaf }, // Using production for Sowing Batches
+      title: "CORE",
+      items: [
+        { id: "dashboard" as MetricTab, label: "Dashboard", icon: LineChart },
+        { id: "orders" as MetricTab, label: "Sales Orders", icon: ShoppingCart },
+        { id: "purchase_bills" as MetricTab, label: "Purchase Bills", icon: Receipt },
       ],
     },
     {
-      id: "dispatch_main" as any,
-      label: "Dispatch",
-      icon: Truck,
-      hasChildren: true,
-      expanded: dispatchExpanded,
-      toggle: () => setDispatchExpanded(!dispatchExpanded),
-      children: [
+      title: "FINANCE",
+      items: [
+        { id: "ledger" as MetricTab, label: "Party Ledger", icon: BookOpen },
+        { id: "bank_accounts" as MetricTab, label: "Bank Accounts", icon: Building2 },
+        { id: "expenses" as MetricTab, label: "Expenses", icon: Wallet },
+      ],
+    },
+    {
+      title: "PRODUCTION",
+      items: [
+        { id: "sowing_plans" as MetricTab, label: "Sowing Plans", icon: Sprout },
+        { id: "production" as MetricTab, label: "Sowing Batches", icon: Leaf },
+      ],
+    },
+    {
+      title: "DISPATCH",
+      items: [
         { id: "drivers" as MetricTab, label: "Drivers", icon: Truck },
         { id: "dispatch_plans" as MetricTab, label: "Dispatch Plans", icon: Calendar },
         { id: "dispatch" as MetricTab, label: "Dispatched Orders", icon: Truck },
       ],
     },
-    { id: "quotes" as MetricTab, label: "Quotes", icon: FileText },
-    { id: "campaign" as MetricTab, label: "Campaign", icon: MessageSquare },
     {
-      id: "inventory_main" as any,
-      label: "Inventory",
-      icon: LayoutGrid,
-      hasChildren: true,
-      expanded: invExpanded,
-      toggle: () => setInvExpanded(!invExpanded),
-      children: [
+      title: "MANAGEMENT",
+      items: [
         { id: "inventory" as MetricTab, label: "Crops", icon: Sprout },
+        { id: "customers" as MetricTab, label: "Customers", icon: Users },
+        { id: "employees" as MetricTab, label: "Employees", icon: Building2 },
       ],
     },
-    { id: "customers" as MetricTab, label: "Customers", icon: Users },
-    { id: "employees" as MetricTab, label: "Employees", icon: Building2 },
   ];
 
   return (
-    <aside className="w-[280px] bg-[#009b4d] text-white min-h-screen flex flex-col select-none shrink-0">
+    <aside className="w-[230px] bg-[#1a2e1a] text-white min-h-screen flex flex-col select-none shrink-0 font-sans border-r border-[#264226]">
       {/* Brand Header */}
-      <div className="pt-8 pb-6 px-6">
-        <h1 className="text-3xl font-bold tracking-tight text-white leading-tight">
-          Welcome,<br />RKK Nursery
-        </h1>
-        <div className="mt-6 border-b border-white/30"></div>
+      <div className="pt-6 pb-4 px-5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 bg-[#2d5c36] rounded-md flex items-center justify-center text-white font-bold text-xs shadow-xs">
+            <Sprout className="w-4 h-4 text-emerald-300" />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold tracking-tight text-white leading-tight">
+              RKK Nursery
+            </h1>
+            <span className="text-[9px] font-semibold text-[#7cad7c] tracking-wider uppercase block -mt-0.5">
+              MANAGEMENT
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Navigation Menu */}
-      <nav className="px-4 pb-4 space-y-1 flex-1 overflow-y-auto">
-        {navItems.map((item, idx) => {
-          const Icon = item.icon;
-          const isActive =
-            activeTab === item.id ||
-            (item.id === "orders" && activeTab === "create_order");
-
-          return (
-            <div key={idx}>
-              <button
-                onClick={() => {
-                  if (item.hasChildren && item.toggle) {
-                    item.toggle();
-                  } else {
-                    setActiveTab(item.id);
-                  }
-                }}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg font-medium transition-all text-[15px] ${
-                  isActive && !item.hasChildren
-                    ? "bg-white text-[#009b4d] font-semibold"
-                    : "text-white hover:bg-white/10"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className="w-5 h-5" strokeWidth={2.5} />
-                  <span>{item.label}</span>
-                </div>
-                {item.hasChildren && (
-                  <span>
-                    {item.expanded ? (
-                      <ChevronDown className="w-4 h-4" strokeWidth={3} />
-                    ) : (
-                      <ChevronRight className="w-4 h-4" strokeWidth={3} />
-                    )}
-                  </span>
-                )}
-              </button>
-
-              {/* Sub-menu items */}
-              {item.hasChildren && item.expanded && item.children && (
-                <div className="mt-1 mb-2 space-y-1">
-                  {item.children.map((child, cIdx) => {
-                    const ChildIcon = child.icon;
-                    const isChildActive = activeTab === child.id;
-                    return (
-                      <button
-                        key={cIdx}
-                        onClick={() => setActiveTab(child.id)}
-                        className={`w-full flex items-center gap-3 pl-12 pr-4 py-2.5 rounded-lg text-[15px] transition-colors ${
-                          isChildActive
-                            ? "bg-white text-[#009b4d] font-semibold"
-                            : "text-white hover:bg-white/10"
-                        }`}
-                      >
-                        <ChildIcon className="w-5 h-5" strokeWidth={2.5} />
-                        <span>{child.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+      <nav className="px-3 pb-6 flex-1 overflow-y-auto space-y-4">
+        {groups.map((group, gIdx) => (
+          <div key={gIdx} className="space-y-0.5">
+            <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[#7cad7c]">
+              {group.title}
             </div>
-          );
-        })}
-        
+            {group.items.map((item, idx) => {
+              const Icon = item.icon;
+              const isActive =
+                activeTab === item.id ||
+                (item.id === "orders" && activeTab === "create_order") ||
+                (item.id === "purchase_bills" && activeTab === "create_purchase_bill");
+
+              return (
+                <button
+                  key={idx}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md font-medium transition-all text-[13px] ${
+                    isActive
+                      ? "bg-white text-[#1a2e1a] font-bold shadow-xs"
+                      : "text-[#c8e0c8] hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Icon className={`w-4 h-4 ${isActive ? "text-[#1a2e1a]" : "text-[#7cad7c]"}`} strokeWidth={2} />
+                    <span>{item.label}</span>
+                  </div>
+                  {isActive && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#1a2e1a]"></span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+
         {/* Logout at bottom of nav list */}
-        <button
-          onClick={onLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-[15px] font-medium text-white hover:bg-white/10 transition-colors mt-2"
-        >
-          <LogOut className="w-5 h-5" strokeWidth={2.5} />
-          <span>Logout</span>
-        </button>
+        <div className="pt-4 border-t border-[#264226]">
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium text-[#c8e0c8] hover:bg-white/10 hover:text-white transition-colors"
+          >
+            <LogOut className="w-4 h-4 text-[#7cad7c]" strokeWidth={2} />
+            <span>Logout</span>
+          </button>
+        </div>
       </nav>
     </aside>
   );

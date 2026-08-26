@@ -160,43 +160,41 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
   return (
     <div className="p-4 sm:p-8 space-y-6 bg-slate-50 min-h-screen">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-[10px] border border-[#e8e8e8]">
         <div className="flex items-center gap-3">
           {onBack && (
             <button
               onClick={onBack}
-              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition flex items-center gap-1.5 font-bold text-xs shrink-0 cursor-pointer"
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
             >
-              <ArrowLeft className="w-4 h-4 text-slate-600" />
-              <span>Back</span>
+              <ArrowLeft className="w-4 h-4" />
             </button>
           )}
           <div>
-            <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-              <Tag className="w-5 h-5 text-red-500" />
-              <span>Expense Categories & Vouchers</span>
+            <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight">
+              Expense Categories &amp; Vouchers
             </h1>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Record nursery operating expenses, salaries, transport, tea & manufacturing bills
+            <p className="text-xs text-[#888] font-medium mt-0.5">
+              Record nursery operating expenses, salaries, transport, tea &amp; manufacturing bills
             </p>
           </div>
         </div>
 
         {/* View Tabs & Search */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+          <div className="flex items-center gap-1 bg-[#f4f4f0] p-1 rounded-lg text-xs font-semibold">
             <button
               onClick={() => setActiveTab("categories")}
-              className={`px-3 py-1.5 rounded-lg transition ${
-                activeTab === "categories" ? "bg-red-500 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+              className={`px-3 py-1.5 rounded-md transition ${
+                activeTab === "categories" ? "bg-white text-[#1a2e1a] shadow-xs font-bold" : "text-[#666] hover:text-[#1a1a1a]"
               }`}
             >
               Categories
             </button>
             <button
               onClick={() => setActiveTab("history")}
-              className={`px-3 py-1.5 rounded-lg transition ${
-                activeTab === "history" ? "bg-red-500 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+              className={`px-3 py-1.5 rounded-md transition ${
+                activeTab === "history" ? "bg-white text-[#1a2e1a] shadow-xs font-bold" : "text-[#666] hover:text-[#1a1a1a]"
               }`}
             >
               Voucher History ({expenses.length})
@@ -208,7 +206,7 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
               setExpCategory("Transport");
               setShowAddModal(true);
             }}
-            className="flex items-center gap-2 bg-[#ff4d4d] text-white px-4 py-2 rounded-xl font-extrabold text-xs hover:bg-red-600 shadow-sm transition cursor-pointer"
+            className="flex items-center gap-1.5 bg-[#1e4d2b] text-white px-3.5 py-2 rounded-[7px] font-bold text-xs hover:bg-[#163d21] transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>+ Record Expense</span>
@@ -218,52 +216,76 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
 
       {/* CATEGORIES VIEW */}
       {activeTab === "categories" && (
-        <div className="space-y-4">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search category name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-red-500 bg-white"
-            />
+        <div className="space-y-4 font-sans">
+          <div className="flex justify-end">
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-[#aaa]" />
+              <input
+                type="text"
+                placeholder="Search category..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 border border-[#e0e0e0] rounded-[7px] text-xs font-medium text-[#1a1a1a] focus:ring-1 focus:ring-[#1e4d2b] bg-white"
+              />
+            </div>
           </div>
 
-          {/* Categories List */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-100">
-            {filteredCategories.map((c) => (
-              <div
-                key={c.name}
-                onClick={() => {
-                  setExpCategory(c.name);
-                  setShowAddModal(true);
-                }}
-                className="p-4 hover:bg-slate-50 transition cursor-pointer flex items-center justify-between gap-4 group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center font-bold text-xs">
-                    {c.name.charAt(0)}
+          {/* Categories List Table Matching Reference Photo 3 */}
+          <div className="bg-white rounded-[10px] border border-[#e8e8e8] overflow-hidden">
+            <div className="bg-[#f9f9f7] px-4 py-2.5 flex items-center justify-between border-b border-[#f0f0ec] text-[11px] font-bold uppercase tracking-wider text-[#888]">
+              <span>CATEGORY NAME</span>
+              <span>TOTAL RECORDED OUTFLOW</span>
+            </div>
+
+            <div className="divide-y divide-[#f0f0ec]">
+              {filteredCategories.map((c) => {
+                // Determine Avatar Color based on First Letter
+                const char = c.name.charAt(0).toUpperCase();
+                let bgStyle = "bg-emerald-50 text-emerald-600";
+                if (char === "T") bgStyle = "bg-emerald-100 text-emerald-700";
+                else if (char === "S") bgStyle = "bg-sky-100 text-sky-700";
+                else if (char === "M") bgStyle = "bg-amber-100 text-amber-700";
+                else if (char === "P") bgStyle = "bg-purple-100 text-purple-700";
+                else if (char === "D") bgStyle = "bg-orange-100 text-orange-700";
+                else if (char === "R") bgStyle = "bg-rose-100 text-rose-700";
+                else if (char === "C") bgStyle = "bg-yellow-100 text-yellow-800";
+                else if (char === "B") bgStyle = "bg-slate-100 text-slate-700";
+
+                return (
+                  <div
+                    key={c.name}
+                    onClick={() => {
+                      setExpCategory(c.name);
+                      setShowAddModal(true);
+                    }}
+                    className="px-4 py-3 hover:bg-[#f9f9f7] transition cursor-pointer flex items-center justify-between gap-4 group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-7 h-7 rounded-[6px] ${bgStyle} flex items-center justify-center font-bold text-xs`}>
+                        {char}
+                      </div>
+                      <span className="font-bold text-[#1a1a1a] text-xs group-hover:text-[#1e4d2b] transition">
+                        {c.name}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-[#1a1a1a] font-mono text-xs">
+                        ₹ {c.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
                   </div>
-                  <span className="font-extrabold text-slate-800 text-sm group-hover:text-red-600 transition">
-                    {c.name}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="font-black text-slate-900 font-mono text-sm">
-                    ₹ {c.amount.toLocaleString("en-IN", { minimumFractionDigits: c.amount % 1 === 0 ? 0 : 2 })}
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-red-500 group-hover:translate-x-0.5 transition" />
-                </div>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
 
-          {/* Bottom Total Footer */}
-          <div className="bg-slate-900 text-white rounded-2xl p-4 flex items-center justify-between font-mono text-sm font-black shadow-md">
-            <span className="text-xs uppercase text-slate-300 font-extrabold font-sans">Total Overall Expenses</span>
-            <span className="text-xl text-red-400">
+          {/* Bottom Total Footer Bar (Matching Photo 3) */}
+          <div className="bg-[#1a1a1a] text-white rounded-[10px] px-5 py-3 flex items-center justify-between font-mono text-sm font-bold shadow-xs">
+            <span className="text-[11px] uppercase tracking-wider text-slate-300 font-bold font-sans">
+              TOTAL OVERALL EXPENSES
+            </span>
+            <span className="text-lg text-white font-mono font-extrabold">
               ₹ {overallTotalExpenses.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </span>
           </div>
@@ -272,31 +294,31 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
 
       {/* VOUCHER HISTORY VIEW */}
       {activeTab === "history" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <div className="bg-white rounded-[10px] border border-[#e8e8e8] overflow-hidden font-sans">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 border-b border-slate-100">
-                  <th className="py-3.5 px-4">DATE</th>
-                  <th className="py-3.5 px-4">EXPENSE NO</th>
-                  <th className="py-3.5 px-4">CATEGORY</th>
-                  <th className="py-3.5 px-4">PAYMENT METHOD</th>
-                  <th className="py-3.5 px-4 text-right">TOTAL (₹)</th>
-                  <th className="py-3.5 px-4 text-center">ACTION</th>
+                <tr className="bg-[#f9f9f7] text-[10px] font-bold uppercase tracking-wider text-[#888] border-b border-[#f0f0ec]">
+                  <th className="py-3 px-4">DATE</th>
+                  <th className="py-3 px-4">EXPENSE NO</th>
+                  <th className="py-3 px-4">CATEGORY</th>
+                  <th className="py-3 px-4">PAYMENT METHOD</th>
+                  <th className="py-3 px-4 text-right">TOTAL (₹)</th>
+                  <th className="py-3 px-4 text-center">ACTION</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+              <tbody className="divide-y divide-[#f0f0ec] font-medium text-[#333]">
                 {expenses.map((e) => (
-                  <tr key={e.id} className="hover:bg-slate-50">
-                    <td className="py-3.5 px-4 font-mono text-slate-600">{e.expense_date}</td>
-                    <td className="py-3.5 px-4 font-mono font-bold text-red-600">{e.expense_no}</td>
-                    <td className="py-3.5 px-4 font-extrabold text-slate-800">{e.category_name}</td>
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
+                  <tr key={e.id} className="hover:bg-[#f9f9f7]">
+                    <td className="py-3 px-4 font-mono text-[#666]">{e.expense_date}</td>
+                    <td className="py-3 px-4 font-mono font-bold text-[#1e4d2b]">{e.expense_no}</td>
+                    <td className="py-3 px-4 font-bold text-[#1a1a1a]">{e.category_name}</td>
+                    <td className="py-3 px-4">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#f4f4f0] text-[#555]">
                         {e.payment_type}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-right font-black font-mono text-slate-900">
+                    <td className="py-3 px-4 text-right font-extrabold font-mono text-[#1a1a1a]">
                       ₹ {e.total_amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-3.5 px-4 text-center">
