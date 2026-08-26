@@ -105,16 +105,35 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
   };
 
   return (
-    <div className="p-8 space-y-6 bg-slate-50 min-h-screen">
-      {/* Header matching the screenshot closely */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+    <div className="p-4 sm:p-6 space-y-5 bg-[#f4f4f0] min-h-screen font-sans">
+      {/* Top Header Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-[10px] border border-[#e8e8e8]">
         <div>
-          <h1 className="text-2xl font-bold text-emerald-800 tracking-tight">
-            RKK Nursery
-          </h1>
-          <div className="text-xs text-slate-500 font-medium mt-1 flex items-center gap-2">
-            <span>Crops</span>
-          </div>
+          <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight">Crop Inventory Directory</h1>
+          <p className="text-xs text-[#888] font-medium mt-0.5">
+            Manage crop master catalog, seedling varieties, prices, and live surplus greenhouse stock
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 border border-[#ccc] text-[#444] bg-white hover:bg-slate-50 rounded-[7px] font-semibold text-xs transition cursor-pointer"
+          >
+            <Upload className="w-3.5 h-3.5 text-[#666]" />
+            <span>Import Excel/CSV</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setEditingProduct(null);
+              setShowAddProdModal(true);
+            }}
+            className="flex items-center gap-1.5 bg-[#1e4d2b] text-white px-4 py-2 rounded-[7px] font-bold text-xs hover:bg-[#163d21] transition shadow-xs cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>+ Add Crop</span>
+          </button>
         </div>
       </div>
 
@@ -124,30 +143,30 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
         const totalSurplusPlants = surplusBatches.reduce((s, b) => s + (b.surplus_quantity || 0), 0);
 
         return (
-          <div className="bg-emerald-950 text-emerald-100 p-6 rounded-2xl shadow-sm border border-emerald-800 space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-emerald-800/80 pb-4">
+          <div className="bg-[#1a2e1a] text-white p-5 rounded-[10px] border border-[#264226] space-y-3 shadow-xs">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-[#2d4e2d] pb-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="bg-amber-400 text-slate-950 font-black px-2.5 py-0.5 rounded text-xs">
+                  <h3 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
+                    <span>🌱 Live Surplus Growing Stock</span>
+                  </h3>
+                  <span className="bg-[#2d5c36] text-[#7cad7c] font-bold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider">
                     {surplusBatches.length} Batches
                   </span>
-                  <h3 className="text-base font-extrabold text-white tracking-tight">
-                    🌱 Live Surplus Growing Stock (Unallocated Extra Plants)
-                  </h3>
                 </div>
-                <p className="text-xs text-emerald-300 font-medium mt-1">
-                  Extra plants currently growing in greenhouses available for new incoming customer orders
+                <p className="text-[11px] text-[#7cad7c] font-medium mt-0.5">
+                  Extra unallocated plants currently growing in greenhouses available for new incoming customer orders
                 </p>
               </div>
 
-              <div className="bg-emerald-900/80 px-4 py-2 rounded-xl border border-emerald-700 font-mono text-xs flex items-center gap-2">
-                <span className="text-emerald-300 font-semibold">Total Surplus Stock:</span>
-                <span className="text-amber-300 font-black text-sm">🌱 {totalSurplusPlants.toLocaleString()} plants</span>
+              <div className="bg-[#233d23] px-3.5 py-1.5 rounded-[7px] border border-[#2d4e2d] font-mono text-xs flex items-center gap-2">
+                <span className="text-[#7cad7c] font-medium">Total Surplus:</span>
+                <span className="text-emerald-300 font-extrabold">🌱 {totalSurplusPlants.toLocaleString()} plants</span>
               </div>
             </div>
 
             {surplusBatches.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {surplusBatches.map((b) => {
                   const daysElapsed = Math.max(
                     0,
@@ -161,25 +180,25 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
                   return (
                     <div
                       key={b.id || b.batch_no}
-                      className="bg-emerald-900/60 p-4 rounded-xl border border-emerald-800/80 space-y-2 hover:border-emerald-700 transition"
+                      className="bg-[#233d23]/80 p-3 rounded-[8px] border border-[#2d4e2d] space-y-1.5"
                     >
                       <div className="flex justify-between items-start">
                         <div>
-                          <span className="text-amber-300 font-extrabold text-sm">
+                          <span className="text-white font-bold text-xs">
                             {b.product_name} - {b.variant_name}
                           </span>
-                          <div className="text-[11px] text-emerald-300 font-mono mt-0.5">
+                          <div className="text-[10px] text-[#7cad7c] font-mono mt-0.5">
                             Batch #{b.batch_code || b.batch_no} • {b.polyhouse || "Greenhouse A"}
                           </div>
                         </div>
-                        <span className="bg-amber-400/20 text-amber-200 border border-amber-400/40 px-2.5 py-1 rounded font-extrabold font-mono text-xs">
+                        <span className="bg-[#2d5c36] text-emerald-300 border border-[#3c7047] px-2 py-0.5 rounded font-extrabold font-mono text-[11px]">
                           🌱 {(b.surplus_quantity || 0).toLocaleString()} extra
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between text-[11px] pt-1 border-t border-emerald-800/60 text-emerald-200 font-medium">
+                      <div className="flex items-center justify-between text-[10px] pt-1 border-t border-[#2d4e2d] text-[#7cad7c]">
                         <span>Sowed {daysElapsed} days ago ({b.sowing_date})</span>
-                        <span className="bg-emerald-800 text-amber-300 px-2 py-0.5 rounded font-extrabold border border-emerald-700">
+                        <span className="text-emerald-300 font-bold">
                           ⏳ {daysRemaining} Days Left (Ready {b.end_date})
                         </span>
                       </div>
@@ -188,7 +207,7 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
                 })}
               </div>
             ) : (
-              <div className="text-center py-4 text-emerald-400 text-xs italic">
+              <div className="text-center py-2 text-[#7cad7c] text-xs font-medium">
                 No surplus stock currently growing in greenhouses.
               </div>
             )}
@@ -196,7 +215,7 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
         );
       })()}
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-[10px] border border-[#e8e8e8] overflow-hidden">
         {/* Table Toolbar */}
         <div className="flex justify-between items-center p-4 border-b border-slate-100">
           <div className="flex items-center gap-2">

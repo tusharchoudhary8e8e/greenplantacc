@@ -127,79 +127,76 @@ export const MetricDriversScreen: React.FC<MetricDriversScreenProps> = ({
   );
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 bg-slate-50 min-h-screen">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+    <div className="p-4 sm:p-6 space-y-5 bg-[#f4f4f0] min-h-screen font-sans">
+      {/* Top Header Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-[10px] border border-[#e8e8e8]">
         <div>
-          <div className="flex items-center gap-2">
-            <Truck className="w-6 h-6 text-emerald-600" />
-            <h1 className="text-2xl font-bold text-emerald-800 tracking-tight">Driver Directory</h1>
-          </div>
-          <p className="text-sm text-slate-500 font-medium mt-0.5">
-            Manage delivery drivers, vehicle numbers & transport ledger accounts
+          <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight">Drivers Directory</h1>
+          <p className="text-xs text-[#888] font-medium mt-0.5">
+            Manage dispatch delivery drivers, contact numbers, vehicles &amp; advance balances
           </p>
         </div>
 
         <button
           onClick={handleOpenCreateModal}
-          className="flex items-center gap-2 bg-[#00a651] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-emerald-600 transition shadow-sm text-xs"
+          className="flex items-center gap-1.5 bg-[#1e4d2b] text-white px-4 py-2 rounded-[7px] font-bold text-xs hover:bg-[#163d21] transition shadow-xs cursor-pointer"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3.5 h-3.5" />
           <span>+ Add Driver</span>
         </button>
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between">
+      <div className="bg-white p-3.5 rounded-[10px] border border-[#e8e8e8] flex items-center justify-between">
         <div className="relative w-full max-w-xs">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+          <Search className="w-3.5 h-3.5 text-[#aaa] absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Search by Driver Name, Phone or Vehicle No..."
+            placeholder="Search Driver Name, Phone or Vehicle..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-9 pr-3 py-1.5 border border-[#e0e0e0] rounded-[7px] text-xs text-[#1a1a1a] focus:ring-1 focus:ring-[#1e4d2b] bg-[#f9f9f7]"
           />
         </div>
-        <div className="text-xs text-slate-500 font-semibold">
-          Total Drivers: <span className="text-emerald-700 font-mono font-bold">{filteredDrivers.length}</span>
+        <div className="text-xs text-[#888] font-medium">
+          Total Drivers: <span className="text-[#1a1a1a] font-mono font-bold">{filteredDrivers.length}</span>
         </div>
       </div>
 
       {/* Drivers Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-[10px] border border-[#e8e8e8] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-slate-50 text-[11px] font-bold uppercase text-slate-500 border-b border-slate-100">
-                <th className="py-3.5 px-4">DRIVER NAME</th>
-                <th className="py-3.5 px-4">PHONE NUMBER</th>
-                <th className="py-3.5 px-4">VEHICLE NAME</th>
-                <th className="py-3.5 px-4">VEHICLE NUMBER</th>
-                <th className="py-3.5 px-4 text-right">BALANCE (₹)</th>
-                <th className="py-3.5 px-4 text-center">STATUS</th>
-                <th className="py-3.5 px-4 text-center">ACTIONS</th>
+              <tr className="bg-[#f9f9f7] text-[10px] font-bold uppercase tracking-wider text-[#888] border-b border-[#f0f0ec]">
+                <th className="py-3 px-4">DRIVER NAME</th>
+                <th className="py-3 px-4">PHONE NUMBER</th>
+                <th className="py-3 px-4">VEHICLE NAME</th>
+                <th className="py-3 px-4">VEHICLE NUMBER</th>
+                <th className="py-3 px-4 text-right">BALANCE (₹)</th>
+                <th className="py-3 px-4 text-center">STATUS</th>
+                <th className="py-3 px-4 text-center">ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="divide-y divide-[#f0f0ec] font-medium text-[#333]">
               {filteredDrivers.map((drv) => (
-                <tr key={drv.id} className="hover:bg-slate-50 transition">
-                  <td className="py-3.5 px-4 font-bold text-slate-800">{drv.name}</td>
-                  <td className="py-3.5 px-4 font-mono">{drv.phone || "N/A"}</td>
-                  <td className="py-3.5 px-4 font-medium text-slate-700">{drv.vehicle_name || "N/A"}</td>
-                  <td className="py-3.5 px-4 font-mono font-bold text-slate-800">{drv.vehicle_number || "N/A"}</td>
-                  <td className="py-3.5 px-4 text-right font-bold text-emerald-700 font-mono">
-                    ₹{(drv.balance || 0).toLocaleString()}
+                <tr key={drv.id} className="hover:bg-[#f9f9f7] transition">
+                  <td className="py-3 px-4 font-bold text-[#1a1a1a]">{drv.name}</td>
+                  <td className="py-3 px-4 font-mono text-[#666]">{drv.phone || "N/A"}</td>
+                  <td className="py-3 px-4 text-[#555]">{drv.vehicle_name || "N/A"}</td>
+                  <td className="py-3 px-4 font-mono font-bold text-[#1a1a1a]">{drv.vehicle_number || "N/A"}</td>
+                  <td className="py-3 px-4 text-right font-bold text-[#1a1a1a] font-mono">
+                    ₹{(drv.balance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-3.5 px-4 text-center">
+                  <td className="py-3 px-4 text-center">
                     <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-bold border capitalize ${
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                         drv.status === "Active"
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-slate-100 text-slate-600 border-slate-200"
+                          ? "bg-[#d4edda] text-[#155724]"
+                          : "bg-[#f4f4f0] text-[#555]"
                       }`}
                     >
-                      {drv.status || "Active"}
+                      {(drv.status || "Active").toUpperCase()}
                     </span>
                   </td>
                   <td className="py-3.5 px-4 text-center">

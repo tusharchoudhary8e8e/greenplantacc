@@ -197,51 +197,51 @@ export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({
   }, [orders, batches]);
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 bg-slate-50/50 min-h-screen">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+    <div className="p-4 sm:p-6 space-y-5 bg-[#f4f4f0] min-h-screen font-sans">
+      {/* Top Header Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-[10px] border border-[#e8e8e8]">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="bg-emerald-100 text-[#009b4d] font-bold px-3 py-1 rounded-md text-xs">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight">Sowing Plans &amp; Batch Schedule</h1>
+            <span className="bg-[#e6f4ed] text-[#2d7a4f] border border-[#b8ddc8] font-bold px-2.5 py-0.5 rounded-full text-[11px]">
               {sowingPlans.length} Sowing Plans
             </span>
-            <h1 className="text-xl font-bold text-slate-800 tracking-tight">Sowing Plans & Batch Schedule</h1>
           </div>
-          <p className="text-xs text-slate-500 font-semibold mt-0.5">
+          <p className="text-xs text-[#888] font-medium mt-0.5">
             Monitor crop variety sowing targets, tray calculations, batch deadlines, and customer order breakdowns
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={onOpenCreateBatch}
-            className="bg-[#00a651] text-white px-5 py-2.5 rounded-xl font-bold hover:bg-emerald-600 transition text-xs flex items-center gap-2 shadow-sm"
+            className="bg-[#1e4d2b] text-white px-4 py-2 rounded-[7px] font-bold text-xs hover:bg-[#163d21] transition flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             <span>+ Create Batch / Sowing</span>
           </button>
         </div>
       </div>
 
       {/* Main Table Container */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-[10px] border border-[#e8e8e8] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse min-w-[1100px]">
             <thead>
-              <tr className="bg-[#f8fafc] text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-100">
-                <th className="py-4 px-4 pl-6">CROP</th>
-                <th className="py-4 px-4">QUANTITY</th>
-                <th className="py-4 px-4">NUMBER OF TRAYS</th>
-                <th className="py-4 px-4">UNIT</th>
-                <th className="py-4 px-4">LOT NO.</th>
-                <th className="py-4 px-4">STATUS</th>
-                <th className="py-4 px-4">CREATED AT</th>
-                <th className="py-4 px-4">COMPLETE AT</th>
-                <th className="py-4 px-4 text-center">ACTION</th>
+              <tr className="bg-[#f9f9f7] text-[#888] font-bold uppercase text-[10px] tracking-wider border-b border-[#f0f0ec]">
+                <th className="py-3 px-4 pl-6">CROP</th>
+                <th className="py-3 px-4">QUANTITY</th>
+                <th className="py-3 px-4">NUMBER OF TRAYS</th>
+                <th className="py-3 px-4">UNIT</th>
+                <th className="py-3 px-4">LOT NO.</th>
+                <th className="py-3 px-4">STATUS</th>
+                <th className="py-3 px-4">CREATED AT</th>
+                <th className="py-3 px-4">COMPLETE AT</th>
+                <th className="py-3 px-4 text-center">ACTION</th>
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-slate-100 text-slate-700">
+            <tbody className="divide-y divide-[#f0f0ec] text-[#333] font-medium">
               {sowingPlans.map((plan) => {
                 const isExpanded = !!expandedRows[plan.id];
 
