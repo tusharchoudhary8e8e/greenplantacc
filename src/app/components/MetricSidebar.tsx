@@ -1,4 +1,3 @@
-import React from "react";
 import {
   LineChart,
   ShoppingCart,
@@ -17,6 +16,7 @@ import {
   Calendar,
   BookOpen,
   Receipt,
+  Wallet,
 } from "lucide-react";
 
 export type MetricTab =
@@ -25,6 +25,7 @@ export type MetricTab =
   | "purchase_bills"
   | "create_purchase_bill"
   | "ledger"
+  | "party_balances"
   | "create_order"
   | "production"
   | "sowing_plans"
@@ -58,6 +59,7 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
     { id: "orders" as MetricTab, label: "Sales Orders", icon: ShoppingCart },
     { id: "purchase_bills" as MetricTab, label: "Purchase Bills", icon: Receipt },
     { id: "ledger" as MetricTab, label: "Party Ledger", icon: BookOpen },
+    { id: "party_balances" as MetricTab, label: "Party Balances", icon: Wallet },
     {
       id: "production" as MetricTab,
       label: "Production",
