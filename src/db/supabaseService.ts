@@ -2838,30 +2838,7 @@ export class SupabaseService {
 
   // ─── BANK ACCOUNTS MANAGEMENT ─────────────────────────────────────
   static async getBankAccounts(): Promise<BankAccount[]> {
-    let list = loadFromStorage<BankAccount[]>("demo_bank_accounts", [
-      {
-        id: "bank-sbi-curr",
-        account_name: "SBI Current A/C",
-        account_number: "43025939805",
-        ifsc_code: "SBIN0001234",
-        bank_name: "State Bank of India",
-        account_type: "Current",
-        balance: 1620580.05,
-        is_online_payment: true,
-        is_printing_default: true,
-      },
-      {
-        id: "bank-sbi-od",
-        account_name: "SBI OD A/C",
-        account_number: "43025939999",
-        ifsc_code: "SBIN0001234",
-        bank_name: "State Bank of India",
-        account_type: "Overdraft",
-        balance: 5300.0,
-        is_online_payment: false,
-        is_printing_default: false,
-      },
-    ]);
+    let list = loadFromStorage<BankAccount[]>("demo_bank_accounts", []);
     return list;
   }
 
@@ -2915,16 +2892,7 @@ export class SupabaseService {
 
   // ─── EXPENSES MANAGEMENT ──────────────────────────────────────────
   static async getExpenses(): Promise<ExpenseRecord[]> {
-    let list = loadFromStorage<ExpenseRecord[]>("demo_expenses", [
-      { id: "exp-1", expense_no: "EXP-001", expense_date: "2026-08-26", category_name: "Transport", total_amount: 338100, payment_type: "Cash", payment_status: "paid" },
-      { id: "exp-2", expense_no: "EXP-002", expense_date: "2026-08-25", category_name: "Salary", total_amount: 495265, payment_type: "bank-sbi-curr", payment_status: "paid" },
-      { id: "exp-3", expense_no: "EXP-003", expense_date: "2026-08-24", category_name: "Manufacturing Expense", total_amount: 293880, payment_type: "Cash", payment_status: "paid" },
-      { id: "exp-4", expense_no: "EXP-004", expense_date: "2026-08-23", category_name: "Personal expenses", total_amount: 1015199.04, payment_type: "Cash", payment_status: "paid" },
-      { id: "exp-5", expense_no: "EXP-005", expense_date: "2026-08-22", category_name: "Payment-in Discount", total_amount: 234589.51, payment_type: "Cash", payment_status: "paid" },
-      { id: "exp-6", expense_no: "EXP-006", expense_date: "2026-08-21", category_name: "Petrol", total_amount: 130841, payment_type: "bank-sbi-curr", payment_status: "paid" },
-      { id: "exp-7", expense_no: "EXP-007", expense_date: "2026-08-20", category_name: "College fee", total_amount: 34218.88, payment_type: "Cash", payment_status: "paid" },
-      { id: "exp-8", expense_no: "EXP-008", expense_date: "2026-08-19", category_name: "Bank communication and interest", total_amount: 7849, payment_type: "bank-sbi-curr", payment_status: "paid" },
-    ]);
+    let list = loadFromStorage<ExpenseRecord[]>("demo_expenses", []);
     return list;
   }
 

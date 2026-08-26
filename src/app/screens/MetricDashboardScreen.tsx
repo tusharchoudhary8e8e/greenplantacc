@@ -186,23 +186,22 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
   }, [bankAccounts]);
 
   const totalCashInHand = useMemo(() => {
-    // Computed dynamically: Advances + Cash Receipts - Cash Expenses - Cash Purchases
+    // Computed dynamically from real user receipts & expenses
     const cashAdvances = safeOrders.reduce((sum, o) => sum + (o.advance_payment || 0), 0);
     const cashExpenses = expenses
       .filter((e) => e.payment_type === "Cash")
       .reduce((sum, e) => sum + (e.total_amount || 0), 0);
-    const baseCash = 6423015; // Starting balance
-    return Math.max(0, baseCash + cashAdvances - cashExpenses);
+    return Math.max(0, cashAdvances - cashExpenses);
   }, [safeOrders, expenses]);
 
   // 6. Dynamic Inventory Stock Value
   const { totalStockValue, itemCount } = useMemo(() => {
-    // Calculates value across items
-    let val = 8091972.32; // Default live stock valuation
-    let count = 199;
+    let val = 0;
+    let count = 0;
     safeOrders.forEach((o) => {
       (o.items || []).forEach((item) => {
         val += (item.quantity || 0) * (item.price || 0);
+        count++;
       });
     });
     return { totalStockValue: val, itemCount: count };
