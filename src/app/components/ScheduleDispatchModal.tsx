@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Truck, Calendar, User, Phone, MapPin, CheckCircle2 } from "lucide-react";
-import { Customer, Order, Employee, DispatchRecord, SupabaseService } from "../../db/supabaseService";
+import { Customer, Order, Employee, Driver, DispatchRecord, SupabaseService } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "./SearchableSelect";
 
 interface ScheduleDispatchModalProps {
@@ -35,15 +35,29 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
   const [status, setStatus] = useState<"pending" | "in_transit" | "delivered">("pending");
   const [notes, setNotes] = useState<string>("");
 
+  const [driverList, setDriverList] = useState<Driver[]>(drivers);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string>("");
+
+  // Load drivers directly if empty or when modal opens
+  useEffect(() => {
+    if (drivers && drivers.length > 0) {
+      setDriverList(drivers);
+    } else {
+      SupabaseService.getDrivers().then((loaded) => {
+        if (loaded && loaded.length > 0) {
+          setDriverList(loaded);
+        }
+      });
+    }
+  }, [drivers, isOpen]);
 
   if (!isOpen) return null;
 
   const safeCustomers = Array.isArray(customers) ? customers : [];
   const safeEmployees = Array.isArray(employees) ? employees : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
-  const safeDrivers = Array.isArray(drivers) && drivers.length > 0 ? drivers : [];
+  const safeDrivers = Array.isArray(driverList) && driverList.length > 0 ? driverList : drivers || [];
 
   // Searchable Customer Options
   const customerOptions: SearchableOption[] = safeCustomers.map((c) => ({
@@ -247,8 +261,14 @@ export const ScheduleDispatchModal: React.FC<ScheduleDispatchModalProps> = ({
             <SearchableSelect
               options={driverOptions}
               value={selectedDriverId}
-              onChange={(val) => setSelectedDriverId(val)}
-              placeholder="Select Driver (optional)..."
+              onChange={(val) => {
+                setSelectedDriverId(val);
+                const drv = safeDrivers.find((d) => d.id === val || d.name === val);
+                if (drv && drv.vehicle_number) {
+                  setVehicleNo(drv.vehicle_number);
+                }
+              }}
+              placeholder="Select Driver (search by name, vehicle)..."
             />
           </div>
 

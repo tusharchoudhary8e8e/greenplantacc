@@ -1057,6 +1057,7 @@ export const MetricDispatchScreen: React.FC<MetricDispatchScreenProps> = ({
         customers={customers}
         orders={orders}
         employees={employees}
+        drivers={drivers}
         onSaveDispatch={(newD) => {
           setDispatchList([newD, ...dispatchList]);
           if (onDispatchSaved) onDispatchSaved(newD);
