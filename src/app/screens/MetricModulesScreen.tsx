@@ -209,6 +209,7 @@ interface MetricDispatchScreenProps {
   customers?: Customer[];
   orders?: Order[];
   employees?: Employee[];
+  drivers?: Driver[];
   onDispatchSaved?: (newDispatch: DispatchRecord) => void;
 }
 
@@ -217,6 +218,7 @@ export const MetricDispatchScreen: React.FC<MetricDispatchScreenProps> = ({
   customers = [],
   orders = [],
   employees = [],
+  drivers = [],
   onDispatchSaved,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
