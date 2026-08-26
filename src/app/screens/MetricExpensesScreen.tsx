@@ -12,6 +12,7 @@ import {
   Building2,
   CheckCircle2,
   Printer,
+  ChevronRight,
 } from "lucide-react";
 import { ExpenseRecord, BankAccount, SupabaseService } from "../../db/supabaseService";
 
@@ -19,6 +20,19 @@ interface MetricExpensesScreenProps {
   onBack?: () => void;
   onExpensesUpdated?: () => void;
 }
+
+const PRESET_CATEGORIES = [
+  "Transport",
+  "Salary",
+  "Manufacturing Expense",
+  "Personal expenses",
+  "Payment-in Discount",
+  "Petrol",
+  "Rent",
+  "Tea",
+  "College fee",
+  "Bank communication and interest",
+];
 
 export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
   onBack,
@@ -32,7 +46,7 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
 
   // Add Expense Modal Form
   const [showAddModal, setShowAddModal] = useState(false);
-  const [expCategory, setExpCategory] = useState("");
+  const [expCategory, setExpCategory] = useState("Transport");
   const [expDate, setExpDate] = useState(new Date().toISOString().split("T")[0]);
   const [expAmount, setExpAmount] = useState("");
   const [expShipping, setExpShipping] = useState("");
@@ -59,20 +73,13 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
     loadData();
   }, []);
 
-  // Aggregated Category Totals (Matching media_1787752474498.png)
+  // Aggregated Category Totals
   const categoryTotals = useMemo(() => {
-    const categoriesMap: Record<string, number> = {
-      "Bank communication and interest": 0,
-      "College fee": 0,
-      "Manufacturing Expense": 0,
-      "Payment-in Discount": 0,
-      "Personal expenses": 0,
-      "Petrol": 0,
-      "Rent": 0,
-      "Salary": 0,
-      "Tea": 0,
-      "Transport": 0,
-    };
+    const categoriesMap: Record<string, number> = {};
+
+    PRESET_CATEGORIES.forEach((cat) => {
+      categoriesMap[cat] = 0;
+    });
 
     expenses.forEach((e) => {
       const cat = e.category_name.trim();
@@ -112,15 +119,21 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
   }, [expItems, expAmount, expShipping, expRoundOff]);
 
   const handleSaveExpense = async (saveAndNew = false) => {
-    if (!expCategory.trim()) return;
+    const categoryToSave = expCategory.trim() || "General Expense";
+    const totalToSave = calculatedFormTotal;
+
+    if (!totalToSave || totalToSave <= 0) {
+      alert("Please enter a valid expense amount.");
+      return;
+    }
 
     await SupabaseService.saveExpense({
-      category_name: expCategory,
+      category_name: categoryToSave,
       expense_date: expDate,
       items: expItems,
       shipping_charge: Number(expShipping) || 0,
       round_off: expRoundOff ? 1 : 0,
-      total_amount: calculatedFormTotal,
+      total_amount: totalToSave,
       payment_type: expPaymentType,
       payment_status: "paid",
       notes: expNotes,
@@ -191,16 +204,19 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
           </div>
 
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setExpCategory("Transport");
+              setShowAddModal(true);
+            }}
             className="flex items-center gap-2 bg-[#ff4d4d] text-white px-4 py-2 rounded-xl font-extrabold text-xs hover:bg-red-600 shadow-sm transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Record Expense</span>
+            <span>+ Record Expense</span>
           </button>
         </div>
       </div>
 
-      {/* CATEGORIES VIEW (Matching media_1787752474498.png) */}
+      {/* CATEGORIES VIEW */}
       {activeTab === "categories" && (
         <div className="space-y-4">
           <div className="relative max-w-md">
@@ -225,18 +241,26 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
                 }}
                 className="p-4 hover:bg-slate-50 transition cursor-pointer flex items-center justify-between gap-4 group"
               >
-                <span className="font-extrabold text-slate-800 text-sm group-hover:text-red-600 transition">
-                  {c.name}
-                </span>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center font-bold text-xs">
+                    {c.name.charAt(0)}
+                  </div>
+                  <span className="font-extrabold text-slate-800 text-sm group-hover:text-red-600 transition">
+                    {c.name}
+                  </span>
+                </div>
 
-                <span className="font-black text-slate-900 font-mono text-sm">
-                  ₹ {c.amount.toLocaleString("en-IN", { minimumFractionDigits: c.amount % 1 === 0 ? 0 : 2 })}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="font-black text-slate-900 font-mono text-sm">
+                    ₹ {c.amount.toLocaleString("en-IN", { minimumFractionDigits: c.amount % 1 === 0 ? 0 : 2 })}
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-red-500 group-hover:translate-x-0.5 transition" />
+                </div>
               </div>
             ))}
           </div>
 
-          {/* Bottom Total Footer (Matching media_1787752474498.png) */}
+          {/* Bottom Total Footer */}
           <div className="bg-slate-900 text-white rounded-2xl p-4 flex items-center justify-between font-mono text-sm font-black shadow-md">
             <span className="text-xs uppercase text-slate-300 font-extrabold font-sans">Total Overall Expenses</span>
             <span className="text-xl text-red-400">
@@ -256,7 +280,7 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
                   <th className="py-3.5 px-4">DATE</th>
                   <th className="py-3.5 px-4">EXPENSE NO</th>
                   <th className="py-3.5 px-4">CATEGORY</th>
-                  <th className="py-3.5 px-4">PAYMENT TYPE</th>
+                  <th className="py-3.5 px-4">PAYMENT METHOD</th>
                   <th className="py-3.5 px-4 text-right">TOTAL (₹)</th>
                   <th className="py-3.5 px-4 text-center">ACTION</th>
                 </tr>
@@ -285,20 +309,28 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
                     </td>
                   </tr>
                 ))}
+
+                {expenses.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-slate-400 text-xs font-medium">
+                      No expense vouchers recorded yet. Click "+ Record Expense" to add your first expense!
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* CREATE EXPENSE FORM MODAL (Matching media_1787752474495.png) */}
+      {/* CREATE EXPENSE FORM MODAL */}
       {showAddModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
                 <Tag className="w-5 h-5 text-red-500" />
-                <span>Record Expense</span>
+                <span>Record Expense Voucher</span>
               </h3>
               <button onClick={() => setShowAddModal(false)} className="p-1.5 text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
@@ -306,22 +338,39 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
             </div>
 
             <div className="space-y-4 text-xs font-medium">
-              {/* Category Picker */}
+              {/* Category Picker with Quick Presets */}
               <div>
                 <label className="block text-slate-500 font-bold mb-1">Expense Category *</label>
                 <input
                   type="text"
-                  placeholder="Type or select category (e.g. Petrol, Rent, Transport)..."
+                  placeholder="Type or select category below..."
                   value={expCategory}
                   onChange={(e) => setExpCategory(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-red-500"
+                  className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-red-500 mb-2"
                 />
+
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESET_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setExpCategory(cat)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                        expCategory === cat
+                          ? "bg-red-500 text-white shadow-2xs"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Date & Amount */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-500 font-bold mb-1">Date</label>
+                  <label className="block text-slate-500 font-bold mb-1">Expense Date</label>
                   <input
                     type="date"
                     value={expDate}
@@ -331,13 +380,14 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-500 font-bold mb-1">Expense Amount (₹)</label>
+                  <label className="block text-slate-500 font-bold mb-1">Expense Amount (₹) *</label>
                   <input
                     type="number"
-                    placeholder="0.0"
+                    placeholder="0.00"
                     value={expAmount}
                     onChange={(e) => setExpAmount(e.target.value)}
                     className="w-full p-2.5 border border-slate-200 rounded-xl font-mono text-base font-black text-slate-800 focus:ring-2 focus:ring-red-500"
+                    required
                   />
                 </div>
               </div>
@@ -350,7 +400,7 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    placeholder="Item name..."
+                    placeholder="Item description..."
                     value={newItemName}
                     onChange={(e) => setNewItemName(e.target.value)}
                     className="flex-1 p-2 border border-slate-200 rounded-lg text-xs bg-white"
@@ -383,33 +433,7 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
                 )}
               </div>
 
-              {/* Shipping & Round off */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-500 font-bold mb-1">Shipping / Freight Charge</label>
-                  <input
-                    type="number"
-                    placeholder="0.0"
-                    value={expShipping}
-                    onChange={(e) => setExpShipping(e.target.value)}
-                    className="w-full p-2 border border-slate-200 rounded-xl font-mono text-slate-800"
-                  />
-                </div>
-
-                <div className="flex items-center pt-5">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={expRoundOff}
-                      onChange={(e) => setExpRoundOff(e.target.checked)}
-                      className="w-4 h-4 text-red-500 rounded"
-                    />
-                    <span className="text-slate-700 font-bold">Round Off Amount</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Payment Type */}
+              {/* Payment Method */}
               <div>
                 <label className="block text-slate-500 font-bold mb-1">Payment Method</label>
                 <select
@@ -446,7 +470,7 @@ export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => handleSaveExpense(false)}
-                  className="px-5 py-2 bg-[#ff4d4d] text-white rounded-xl font-extrabold hover:bg-red-600 shadow-xs"
+                  className="px-5 py-2 bg-[#ff4d4d] text-white rounded-xl font-extrabold hover:bg-red-600 shadow-xs cursor-pointer"
                 >
                   Save Expense
                 </button>
