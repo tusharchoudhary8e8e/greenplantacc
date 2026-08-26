@@ -13,6 +13,9 @@ import {
   X,
   Trash2,
   Pencil,
+  ArrowRightLeft,
+  Coins,
+  SlidersHorizontal,
 } from "lucide-react";
 import { BankAccount, BankTransaction, SupabaseService } from "../../db/supabaseService";
 
@@ -20,6 +23,8 @@ interface MetricBankAccountsScreenProps {
   onBack?: () => void;
   onAccountsUpdated?: () => void;
 }
+
+type DepositOption = "bank_to_cash" | "cash_to_bank" | "bank_to_bank" | "adjust_balance" | null;
 
 export const MetricBankAccountsScreen: React.FC<MetricBankAccountsScreenProps> = ({
   onBack,
@@ -32,6 +37,7 @@ export const MetricBankAccountsScreen: React.FC<MetricBankAccountsScreenProps> =
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<DepositOption>(null);
 
   // New Bank Form
   const [newAccName, setNewAccName] = useState("");
@@ -42,18 +48,20 @@ export const MetricBankAccountsScreen: React.FC<MetricBankAccountsScreenProps> =
   const [isOnlinePay, setIsOnlinePay] = useState(true);
   const [isPrintDefault, setIsPrintDefault] = useState(true);
 
-  // Transfer Form (Deposit / Withdraw)
-  const [transferType, setTransferType] = useState<"deposit" | "withdraw">("deposit");
-  const [selectedBankId, setSelectedBankId] = useState("");
+  // Transfer Form State
+  const [fromBankId, setFromBankId] = useState("");
+  const [toBankId, setToBankId] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
   const [transferNotes, setTransferNotes] = useState("");
+  const [adjustType, setAdjustType] = useState<"add" | "reduce">("add");
 
   const loadAccounts = async () => {
     setLoading(true);
     const list = await SupabaseService.getBankAccounts();
     setBankAccounts(list);
-    if (list.length > 0 && !selectedBankId) {
-      setSelectedBankId(list[0].id || "");
+    if (list.length > 0) {
+      if (!fromBankId) setFromBankId(list[0].id || "");
+      if (!toBankId) setToBankId(list[0].id || "");
     }
     setLoading(false);
     if (onAccountsUpdated) onAccountsUpdated();
@@ -100,20 +108,40 @@ export const MetricBankAccountsScreen: React.FC<MetricBankAccountsScreenProps> =
   const handleExecuteTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = Number(transferAmount);
-    if (!amt || amt <= 0 || !selectedBankId) return;
+    if (!amt || amt <= 0) return;
 
-    const txn: BankTransaction = {
+    let txnType: "deposit" | "withdraw" | "transfer" | "adjust" = "deposit";
+    let fromAcc = "Cash";
+    let toAcc = "Cash";
+
+    if (selectedOption === "bank_to_cash") {
+      txnType = "withdraw";
+      fromAcc = fromBankId;
+    } else if (selectedOption === "cash_to_bank") {
+      txnType = "deposit";
+      toAcc = toBankId;
+    } else if (selectedOption === "bank_to_bank") {
+      txnType = "transfer";
+      fromAcc = fromBankId;
+      toAcc = toBankId;
+    } else if (selectedOption === "adjust_balance") {
+      txnType = "adjust";
+      toAcc = toBankId;
+    }
+
+    await SupabaseService.recordDepositWithdraw({
       transaction_date: new Date().toISOString().split("T")[0],
-      type: transferType,
-      from_account: transferType === "withdraw" ? selectedBankId : "Cash",
-      to_account: transferType === "deposit" ? selectedBankId : "Cash",
+      type: txnType as any,
+      from_account: fromAcc,
+      to_account: toAcc,
       amount: amt,
       notes: transferNotes,
-    };
+      adjust_type: adjustType,
+    });
 
-    await SupabaseService.recordDepositWithdraw(txn);
     setTransferAmount("");
     setTransferNotes("");
+    setSelectedOption(null);
     setShowTransferModal(false);
     loadAccounts();
   };
@@ -126,7 +154,7 @@ export const MetricBankAccountsScreen: React.FC<MetricBankAccountsScreenProps> =
   };
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 bg-slate-50 min-h-screen">
+    <div className="p-4 sm:p-8 space-y-6 bg-slate-50 min-h-screen pb-24">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
         <div className="flex items-center gap-3">
@@ -180,7 +208,7 @@ export const MetricBankAccountsScreen: React.FC<MetricBankAccountsScreenProps> =
         </div>
       </div>
 
-      {/* Accounts Directory (Matching media_1787752474492.png) */}
+      {/* Accounts Directory */}
       <div className="space-y-4">
         {filteredAccounts.map((acc) => (
           <div
@@ -240,13 +268,22 @@ export const MetricBankAccountsScreen: React.FC<MetricBankAccountsScreenProps> =
         ))}
 
         {filteredAccounts.length === 0 && !loading && (
-          <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center text-slate-400 text-xs font-medium">
-            No bank accounts found matching search.
+          <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center space-y-3">
+            <Building2 className="w-10 h-10 text-slate-300 mx-auto" />
+            <div className="text-xs font-semibold text-slate-500">
+              No bank accounts found. Click "+ Add Bank" to add your bank details!
+            </div>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 bg-red-500 text-white rounded-xl font-extrabold text-xs hover:bg-red-600 shadow-xs"
+            >
+              + Add First Bank Account
+            </button>
           </div>
         )}
       </div>
 
-      {/* Bottom Sticky Action Buttons (Matching media_1787752474492.png) */}
+      {/* Bottom Action Bar (Matching media_1787761210923.png) */}
       <div className="fixed bottom-6 left-0 right-0 max-w-md mx-auto px-4 flex items-center gap-3 z-30">
         <button
           onClick={() => setShowAddModal(true)}
@@ -256,12 +293,218 @@ export const MetricBankAccountsScreen: React.FC<MetricBankAccountsScreenProps> =
         </button>
 
         <button
-          onClick={() => setShowTransferModal(true)}
+          onClick={() => {
+            setSelectedOption(null);
+            setShowTransferModal(true);
+          }}
           className="flex-1 py-3 px-4 bg-[#ff4d4d] text-white hover:bg-red-600 font-extrabold rounded-2xl text-xs shadow-lg transition text-center cursor-pointer"
         >
           Deposit/Withdraw
         </button>
       </div>
+
+      {/* DEPOSIT / WITHDRAW ACTION MODAL SHEET (Matching media_1787761210923.png) */}
+      {showTransferModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-6 shadow-2xl border border-slate-100">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-black text-slate-800">Deposit/Withdraw</h3>
+              <button
+                onClick={() => {
+                  setShowTransferModal(false);
+                  setSelectedOption(null);
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Step 1: Option Selector Grid (Exact 4 Options matching media_1787761210923.png) */}
+            {!selectedOption && (
+              <div className="grid grid-cols-2 gap-4 py-2">
+                {/* 1. Bank to Cash Transfer */}
+                <button
+                  onClick={() => setSelectedOption("bank_to_cash")}
+                  className="flex flex-col items-center justify-center p-4 rounded-2xl bg-blue-50/50 hover:bg-blue-50 border border-blue-100 hover:border-blue-300 transition text-center group cursor-pointer space-y-2"
+                >
+                  <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold shadow-2xs group-hover:scale-105 transition">
+                    <ArrowDownLeft className="w-7 h-7" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 leading-tight">
+                    Bank to Cash Transfer
+                  </span>
+                </button>
+
+                {/* 2. Cash to Bank Transfer */}
+                <button
+                  onClick={() => setSelectedOption("cash_to_bank")}
+                  className="flex flex-col items-center justify-center p-4 rounded-2xl bg-emerald-50/50 hover:bg-emerald-50 border border-emerald-100 hover:border-emerald-300 transition text-center group cursor-pointer space-y-2"
+                >
+                  <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold shadow-2xs group-hover:scale-105 transition">
+                    <ArrowUpRight className="w-7 h-7" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 leading-tight">
+                    Cash to Bank Transfer
+                  </span>
+                </button>
+
+                {/* 3. Bank to Bank Transfer */}
+                <button
+                  onClick={() => setSelectedOption("bank_to_bank")}
+                  className="flex flex-col items-center justify-center p-4 rounded-2xl bg-purple-50/50 hover:bg-purple-50 border border-purple-100 hover:border-purple-300 transition text-center group cursor-pointer space-y-2"
+                >
+                  <div className="w-14 h-14 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold shadow-2xs group-hover:scale-105 transition">
+                    <ArrowRightLeft className="w-7 h-7" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 leading-tight">
+                    Bank to Bank Transfer
+                  </span>
+                </button>
+
+                {/* 4. Adjust Bank Balance */}
+                <button
+                  onClick={() => setSelectedOption("adjust_balance")}
+                  className="flex flex-col items-center justify-center p-4 rounded-2xl bg-amber-50/50 hover:bg-amber-50 border border-amber-100 hover:border-amber-300 transition text-center group cursor-pointer space-y-2"
+                >
+                  <div className="w-14 h-14 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center font-bold shadow-2xs group-hover:scale-105 transition">
+                    <SlidersHorizontal className="w-7 h-7" />
+                  </div>
+                  <span className="text-xs font-bold text-slate-700 leading-tight">
+                    Adjust Bank Balance
+                  </span>
+                </button>
+              </div>
+            )}
+
+            {/* Step 2: Form for Selected Option */}
+            {selectedOption && (
+              <form onSubmit={handleExecuteTransfer} className="space-y-4 text-xs font-medium">
+                <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <span className="font-extrabold text-slate-800 text-xs">
+                    {selectedOption === "bank_to_cash" && "🏦 ➔ 💵 Bank to Cash Transfer (Withdraw)"}
+                    {selectedOption === "cash_to_bank" && "💵 ➔ 🏦 Cash to Bank Transfer (Deposit)"}
+                    {selectedOption === "bank_to_bank" && "🏦 ➔ 🏦 Bank to Bank Transfer"}
+                    {selectedOption === "adjust_balance" && "🏦 ➔ 💸 Adjust Bank Balance"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOption(null)}
+                    className="text-[11px] text-blue-600 font-bold hover:underline"
+                  >
+                    Change
+                  </button>
+                </div>
+
+                {/* From / To Bank Selectors */}
+                {(selectedOption === "bank_to_cash" || selectedOption === "bank_to_bank") && (
+                  <div>
+                    <label className="block text-slate-500 font-bold mb-1">From Bank Account (Source) *</label>
+                    <select
+                      value={fromBankId}
+                      onChange={(e) => setFromBankId(e.target.value)}
+                      className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                      required
+                    >
+                      {bankAccounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.account_name} (Bal: ₹{a.balance.toLocaleString()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {(selectedOption === "cash_to_bank" || selectedOption === "bank_to_bank" || selectedOption === "adjust_balance") && (
+                  <div>
+                    <label className="block text-slate-500 font-bold mb-1">
+                      {selectedOption === "adjust_balance" ? "Select Bank Account to Adjust *" : "To Bank Account (Destination) *"}
+                    </label>
+                    <select
+                      value={toBankId}
+                      onChange={(e) => setToBankId(e.target.value)}
+                      className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                      required
+                    >
+                      {bankAccounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.account_name} (Bal: ₹{a.balance.toLocaleString()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {selectedOption === "adjust_balance" && (
+                  <div>
+                    <label className="block text-slate-500 font-bold mb-1">Adjustment Action *</label>
+                    <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl">
+                      <button
+                        type="button"
+                        onClick={() => setAdjustType("add")}
+                        className={`flex-1 py-2 rounded-lg font-bold transition text-center ${
+                          adjustType === "add" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600"
+                        }`}
+                      >
+                        + Credit / Add Balance
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAdjustType("reduce")}
+                        className={`flex-1 py-2 rounded-lg font-bold transition text-center ${
+                          adjustType === "reduce" ? "bg-red-600 text-white shadow-xs" : "text-slate-600"
+                        }`}
+                      >
+                        - Debit / Reduce Balance
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-slate-500 font-bold mb-1">Amount (₹) *</label>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    value={transferAmount}
+                    onChange={(e) => setTransferAmount(e.target.value)}
+                    className="w-full p-2.5 border border-slate-200 rounded-xl font-mono text-base font-black text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 font-bold mb-1">Remarks / Reference (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. ATM withdrawal, counter deposit receipt, bank interest"
+                    value={transferNotes}
+                    onChange={(e) => setTransferNotes(e.target.value)}
+                    className="w-full p-2.5 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="pt-3 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedOption(null)}
+                    className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-[#ff4d4d] text-white rounded-xl font-bold hover:bg-red-600 shadow-xs cursor-pointer"
+                  >
+                    Confirm Transfer
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ADD BANK MODAL */}
       {showAddModal && (
@@ -328,7 +571,7 @@ export const MetricBankAccountsScreen: React.FC<MetricBankAccountsScreenProps> =
               </div>
 
               <div>
-                <label className="block text-slate-500 font-bold mb-1">Opening / Initial Balance (₹)</label>
+                <label className="block text-slate-500 font-bold mb-1">Opening Balance (₹)</label>
                 <input
                   type="number"
                   placeholder="0.00"
@@ -372,101 +615,6 @@ export const MetricBankAccountsScreen: React.FC<MetricBankAccountsScreenProps> =
                   className="px-5 py-2 bg-[#00a651] text-white rounded-xl font-bold hover:bg-emerald-600 shadow-xs"
                 >
                   Save Bank Account
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* DEPOSIT / WITHDRAW MODAL */}
-      {showTransferModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl border border-slate-100">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-red-500" />
-                <span>Cash ↔ Bank Contra Transfer</span>
-              </h3>
-              <button onClick={() => setShowTransferModal(false)} className="p-1.5 text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleExecuteTransfer} className="space-y-4 text-xs font-medium">
-              <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setTransferType("deposit")}
-                  className={`flex-1 py-2 rounded-lg font-bold transition text-center ${
-                    transferType === "deposit" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600"
-                  }`}
-                >
-                  Deposit (Cash → Bank)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTransferType("withdraw")}
-                  className={`flex-1 py-2 rounded-lg font-bold transition text-center ${
-                    transferType === "withdraw" ? "bg-red-600 text-white shadow-xs" : "text-slate-600"
-                  }`}
-                >
-                  Withdraw (Bank → Cash)
-                </button>
-              </div>
-
-              <div>
-                <label className="block text-slate-500 font-bold mb-1">Select Bank Account *</label>
-                <select
-                  value={selectedBankId}
-                  onChange={(e) => setSelectedBankId(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500"
-                  required
-                >
-                  {bankAccounts.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.account_name} (Bal: ₹{a.balance.toLocaleString()})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-500 font-bold mb-1">Transfer Amount (₹) *</label>
-                <input
-                  type="number"
-                  placeholder="0.00"
-                  value={transferAmount}
-                  onChange={(e) => setTransferAmount(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-xl font-mono text-base font-black text-slate-800 focus:ring-2 focus:ring-emerald-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-500 font-bold mb-1">Remarks / Reference (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. ATM withdrawal or cash deposit counter receipt"
-                  value={transferNotes}
-                  onChange={(e) => setTransferNotes(e.target.value)}
-                  className="w-full p-2.5 border border-slate-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div className="pt-3 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowTransferModal(false)}
-                  className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-[#ff4d4d] text-white rounded-xl font-bold hover:bg-red-600 shadow-xs"
-                >
-                  Confirm Transfer
                 </button>
               </div>
             </form>

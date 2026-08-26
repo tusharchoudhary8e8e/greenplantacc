@@ -2869,20 +2869,40 @@ export class SupabaseService {
     return true;
   }
 
-  static async recordDepositWithdraw(txn: BankTransaction): Promise<boolean> {
+  static async recordDepositWithdraw(txn: BankTransaction & { adjust_type?: "add" | "reduce" }): Promise<boolean> {
     let list = await this.getBankAccounts();
 
     if (txn.type === "deposit") {
-      // Transfer Cash -> Bank
+      // Cash -> Bank
       const target = list.find((a) => a.id === txn.to_account || a.account_name === txn.to_account);
       if (target) {
         target.balance += Number(txn.amount);
       }
     } else if (txn.type === "withdraw") {
-      // Transfer Bank -> Cash
+      // Bank -> Cash
       const source = list.find((a) => a.id === txn.from_account || a.account_name === txn.from_account);
       if (source) {
         source.balance = Math.max(0, source.balance - Number(txn.amount));
+      }
+    } else if (txn.type === "transfer") {
+      // Bank -> Bank
+      const source = list.find((a) => a.id === txn.from_account || a.account_name === txn.from_account);
+      const target = list.find((a) => a.id === txn.to_account || a.account_name === txn.to_account);
+      if (source) {
+        source.balance = Math.max(0, source.balance - Number(txn.amount));
+      }
+      if (target) {
+        target.balance += Number(txn.amount);
+      }
+    } else if (txn.type === "adjust") {
+      // Direct Adjustment
+      const target = list.find((a) => a.id === txn.to_account || a.account_name === txn.to_account);
+      if (target) {
+        if (txn.adjust_type === "reduce") {
+          target.balance = Math.max(0, target.balance - Number(txn.amount));
+        } else {
+          target.balance += Number(txn.amount);
+        }
       }
     }
 
