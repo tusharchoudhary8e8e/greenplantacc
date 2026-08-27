@@ -140,10 +140,16 @@ function MainAppContent() {
     }
   }, []);
 
+  const isInitialLoadDoneRef = React.useRef(false);
+  const currentUserIdRef = React.useRef<string | null>(null);
+
   const loadAllData = useCallback(async () => {
-    setLoading(true);
+    if (!isInitialLoadDoneRef.current) {
+      setLoading(true);
+    }
     try {
       await refreshAppData();
+      isInitialLoadDoneRef.current = true;
     } catch (e) {
       console.error("Error loading app data:", e);
     } finally {
@@ -182,16 +188,37 @@ function MainAppContent() {
   };
 
   useEffect(() => {
+    let isSubscribed = true;
+
     // Check Supabase Auth State
     getCurrentUser().then((u) => {
-      if (u) {
+      if (isSubscribed && u) {
         setAuthUser(u);
+        currentUserIdRef.current = u.id;
       }
     });
 
     const { data: authListener } = onAuthStateChange((u) => {
+      if (!isSubscribed) return;
+
+      const newUserId = u?.id || null;
+      const previousUserId = currentUserIdRef.current;
+
       setAuthUser(u);
-      loadAllData();
+      currentUserIdRef.current = newUserId;
+
+      // Only trigger full data load if user actually changed (e.g. login/logout)
+      if (newUserId !== previousUserId) {
+        if (newUserId) {
+          isInitialLoadDoneRef.current = false;
+          loadAllData();
+        } else {
+          setLoading(false);
+        }
+      } else {
+        // Same user (e.g. token refreshed on tab switch / window focus) — sync silently without showing loading spinner!
+        refreshAppData();
+      }
     });
 
     loadAllData();
@@ -206,10 +233,11 @@ function MainAppContent() {
     window.addEventListener("wheel", handleWheel, { passive: true });
 
     return () => {
+      isSubscribed = false;
       authListener.subscription.unsubscribe();
       window.removeEventListener("wheel", handleWheel);
     };
-  }, [loadAllData]);
+  }, [loadAllData, refreshAppData]);
 
   const handleLogout = async () => {
     await signOutUser();

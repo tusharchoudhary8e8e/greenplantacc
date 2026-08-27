@@ -97,9 +97,9 @@ export async function getCurrentSession(): Promise<Session | null> {
   return data?.session || null;
 }
 
-export function onAuthStateChange(callback: (user: User | null, session: Session | null) => void) {
-  return supabase.auth.onAuthStateChange((_event, session) => {
-    callback(session?.user || null, session);
+export function onAuthStateChange(callback: (user: User | null, session: Session | null, event?: string) => void) {
+  return supabase.auth.onAuthStateChange((event, session) => {
+    callback(session?.user || null, session, event);
   });
 }
 
