@@ -355,13 +355,14 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
                             onClick={(e) => {
                               e.stopPropagation();
                               printReceiptPDF({
-                                receiptNo: ord.order_no || ord.id || "291472",
+                                receiptNo: ord.order_no || ord.id || "REC-1001",
                                 date: ord.order_date || new Date().toISOString().split("T")[0],
                                 customerName: ord.customer_name || cust?.name || "Customer",
-                                customerAddress: cust?.address || `${cust?.city || ""}, ${cust?.state || ""}`.trim() || "Chabdikala, Chhindwara",
+                                customerAddress: cust?.address || `${cust?.city || ""}, ${cust?.state || ""}`.trim() || "",
                                 customerPhone: cust?.phone || "N/A",
-                                amount: advanceVal > 0 ? advanceVal : totalAmountVal,
-                                previousBalance: 50750,
+                                totalAmount: totalAmountVal,
+                                amount: advanceVal,
+                                previousBalance: cust?.opening_balance || 0,
                                 currentBalance: dueAmountVal,
                                 paymentType: ord.payment_type || "Cash",
                                 items: ord.items,

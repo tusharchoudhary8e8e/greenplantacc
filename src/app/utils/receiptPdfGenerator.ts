@@ -6,6 +6,7 @@ export interface ReceiptData {
   customerName: string;
   customerAddress?: string;
   customerPhone?: string;
+  totalAmount?: number;
   amount: number;
   previousBalance?: number;
   currentBalance?: number;
@@ -316,17 +317,23 @@ export function generateReceiptHTML(data: ReceiptData): string {
           <div class="section-header">Amounts</div>
           <div class="section-box" style="padding: 0;">
             <table class="amounts-table">
+              ${data.totalAmount !== undefined ? `
               <tr>
-                <td class="amt-label">Received</td>
+                <td class="amt-label">Total Order Amount</td>
+                <td class="amt-val">₹ ${(data.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}</td>
+              </tr>
+              ` : ''}
+              <tr>
+                <td class="amt-label">Received / Advance</td>
                 <td class="amt-val">₹ ${(data.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}</td>
               </tr>
               <tr>
                 <td class="amt-label">Previous Balance</td>
-                <td class="amt-val">₹ ${(data.previousBalance !== undefined ? data.previousBalance : 50750).toLocaleString("en-IN", { minimumFractionDigits: 0 })}</td>
+                <td class="amt-val">₹ ${(data.previousBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 0 })}</td>
               </tr>
               <tr>
-                <td class="amt-label">Current Balance</td>
-                <td class="amt-val">₹ ${(data.currentBalance !== undefined ? data.currentBalance : 6250).toLocaleString("en-IN", { minimumFractionDigits: 0 })}</td>
+                <td class="amt-label">Current Balance Due</td>
+                <td class="amt-val" style="color: #e05c00;">₹ ${(data.currentBalance !== undefined ? data.currentBalance : Math.max(0, (data.totalAmount || 0) - (data.amount || 0))).toLocaleString("en-IN", { minimumFractionDigits: 0 })}</td>
               </tr>
             </table>
           </div>
