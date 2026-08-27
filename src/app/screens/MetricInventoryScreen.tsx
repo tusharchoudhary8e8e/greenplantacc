@@ -319,22 +319,45 @@ export const MetricInventoryScreen: React.FC<InventoryProps> = ({
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100/50">
-                                {variantsList.map((v, i) => (
-                                  <tr key={i} className="font-medium hover:bg-slate-50">
-                                    <td className="py-3 flex items-center gap-2">
-                                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
-                                      {v.name}
-                                    </td>
-                                    <td className="py-3 text-slate-700">₹ {v.price}</td>
-                                    <td className="py-3">{v.duration ? `${v.duration} days` : "-"}</td>
-                                    <td className="py-3 text-slate-500">{v.description || "-"}</td>
-                                    <td className="py-3 text-right">
-                                      <button className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg font-bold text-[10px] hover:bg-emerald-100 transition">
-                                        View batches
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
+                                {variantsList.map((v, i) => {
+                                  const varietyBatches = (batches || []).filter(
+                                    (b) =>
+                                      (b.product_name || "").toLowerCase().trim() === (prod.name || "").toLowerCase().trim() &&
+                                      (b.variant_name || "").toLowerCase().trim() === (v.name || "").toLowerCase().trim()
+                                  );
+                                  const totalSurplus = varietyBatches.reduce((sum, b) => sum + (b.surplus_quantity || 0), 0);
+                                  const totalSowed = varietyBatches.reduce((sum, b) => sum + (b.target_quantity || b.seedling_count || 0), 0);
+
+                                  return (
+                                    <tr key={i} className="font-medium hover:bg-slate-50 transition">
+                                      <td className="py-3 flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-[#1e4d2b]"></div>
+                                        <span className="font-bold text-[#1a1a1a]">{v.name}</span>
+                                      </td>
+                                      <td className="py-3 text-[#1a1a1a] font-mono font-semibold">₹ {v.price}</td>
+                                      <td className="py-3 text-slate-600">{v.duration ? `${v.duration} days` : "-"}</td>
+                                      <td className="py-3 text-slate-500">{v.description || "-"}</td>
+                                      <td className="py-3 text-right">
+                                        {totalSurplus > 0 || totalSowed > 0 ? (
+                                          <div className="flex flex-col items-end">
+                                            <span className="px-2.5 py-0.5 bg-[#e6f4ed] text-[#155724] border border-[#b8ddc8] rounded-[5px] font-extrabold font-mono text-[11px]">
+                                              🌱 {totalSurplus.toLocaleString()} surplus
+                                            </span>
+                                            {totalSowed > 0 && (
+                                              <span className="text-[10px] text-[#777] font-mono mt-0.5">
+                                                {totalSowed.toLocaleString()} total sowed ({varietyBatches.length} batches)
+                                              </span>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded font-medium text-[10px]">
+                                            0 surplus stock
+                                          </span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                                 {variantsList.length === 0 && (
                                   <tr>
                                     <td colSpan={5} className="py-4 text-center text-slate-400">No variants available</td>
