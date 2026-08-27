@@ -265,11 +265,14 @@ export interface ExpenseRecord {
 export interface BankTransaction {
   id?: string;
   transaction_date: string;
-  type: "deposit" | "withdraw" | "transfer";
+  type: "deposit" | "withdraw" | "transfer" | "adjust" | string;
+  adjust_type?: "add" | "reduce";
   from_account: string;
   to_account: string;
   amount: number;
   notes?: string;
+  ref_no?: string;
+  party_name?: string;
   created_at?: string;
 }
 
@@ -2869,44 +2872,142 @@ export class SupabaseService {
     return true;
   }
 
-  static async recordDepositWithdraw(txn: BankTransaction & { adjust_type?: "add" | "reduce" }): Promise<boolean> {
-    let list = await this.getBankAccounts();
+  // ─── BANK TRANSACTIONS MANAGEMENT ─────────────────────────────────
+  static async getBankTransactions(bankAccountId?: string): Promise<BankTransaction[]> {
+    let list = loadFromStorage<BankTransaction[]>("demo_bank_transactions", []);
+    if (bankAccountId) {
+      list = list.filter(
+        (t) =>
+          t.from_account === bankAccountId ||
+          t.to_account === bankAccountId ||
+          (t.from_account && bankAccountId && t.from_account.toLowerCase().trim() === bankAccountId.toLowerCase().trim()) ||
+          (t.to_account && bankAccountId && t.to_account.toLowerCase().trim() === bankAccountId.toLowerCase().trim())
+      );
+    }
+    return list;
+  }
 
-    if (txn.type === "deposit") {
-      // Cash -> Bank
-      const target = list.find((a) => a.id === txn.to_account || a.account_name === txn.to_account);
-      if (target) {
-        target.balance += Number(txn.amount);
-      }
-    } else if (txn.type === "withdraw") {
-      // Bank -> Cash
-      const source = list.find((a) => a.id === txn.from_account || a.account_name === txn.from_account);
-      if (source) {
-        source.balance = Math.max(0, source.balance - Number(txn.amount));
-      }
-    } else if (txn.type === "transfer") {
-      // Bank -> Bank
-      const source = list.find((a) => a.id === txn.from_account || a.account_name === txn.from_account);
-      const target = list.find((a) => a.id === txn.to_account || a.account_name === txn.to_account);
-      if (source) {
-        source.balance = Math.max(0, source.balance - Number(txn.amount));
-      }
-      if (target) {
-        target.balance += Number(txn.amount);
-      }
-    } else if (txn.type === "adjust") {
-      // Direct Adjustment
-      const target = list.find((a) => a.id === txn.to_account || a.account_name === txn.to_account);
-      if (target) {
-        if (txn.adjust_type === "reduce") {
-          target.balance = Math.max(0, target.balance - Number(txn.amount));
-        } else {
-          target.balance += Number(txn.amount);
+  static async saveBankTransaction(
+    txn: Partial<BankTransaction> & { adjust_type?: "add" | "reduce" }
+  ): Promise<BankTransaction> {
+    let txns = loadFromStorage<BankTransaction[]>("demo_bank_transactions", []);
+    let bankList = await this.getBankAccounts();
+
+    const existingIdx = txns.findIndex((t) => t.id === txn.id);
+
+    // Revert previous effect if editing existing transaction
+    if (existingIdx !== -1) {
+      const old = txns[existingIdx];
+      const oldAmt = Number(old.amount) || 0;
+      if (old.type === "deposit") {
+        const target = bankList.find((a) => a.id === old.to_account || a.account_name === old.to_account);
+        if (target) target.balance = Math.max(0, target.balance - oldAmt);
+      } else if (old.type === "withdraw") {
+        const source = bankList.find((a) => a.id === old.from_account || a.account_name === old.from_account);
+        if (source) source.balance += oldAmt;
+      } else if (old.type === "transfer") {
+        const source = bankList.find((a) => a.id === old.from_account || a.account_name === old.from_account);
+        const target = bankList.find((a) => a.id === old.to_account || a.account_name === old.to_account);
+        if (source) source.balance += oldAmt;
+        if (target) target.balance = Math.max(0, target.balance - oldAmt);
+      } else if (old.type === "adjust") {
+        const target = bankList.find((a) => a.id === old.to_account || a.account_name === old.to_account);
+        if (target) {
+          if (old.adjust_type === "reduce") {
+            target.balance += oldAmt;
+          } else {
+            target.balance = Math.max(0, target.balance - oldAmt);
+          }
         }
       }
     }
 
-    saveToStorage("demo_bank_accounts", list);
+    // Apply new transaction balance effect
+    const newAmt = Number(txn.amount) || 0;
+    const newTxn: BankTransaction = {
+      ...txn,
+      id: txn.id || `btxn-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      transaction_date: txn.transaction_date || new Date().toISOString().split("T")[0],
+      type: txn.type || "deposit",
+      from_account: txn.from_account || "Cash",
+      to_account: txn.to_account || "Cash",
+      amount: newAmt,
+      notes: txn.notes || "",
+      adjust_type: txn.adjust_type,
+      created_at: txn.created_at || new Date().toISOString(),
+    };
+
+    if (newTxn.type === "deposit") {
+      const target = bankList.find((a) => a.id === newTxn.to_account || a.account_name === newTxn.to_account);
+      if (target) target.balance += newAmt;
+    } else if (newTxn.type === "withdraw") {
+      const source = bankList.find((a) => a.id === newTxn.from_account || a.account_name === newTxn.from_account);
+      if (source) source.balance = Math.max(0, source.balance - newAmt);
+    } else if (newTxn.type === "transfer") {
+      const source = bankList.find((a) => a.id === newTxn.from_account || a.account_name === newTxn.from_account);
+      const target = bankList.find((a) => a.id === newTxn.to_account || a.account_name === newTxn.to_account);
+      if (source) source.balance = Math.max(0, source.balance - newAmt);
+      if (target) target.balance += newAmt;
+    } else if (newTxn.type === "adjust") {
+      const target = bankList.find((a) => a.id === newTxn.to_account || a.account_name === newTxn.to_account);
+      if (target) {
+        if (newTxn.adjust_type === "reduce") {
+          target.balance = Math.max(0, target.balance - newAmt);
+        } else {
+          target.balance += newAmt;
+        }
+      }
+    }
+
+    if (existingIdx !== -1) {
+      txns[existingIdx] = newTxn;
+    } else {
+      txns.unshift(newTxn);
+    }
+
+    saveToStorage("demo_bank_accounts", bankList);
+    saveToStorage("demo_bank_transactions", txns);
+    return newTxn;
+  }
+
+  static async deleteBankTransaction(txnId: string): Promise<boolean> {
+    let txns = loadFromStorage<BankTransaction[]>("demo_bank_transactions", []);
+    let bankList = await this.getBankAccounts();
+
+    const idx = txns.findIndex((t) => t.id === txnId);
+    if (idx !== -1) {
+      const old = txns[idx];
+      const oldAmt = Number(old.amount) || 0;
+      if (old.type === "deposit") {
+        const target = bankList.find((a) => a.id === old.to_account || a.account_name === old.to_account);
+        if (target) target.balance = Math.max(0, target.balance - oldAmt);
+      } else if (old.type === "withdraw") {
+        const source = bankList.find((a) => a.id === old.from_account || a.account_name === old.from_account);
+        if (source) source.balance += oldAmt;
+      } else if (old.type === "transfer") {
+        const source = bankList.find((a) => a.id === old.from_account || a.account_name === old.from_account);
+        const target = bankList.find((a) => a.id === old.to_account || a.account_name === old.to_account);
+        if (source) source.balance += oldAmt;
+        if (target) target.balance = Math.max(0, target.balance - oldAmt);
+      } else if (old.type === "adjust") {
+        const target = bankList.find((a) => a.id === old.to_account || a.account_name === old.to_account);
+        if (target) {
+          if (old.adjust_type === "reduce") {
+            target.balance += oldAmt;
+          } else {
+            target.balance = Math.max(0, target.balance - oldAmt);
+          }
+        }
+      }
+      txns.splice(idx, 1);
+      saveToStorage("demo_bank_accounts", bankList);
+      saveToStorage("demo_bank_transactions", txns);
+    }
+    return true;
+  }
+
+  static async recordDepositWithdraw(txn: BankTransaction & { adjust_type?: "add" | "reduce" }): Promise<boolean> {
+    await this.saveBankTransaction(txn);
     return true;
   }
 
