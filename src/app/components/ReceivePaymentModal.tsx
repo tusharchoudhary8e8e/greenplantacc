@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { X, DollarSign, Calendar, CreditCard, CheckCircle2, AlertCircle } from "lucide-react";
 import { Customer, Order, PaymentReceipt, SupabaseService } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "./SearchableSelect";
@@ -138,9 +139,23 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-      <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100">
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4"
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.93, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.93, y: 15 }}
+          transition={{ type: "spring", stiffness: 380, damping: 26 }}
+          className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100"
+        >
         {/* Header */}
         <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-3">
@@ -346,7 +361,8 @@ export const ReceivePaymentModal: React.FC<ReceivePaymentModalProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+  </AnimatePresence>
   );
 };

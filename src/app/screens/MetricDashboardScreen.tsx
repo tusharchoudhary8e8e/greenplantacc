@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { motion } from "motion/react";
 import {
   BarChart,
   Bar,
@@ -49,72 +50,63 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
 
   useEffect(() => {
     const fetchData = async () => {
-      const bList = await SupabaseService.getBankAccounts();
-      const eList = await SupabaseService.getExpenses();
-      setBankAccounts(bList);
-      setExpenses(eList);
+      const [banks, exps] = await Promise.all([
+        SupabaseService.getBankAccounts(),
+        SupabaseService.getExpenses(),
+      ]);
+      setBankAccounts(banks);
+      setExpenses(exps);
     };
     fetchData();
   }, []);
 
-  // 1. Dynamic Receivables (You'll Get) Calculation
+  // 1. You'll Get Total (Sum of positive customer balances)
   const totalYoullGet = useMemo(() => {
-    return safeCustomers.reduce((sum, cust) => {
-      const cOrders = safeOrders.filter(
-        (o) =>
-          o.customer_id === cust.id ||
-          (o.customer_name && o.customer_name.trim().toLowerCase() === cust.name.trim().toLowerCase())
-      );
-      const totalSales = cOrders.reduce((s, o) => s + (o.total_amount || 0), 0);
-      const totalAdvance = cOrders.reduce((s, o) => s + (o.advance_payment || 0), 0);
-      const opening = cust.opening_balance || 0;
-      const net = opening + totalSales - totalAdvance;
-      return net > 0 ? sum + net : sum;
+    return safeCustomers.reduce((sum, c) => {
+      const bal = c.opening_balance || 0;
+      return bal > 0 ? sum + bal : sum;
     }, 0);
-  }, [safeCustomers, safeOrders]);
+  }, [safeCustomers]);
 
-  // 2. Dynamic Payables (You'll Give) Calculation
+  // 2. You'll Give Total (Sum of negative customer balances + purchase bills due)
   const totalYoullGive = useMemo(() => {
-    return safePurchaseBills.reduce((sum, b) => {
-      const due = (b.total_amount || 0) - (b.paid_amount || 0);
-      return due > 0 ? sum + due : sum;
+    const custGive = safeCustomers.reduce((sum, c) => {
+      const bal = c.opening_balance || 0;
+      return bal < 0 ? sum + Math.abs(bal) : sum;
     }, 0);
-  }, [safePurchaseBills]);
+    const purGive = safePurchaseBills.reduce((sum, b) => sum + (b.due_amount || 0), 0);
+    return custGive + purGive;
+  }, [safeCustomers, safePurchaseBills]);
 
-  // 3. Current Month & Previous Month Sales Calculations
+  // 3. Sales Breakdown
   const { salesThisMonth, salesLastMonth, salesTrendPct, monthlySalesChartData } = useMemo(() => {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
     let thisMonthTotal = 0;
     let lastMonthTotal = 0;
 
+    const monthTotalsMap: Record<string, number> = {
+      Jan: 0, Feb: 0, Mar: 0, Apr: 0, May: 0, Jun: 0,
+      Jul: 0, Aug: 0, Sep: 0, Oct: 0, Nov: 0, Dec: 0,
+    };
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const monthTotalsMap: Record<string, number> = {};
 
-    // Initialize past 6 months
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(currentYear, currentMonth - i, 1);
-      const key = `${monthNames[d.getMonth()]}`;
-      monthTotalsMap[key] = 0;
-    }
-
-    safeOrders.forEach((ord) => {
-      if (!ord.order_date) return;
-      const d = new Date(ord.order_date);
+    safeOrders.forEach((o) => {
+      if (!o.order_date) return;
+      const d = new Date(o.order_date);
       if (isNaN(d.getTime())) return;
 
-      const amt = ord.total_amount || 0;
+      const amt = o.total_amount || 0;
       const oYear = d.getFullYear();
       const oMonth = d.getMonth();
 
       if (oYear === currentYear && oMonth === currentMonth) {
         thisMonthTotal += amt;
-      } else if (
-        (currentMonth === 0 && oYear === currentYear - 1 && oMonth === 11) ||
-        (oYear === currentYear && oMonth === currentMonth - 1)
-      ) {
+      } else if (oYear === lastMonthYear && oMonth === lastMonth) {
         lastMonthTotal += amt;
       }
 
@@ -124,7 +116,6 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
       }
     });
 
-    // Trend %
     let trend = 0;
     if (lastMonthTotal > 0) {
       trend = ((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100;
@@ -145,7 +136,6 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
     };
   }, [safeOrders]);
 
-  // 4. Purchases & Expenses This Month
   const purchasesThisMonth = useMemo(() => {
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -176,7 +166,6 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
     }, 0);
   }, [expenses]);
 
-  // 5. Live Bank & Cash Balances
   const totalBankBalance = useMemo(() => {
     return bankAccounts.reduce((sum, b) => sum + (b.balance || 0), 0);
   }, [bankAccounts]);
@@ -189,7 +178,6 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
     return Math.max(0, cashAdvances - cashExpenses);
   }, [safeOrders, expenses]);
 
-  // 6. Dynamic Inventory Stock Value
   const { totalStockValue, itemCount } = useMemo(() => {
     let val = 0;
     let count = 0;
@@ -208,7 +196,6 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
 
   return (
     <div className="space-y-5 font-sans">
-      {/* Top Header Bar */}
       <div className="flex items-center justify-between bg-white border border-[#e8e8e8] px-5 py-3 rounded-[10px]">
         <h2 className="text-xs font-bold text-[#444] uppercase tracking-wider">
           RKK Nursery Management — <span className="text-[#1a2e1a]">Live Dashboard</span>
@@ -219,15 +206,14 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Main 2-Column Grid */}
       <div className="flex flex-col xl:flex-row gap-5">
-        {/* Left Column (Main Metrics & Charts) */}
         <div className="flex-1 space-y-5">
-          {/* Top 3 Summary Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* You'll Get Card */}
-            <div
+            <motion.div
               onClick={() => onNavigateToTab("ledger")}
+              whileHover={{ y: -3, boxShadow: "0 8px 20px -4px rgba(0,0,0,0.06)" }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
               className="bg-white p-4 rounded-[10px] border border-[#e8e8e8] hover:border-[#1e4d2b]/30 transition cursor-pointer flex items-center gap-3 group"
             >
               <div className="w-9 h-9 rounded-[8px] bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
@@ -241,11 +227,13 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
                   ₹ {totalYoullGet.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            {/* You'll Give Card */}
-            <div
+            <motion.div
               onClick={() => onNavigateToTab("ledger")}
+              whileHover={{ y: -3, boxShadow: "0 8px 20px -4px rgba(0,0,0,0.06)" }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
               className="bg-white p-4 rounded-[10px] border border-[#e8e8e8] hover:border-amber-500/30 transition cursor-pointer flex items-center gap-3 group"
             >
               <div className="w-9 h-9 rounded-[8px] bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
@@ -259,11 +247,13 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
                   ₹ {totalYoullGive.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            {/* Total Sales Card */}
-            <div
+            <motion.div
               onClick={() => onNavigateToTab("orders")}
+              whileHover={{ y: -3, boxShadow: "0 8px 20px -4px rgba(0,0,0,0.06)" }}
+              whileTap={{ scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
               className="bg-white p-4 rounded-[10px] border border-[#e8e8e8] hover:border-[#1e4d2b]/30 transition cursor-pointer flex items-center gap-3 group"
             >
               <div className="w-9 h-9 rounded-[8px] bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
@@ -277,10 +267,9 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
                   ₹ {salesThisMonth.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
 
-          {/* Sales Performance Card with Green Bar Chart */}
           <div className="bg-white p-5 rounded-[10px] border border-[#e8e8e8] space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#f0f0ec] pb-3">
               <h3 className="text-sm font-bold text-[#1a1a1a]">

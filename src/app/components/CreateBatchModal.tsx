@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { X, CheckSquare, Square, Sprout, AlertCircle } from "lucide-react";
 import { Product, ProductionBatch, Order } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "./SearchableSelect";
@@ -172,9 +173,23 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-      <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4"
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.94, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.94, y: 15 }}
+          transition={{ type: "spring", stiffness: 380, damping: 26 }}
+          className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        >
         <div className="flex justify-between items-center p-5 border-b border-slate-100">
           <h2 className="text-lg font-bold text-[#1e3a5f]">Create Batch</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
@@ -448,7 +463,8 @@ export const CreateBatchModal: React.FC<CreateBatchModalProps> = ({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+  </AnimatePresence>
   );
 };

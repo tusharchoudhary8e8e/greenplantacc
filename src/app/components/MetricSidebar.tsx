@@ -1,22 +1,16 @@
 import React from "react";
+import { motion } from "motion/react";
 import {
   LineChart,
   ShoppingCart,
-  ClipboardList,
-  Truck,
-  FileText,
-  MessageSquare,
-  LayoutGrid,
-  Users,
+  Receipt,
+  BookOpen,
   Building2,
-  LogOut,
-  ChevronDown,
-  ChevronRight,
+  Wallet,
   Sprout,
   Leaf,
+  Truck,
   Calendar,
-  BookOpen,
-  Receipt,
   Wallet,
 } from "lucide-react";
 
@@ -134,10 +128,13 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
                 (item.id === "purchase_bills" && activeTab === "create_purchase_bill");
 
               return (
-                <button
+                <motion.button
                   key={idx}
                   onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md font-medium transition-all text-[13px] ${
+                  whileHover={{ x: 3 }}
+                  whileTap={{ scale: 0.97 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md font-medium transition-colors text-[13px] cursor-pointer ${
                     isActive
                       ? "bg-white text-[#1a2e1a] font-bold shadow-xs"
                       : "text-[#c8e0c8] hover:bg-white/10 hover:text-white"
@@ -148,9 +145,12 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
                     <span>{item.label}</span>
                   </div>
                   {isActive && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#1a2e1a]"></span>
+                    <motion.span
+                      layoutId="activeTabDot"
+                      className="w-1.5 h-1.5 rounded-full bg-[#1a2e1a]"
+                    />
                   )}
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -158,13 +158,15 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
 
         {/* Logout at bottom of nav list */}
         <div className="pt-4 border-t border-[#264226]">
-          <button
+          <motion.button
             onClick={onLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium text-[#c8e0c8] hover:bg-white/10 hover:text-white transition-colors"
+            whileHover={{ x: 3 }}
+            whileTap={{ scale: 0.97 }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium text-[#c8e0c8] hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
           >
             <LogOut className="w-4 h-4 text-[#7cad7c]" strokeWidth={2} />
             <span>Logout</span>
-          </button>
+          </motion.button>
         </div>
       </nav>
     </aside>
