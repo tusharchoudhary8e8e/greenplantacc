@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Calendar,
   Phone,
@@ -8,9 +8,12 @@ import {
   X,
   Link as LinkIcon,
   CheckCircle,
+  Printer,
+  CreditCard,
 } from "lucide-react";
-import { Customer, Product, Order, OrderItem, ProductionBatch, SupabaseService } from "../../db/supabaseService";
+import { Customer, Product, Order, OrderItem, ProductionBatch, BankAccount, SupabaseService } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "../components/SearchableSelect";
+import { printReceiptPDF } from "../utils/receiptPdfGenerator";
 
 interface CreateOrderProps {
   customers: Customer[];
@@ -62,6 +65,19 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
   const [focAmount, setFocAmount] = useState(
     editingOrder?.foc_amount ? String(editingOrder.foc_amount) : ""
   );
+  const [paymentType, setPaymentType] = useState<string>(
+    editingOrder?.payment_type || "Cash"
+  );
+  const [customPaymentMethod, setCustomPaymentMethod] = useState("");
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+
+  useEffect(() => {
+    const fetchBanks = async () => {
+      const list = await SupabaseService.getBankAccounts();
+      setBankAccounts(list);
+    };
+    fetchBanks();
+  }, []);
 
   // Selected customer object (undefined if not selected yet)
   const selectedCustomer = customers.find((c) => c.id === selectedCustId);
@@ -490,20 +506,27 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                       type="number"
                       placeholder="Qty"
                       value={item.quantity || ""}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      onChange={(e) =>
-                        updateItemRow(idx, "quantity", parseInt(e.target.value) || 0)
-                      }
-                      className="w-full p-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 text-slate-800 font-semibold bg-white"
+                      onChange={(e) => updateItemRow(idx, "price", Number(e.target.value))}
+                      className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 bg-white focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
 
-                  {/* Dispatch Window (No Overlapping!) */}
-                  <div className="md:col-span-2 space-y-1">
+                  {/* Line Total */}
+                  <div className="md:col-span-2 space-y-1 text-right">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Dispatch Window (From & To)
+                      Line Total
                     </label>
-                    <div className="flex flex-col gap-1.5">
+                    <div className="py-2.5 font-mono font-extrabold text-slate-800 text-sm">
+                      ₹{((item.price || 0) * (item.quantity || 0)).toLocaleString("en-IN")}
+                    </div>
+                  </div>
+
+                  {/* Dispatch Window */}
+                  <div className="md:col-span-4 space-y-1">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Dispatch Window (From &amp; To)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
                       <input
                         type="date"
                         value={item.dispatch_from || orderDate}
@@ -519,44 +542,30 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                     </div>
                   </div>
 
-                  {/* Sowing Date (Dedicated Grid Column) */}
-                  <div className="md:col-span-2 space-y-1">
+                  {/* Sowing Date */}
+                  <div className="md:col-span-3 space-y-1">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">
-                      Sowing Date
+                      Estimated Sowing Date
                     </label>
                     <input
                       type="date"
                       value={item.sowing_date || orderDate}
                       onChange={(e) => updateItemRow(idx, "sowing_date", e.target.value)}
-                      className="w-full p-2.5 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium bg-white focus:ring-2 focus:ring-emerald-500"
+                      className="w-full p-2 border border-slate-200 rounded-xl text-xs text-slate-800 font-medium bg-white focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
 
                   {/* Actions */}
-                  <div className="md:col-span-1 flex items-center justify-end pt-5">
+                  <div className="md:col-span-5 flex items-center justify-end pt-4">
                     <button
                       type="button"
                       onClick={() => removeItemRow(idx)}
-                      className="p-2.5 border border-red-200 text-red-500 rounded-xl hover:bg-red-50 transition"
+                      className="p-2 border border-red-200 text-red-500 rounded-xl hover:bg-red-50 transition"
                       title="Remove item"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
-
-                {/* Row Sub-bar: Remaining & Link Batch */}
-                <div className="flex justify-between items-center text-xs pt-1">
-                  <span className="text-red-500 font-semibold">
-                    Remaining: {item.remaining_qty || item.quantity}
-                  </span>
-                  <button
-                    type="button"
-                    className="flex items-center gap-1.5 text-[#00a651] border border-[#00a651] bg-emerald-50/50 hover:bg-emerald-100/50 px-3 py-1 rounded-lg text-xs font-semibold transition"
-                  >
-                    <LinkIcon className="w-3.5 h-3.5" />
-                    Link Batch
-                  </button>
                 </div>
               </div>
             );
@@ -569,17 +578,48 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
           className="flex items-center gap-2 border border-slate-300 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl text-xs font-semibold transition"
         >
           <Plus className="w-4 h-4 text-emerald-600" />
-          Add Item
+          Add Crop Item
         </button>
       </div>
 
-      {/* Section 3: Order Payment */}
+      {/* Section 3: Order Payment & Payment Method */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
         <h3 className="text-base font-bold text-slate-800 border-b border-slate-100 pb-3">
-          Order Payment
+          Order Payment &amp; Payment Method
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
+          {/* Payment Method Selector */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-2">
+              Payment Method *
+            </label>
+            <select
+              value={paymentType}
+              onChange={(e) => setPaymentType(e.target.value)}
+              className="w-full p-3 border border-slate-200 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-emerald-500 text-slate-800 bg-white"
+            >
+              <option value="Cash">💵 Cash</option>
+              <option value="UPI / PhonePe / GPay">📱 UPI / PhonePe / GPay</option>
+              {bankAccounts.map((b) => (
+                <option key={b.id} value={b.account_name}>
+                  🏦 {b.account_name}
+                </option>
+              ))}
+              <option value="custom">➕ Add Payment Method...</option>
+            </select>
+            {paymentType === "custom" && (
+              <input
+                type="text"
+                placeholder="Enter payment mode (e.g. Paytm, Cheque)"
+                value={customPaymentMethod}
+                onChange={(e) => setCustomPaymentMethod(e.target.value)}
+                className="w-full p-2.5 mt-2 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                required
+              />
+            )}
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-2">
               Transport Charge (₹)
@@ -657,6 +697,36 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                 ₹{netTotalAmount.toFixed(2)}
               </div>
             </div>
+          </div>
+
+          {/* Bottom Actions Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="w-full sm:w-auto px-5 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => handleSubmit(e, true)}
+              disabled={submitting}
+              className="w-full sm:w-auto px-5 py-2.5 bg-[#f58220] hover:bg-[#e07010] text-white rounded-xl font-bold text-xs shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Save &amp; Print PDF Receipt</span>
+            </button>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full sm:w-auto px-6 py-2.5 bg-[#1e4d2b] hover:bg-[#163d21] text-white rounded-xl font-bold text-xs shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span>{editingOrder ? "Update Order" : "Save Order"}</span>
+            </button>
           </div>
         </div>
       </div>

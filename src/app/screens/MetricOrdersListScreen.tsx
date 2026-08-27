@@ -22,6 +22,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { Order, Customer, SupabaseService } from "../../db/supabaseService";
+import { printReceiptPDF } from "../utils/receiptPdfGenerator";
 
 interface OrdersListProps {
   orders: Order[];
@@ -349,6 +350,28 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
                               <DollarSign className="w-3.5 h-3.5 font-bold text-emerald-600" />
                             </button>
                           )}
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              printReceiptPDF({
+                                receiptNo: ord.order_no || ord.id || "291472",
+                                date: ord.order_date || new Date().toISOString().split("T")[0],
+                                customerName: ord.customer_name || cust?.name || "Customer",
+                                customerAddress: cust?.address || `${cust?.city || ""}, ${cust?.state || ""}`.trim() || "Chabdikala, Chhindwara",
+                                customerPhone: cust?.phone || "N/A",
+                                amount: advanceVal > 0 ? advanceVal : totalAmountVal,
+                                previousBalance: 50750,
+                                currentBalance: dueAmountVal,
+                                paymentType: ord.payment_type || "Cash",
+                                items: ord.items,
+                              });
+                            }}
+                            className="p-1.5 text-[#f58220] hover:text-[#d46a10] hover:bg-amber-50 rounded-lg transition"
+                            title="Download / Print PDF Receipt"
+                          >
+                            <Printer className="w-3.5 h-3.5 font-bold" />
+                          </button>
 
                           {onEditOrder && (
                             <button
