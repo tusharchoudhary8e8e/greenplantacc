@@ -2186,44 +2186,75 @@ export class SupabaseService {
     }
 
     if (list.length === 0) {
-      list = DEMO_CUSTOMERS;
-    } else {
-      // Merge INITIAL_CUSTOMERS (143 Excel Parties) with Supabase database rows so all 143 are ALWAYS returned!
-      const existingNames = new Set(list.map((c) => (c.name || "").trim().toUpperCase()));
-      INITIAL_CUSTOMERS.forEach((ic) => {
-        if (!existingNames.has((ic.name || "").trim().toUpperCase())) {
-          list.push(ic);
+      try {
+        const { data: cloudData } = await supabase
+          .from("app_settings")
+          .select("value")
+          .eq("key", "customers")
+          .single();
+        if (cloudData?.value && Array.isArray(cloudData.value) && cloudData.value.length > 0) {
+          list = cloudData.value as Customer[];
         }
-      });
+      } catch {
+        // Fallback
+      }
     }
 
+    if (list.length === 0) {
+      list = loadFromStorage("demo_customers", DEMO_CUSTOMERS);
+    }
+
+    // Merge INITIAL_CUSTOMERS (143 Excel Parties) with Supabase database rows so all 143 are ALWAYS returned!
+    const existingNames = new Set(list.map((c) => (c.name || "").trim().toUpperCase()));
+    INITIAL_CUSTOMERS.forEach((ic) => {
+      if (!existingNames.has((ic.name || "").trim().toUpperCase())) {
+        list.push(ic);
+      }
+    });
+
+    saveToStorage("demo_customers", list);
     return list;
   }
 
   static async saveCustomer(cust: Customer): Promise<Customer> {
-    try {
-      const userId = cust.user_id || (await SupabaseService.getUserId());
-      const payload = {
-        ...cust,
-        ...(userId ? { user_id: userId } : {}),
-        updated_at: new Date().toISOString(),
-      };
-      const { data, error } = await supabase
-        .from("ma_customers")
-        .upsert(payload)
-        .select()
-        .single();
-      if (!error && data) return data as Customer;
-    } catch {
-      // Fallback
-    }
     const newCust = {
       ...cust,
       id: cust.id || `cust-${Date.now()}`,
       org_id: cust.org_id || `#ORG1_CUST_2026_${Math.floor(1000 + Math.random() * 9000)}`,
+      updated_at: new Date().toISOString(),
     };
-    DEMO_CUSTOMERS.unshift(newCust);
+
+    const idx = DEMO_CUSTOMERS.findIndex((c) => c.id === newCust.id || c.name.trim().toLowerCase() === newCust.name.trim().toLowerCase());
+    if (idx !== -1) {
+      DEMO_CUSTOMERS[idx] = newCust;
+    } else {
+      DEMO_CUSTOMERS.unshift(newCust);
+    }
     saveToStorage("demo_customers", DEMO_CUSTOMERS);
+
+    // 1. Write to Supabase ma_customers
+    try {
+      const userId = cust.user_id || (await SupabaseService.getUserId());
+      const payload = {
+        ...newCust,
+        ...(userId ? { user_id: userId } : {}),
+      };
+      await supabase.from("ma_customers").upsert(payload);
+    } catch (e) {
+      console.warn("Supabase customer table write error:", e);
+    }
+
+    // 2. Dual-write to Supabase app_settings cloud store
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "customers",
+        value: DEMO_CUSTOMERS,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase customer cloud sync error:", e);
+    }
+
     return newCust;
   }
 
@@ -2234,29 +2265,32 @@ export class SupabaseService {
         .from("ma_products")
         .select("*")
         .order("name", { ascending: true });
-      if (!error && data) return data as Product[];
+      if (!error && data && Array.isArray(data) && data.length > 0) {
+        saveToStorage("demo_products", data);
+        return data as Product[];
+      }
     } catch {
       // Fallback
     }
-    return DEMO_PRODUCTS;
+
+    try {
+      const { data: cloudData } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "products")
+        .single();
+      if (cloudData?.value && Array.isArray(cloudData.value) && cloudData.value.length > 0) {
+        saveToStorage("demo_products", cloudData.value);
+        return cloudData.value as Product[];
+      }
+    } catch {
+      // Fallback
+    }
+
+    return loadFromStorage("demo_products", DEMO_PRODUCTS);
   }
 
   static async saveProduct(prod: Product): Promise<Product> {
-    try {
-      const userId = prod.user_id || (await SupabaseService.getUserId());
-      const payload = {
-        ...prod,
-        ...(userId ? { user_id: userId } : {}),
-      };
-      const { data, error } = await supabase
-        .from("ma_products")
-        .upsert(payload)
-        .select()
-        .single();
-      if (!error && data) return data as Product;
-    } catch {
-      // Fallback
-    }
     const newProd = { ...prod, id: prod.id || `prod-${Date.now()}` };
     const idx = DEMO_PRODUCTS.findIndex((p) => p.id === newProd.id);
     if (idx !== -1) {
@@ -2265,21 +2299,34 @@ export class SupabaseService {
       DEMO_PRODUCTS.push(newProd);
     }
     saveToStorage("demo_products", DEMO_PRODUCTS);
+
+    try {
+      const userId = prod.user_id || (await SupabaseService.getUserId());
+      const payload = {
+        ...newProd,
+        ...(userId ? { user_id: userId } : {}),
+      };
+      await supabase.from("ma_products").upsert(payload);
+    } catch (e) {
+      console.warn("Supabase product table write error:", e);
+    }
+
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "products",
+        value: DEMO_PRODUCTS,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase product cloud sync error:", e);
+    }
+
     return newProd;
   }
 
   static async bulkImportProducts(products: Product[]): Promise<number> {
-    try {
-      const { data, error } = await supabase
-        .from("ma_products")
-        .upsert(products)
-        .select();
-      if (!error && data) return data.length;
-    } catch {
-      // Fallback
-    }
-    products.forEach(p => {
-      const idx = DEMO_PRODUCTS.findIndex(dp => dp.id === p.id);
+    products.forEach((p) => {
+      const idx = DEMO_PRODUCTS.findIndex((dp) => dp.id === p.id);
       if (idx !== -1) {
         DEMO_PRODUCTS[idx] = p;
       } else {
@@ -2287,6 +2334,23 @@ export class SupabaseService {
       }
     });
     saveToStorage("demo_products", DEMO_PRODUCTS);
+
+    try {
+      await supabase.from("ma_products").upsert(products);
+    } catch (e) {
+      console.warn("Supabase bulk products write error:", e);
+    }
+
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "products",
+        value: DEMO_PRODUCTS,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase product cloud sync error:", e);
+    }
+
     return products.length;
   }
 
@@ -2297,11 +2361,29 @@ export class SupabaseService {
         .from("ma_orders")
         .select("*, items:ma_order_items(*)")
         .order("order_date", { ascending: false });
-      if (!error && data) return data as Order[];
+      if (!error && data && Array.isArray(data) && data.length > 0) {
+        saveToStorage("demo_orders", data);
+        return data as Order[];
+      }
     } catch {
       // Fallback
     }
-    return DEMO_ORDERS;
+
+    try {
+      const { data: cloudData } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "orders")
+        .single();
+      if (cloudData?.value && Array.isArray(cloudData.value) && cloudData.value.length > 0) {
+        saveToStorage("demo_orders", cloudData.value);
+        return cloudData.value as Order[];
+      }
+    } catch {
+      // Fallback
+    }
+
+    return loadFromStorage("demo_orders", DEMO_ORDERS);
   }
 
   static async createOrder(order: Order): Promise<Order> {
@@ -2318,18 +2400,25 @@ export class SupabaseService {
 
     const fullOrder: Order = {
       ...order,
+      id: order.id || `ord-${Date.now()}`,
       order_no: orderNo,
       items_total: itemsTotal,
       total_amount: totalAmount,
       due_amount: dueAmount,
       status: "pending",
+      created_at: new Date().toISOString(),
     };
 
+    DEMO_ORDERS.unshift(fullOrder);
+    saveToStorage("demo_orders", DEMO_ORDERS);
+
+    // 1. Direct write to Supabase dedicated table
     try {
       const userId = order.user_id || (await SupabaseService.getUserId());
       const { data: ordData, error: ordErr } = await supabase
         .from("ma_orders")
         .insert({
+          id: fullOrder.id,
           ...(userId ? { user_id: userId } : {}),
           order_no: fullOrder.order_no,
           customer_id: fullOrder.customer_id,
@@ -2346,32 +2435,37 @@ export class SupabaseService {
         .select()
         .single();
 
-      if (!ordErr && ordData) {
-        if (order.items && order.items.length > 0) {
-          const itemPayloads = order.items.map((it) => ({
-            order_id: ordData.id,
-            product_name: it.product_name,
-            variant_name: it.variant_name,
-            price: it.price,
-            quantity: it.quantity,
-            dispatch_from: it.dispatch_from,
-            dispatch_to: it.dispatch_to,
-            sowing_date: it.sowing_date,
-            dispatched_qty: 0,
-            status: "pending",
-          }));
-          await supabase.from("ma_order_items").insert(itemPayloads);
-        }
-        return { ...ordData, items: order.items } as Order;
+      if (!ordErr && ordData && order.items && order.items.length > 0) {
+        const itemPayloads = order.items.map((it) => ({
+          order_id: ordData.id,
+          product_name: it.product_name,
+          variant_name: it.variant_name,
+          price: it.price,
+          quantity: it.quantity,
+          dispatch_from: it.dispatch_from,
+          dispatch_to: it.dispatch_to,
+          sowing_date: it.sowing_date,
+          dispatched_qty: 0,
+          status: "pending",
+        }));
+        await supabase.from("ma_order_items").insert(itemPayloads);
       }
-    } catch {
-      // Fallback
+    } catch (e) {
+      console.warn("Supabase order table write error:", e);
     }
 
-    const localOrd = { ...fullOrder, id: `ord-${Date.now()}` };
-    DEMO_ORDERS.unshift(localOrd);
-    saveToStorage("demo_orders", DEMO_ORDERS);
-    return localOrd;
+    // 2. Dual-write to Supabase app_settings cloud store
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "orders",
+        value: DEMO_ORDERS,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase order cloud sync error:", e);
+    }
+
+    return fullOrder;
   }
 
   static async updateOrder(order: Order): Promise<Order> {
@@ -2392,10 +2486,19 @@ export class SupabaseService {
       items_total: itemsTotal,
       total_amount: totalAmount,
       due_amount: dueAmount,
+      updated_at: new Date().toISOString(),
     };
 
+    const idx = DEMO_ORDERS.findIndex((o) => o.id === order.id || o.order_no === order.order_no);
+    if (idx !== -1) {
+      DEMO_ORDERS[idx] = updatedOrder;
+    } else {
+      DEMO_ORDERS.unshift(updatedOrder);
+    }
+    saveToStorage("demo_orders", DEMO_ORDERS);
+
     try {
-      const { error: ordErr } = await supabase
+      await supabase
         .from("ma_orders")
         .update({
           customer_id: updatedOrder.customer_id,
@@ -2411,50 +2514,62 @@ export class SupabaseService {
         })
         .eq("id", order.id);
 
-      if (!ordErr) {
-        if (order.items) {
-          await supabase.from("ma_order_items").delete().eq("order_id", order.id);
-          if (order.items.length > 0) {
-            const itemPayloads = order.items.map((it) => ({
-              order_id: order.id,
-              product_name: it.product_name,
-              variant_name: it.variant_name,
-              price: it.price,
-              quantity: it.quantity,
-              dispatch_from: it.dispatch_from,
-              dispatch_to: it.dispatch_to,
-              sowing_date: it.sowing_date,
-              dispatched_qty: it.dispatched_qty || 0,
-              status: it.status || "pending",
-            }));
-            await supabase.from("ma_order_items").insert(itemPayloads);
-          }
+      if (order.items) {
+        await supabase.from("ma_order_items").delete().eq("order_id", order.id);
+        if (order.items.length > 0) {
+          const itemPayloads = order.items.map((it) => ({
+            order_id: order.id,
+            product_name: it.product_name,
+            variant_name: it.variant_name,
+            price: it.price,
+            quantity: it.quantity,
+            dispatch_from: it.dispatch_from,
+            dispatch_to: it.dispatch_to,
+            sowing_date: it.sowing_date,
+            dispatched_qty: it.dispatched_qty || 0,
+            status: it.status || "pending",
+          }));
+          await supabase.from("ma_order_items").insert(itemPayloads);
         }
       }
     } catch (e) {
-      console.error("Supabase order update error:", e);
+      console.warn("Supabase order update error:", e);
     }
 
-    const idx = DEMO_ORDERS.findIndex((o) => o.id === order.id || o.order_no === order.order_no);
-    if (idx !== -1) {
-      DEMO_ORDERS[idx] = updatedOrder;
-    } else {
-      DEMO_ORDERS.unshift(updatedOrder);
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "orders",
+        value: DEMO_ORDERS,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase order cloud sync error:", e);
     }
-    saveToStorage("demo_orders", DEMO_ORDERS);
+
     return updatedOrder;
   }
 
   static async deleteOrder(orderId: string): Promise<boolean> {
+    DEMO_ORDERS = DEMO_ORDERS.filter((o) => o.id !== orderId && o.order_no !== orderId);
+    saveToStorage("demo_orders", DEMO_ORDERS);
+
     try {
       await supabase.from("ma_order_items").delete().eq("order_id", orderId);
       await supabase.from("ma_orders").delete().eq("id", orderId);
     } catch (e) {
-      console.error("Supabase delete order error:", e);
+      console.warn("Supabase delete order error:", e);
     }
 
-    DEMO_ORDERS = DEMO_ORDERS.filter((o) => o.id !== orderId && o.order_no !== orderId);
-    saveToStorage("demo_orders", DEMO_ORDERS);
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "orders",
+        value: DEMO_ORDERS,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase order delete sync error:", e);
+    }
+
     return true;
   }
 
@@ -2465,37 +2580,62 @@ export class SupabaseService {
         .from("ma_batches")
         .select("*")
         .order("sowing_date", { ascending: false });
-      if (!error && data) return data as ProductionBatch[];
+      if (!error && data && Array.isArray(data) && data.length > 0) {
+        saveToStorage("demo_batches", data);
+        return data as ProductionBatch[];
+      }
     } catch {
       // Fallback
     }
-    return DEMO_BATCHES;
+
+    try {
+      const { data: cloudData } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "batches")
+        .single();
+      if (cloudData?.value && Array.isArray(cloudData.value) && cloudData.value.length > 0) {
+        saveToStorage("demo_batches", cloudData.value);
+        return cloudData.value as ProductionBatch[];
+      }
+    } catch {
+      // Fallback
+    }
+
+    return loadFromStorage("demo_batches", DEMO_BATCHES);
   }
 
   static async saveBatch(b: ProductionBatch): Promise<ProductionBatch> {
-    try {
-      const userId = b.user_id || (await SupabaseService.getUserId());
-      const payload = {
-        ...b,
-        ...(userId ? { user_id: userId } : {}),
-      };
-      const { data, error } = await supabase
-        .from("ma_batches")
-        .upsert(payload)
-        .select()
-        .single();
-      if (!error && data) return data as ProductionBatch;
-    } catch {
-      // Fallback
-    }
     const newB = { ...b, id: b.id || `batch-${Date.now()}` };
-    const idx = DEMO_BATCHES.findIndex(x => x.id === newB.id);
+    const idx = DEMO_BATCHES.findIndex((x) => x.id === newB.id || x.batch_no === newB.batch_no);
     if (idx !== -1) {
       DEMO_BATCHES[idx] = newB;
     } else {
       DEMO_BATCHES.unshift(newB);
     }
     saveToStorage("demo_batches", DEMO_BATCHES);
+
+    try {
+      const userId = b.user_id || (await SupabaseService.getUserId());
+      const payload = {
+        ...newB,
+        ...(userId ? { user_id: userId } : {}),
+      };
+      await supabase.from("ma_batches").upsert(payload);
+    } catch (e) {
+      console.warn("Supabase batch write error:", e);
+    }
+
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "batches",
+        value: DEMO_BATCHES,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase batch cloud sync error:", e);
+    }
+
     return newB;
   }
 
@@ -2506,42 +2646,67 @@ export class SupabaseService {
         .from("ma_dispatch")
         .select("*, items:ma_dispatch_items(*)")
         .order("dispatch_date", { ascending: false });
-      if (!error && data) return data as DispatchRecord[];
+      if (!error && data && Array.isArray(data) && data.length > 0) {
+        saveToStorage("demo_dispatch", data);
+        return data as DispatchRecord[];
+      }
     } catch {
       // Fallback
     }
-    return DEMO_DISPATCH;
+
+    try {
+      const { data: cloudData } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "dispatch")
+        .single();
+      if (cloudData?.value && Array.isArray(cloudData.value) && cloudData.value.length > 0) {
+        saveToStorage("demo_dispatch", cloudData.value);
+        return cloudData.value as DispatchRecord[];
+      }
+    } catch {
+      // Fallback
+    }
+
+    return loadFromStorage("demo_dispatch", DEMO_DISPATCH);
   }
 
   static async saveDispatch(disp: Partial<DispatchRecord>): Promise<DispatchRecord> {
-    try {
-      const userId = (disp as any).user_id || (await SupabaseService.getUserId());
-      const payload = {
-        ...disp,
-        ...(userId ? { user_id: userId } : {}),
-        created_at: new Date().toISOString(),
-      };
-      const { data, error } = await supabase
-        .from("ma_dispatch")
-        .upsert(payload)
-        .select()
-        .single();
-      if (!error && data) return data as DispatchRecord;
-    } catch {
-      // Fallback
-    }
     const newD: DispatchRecord = {
       ...disp,
       id: disp.id || `disp-${Date.now()}`,
       dispatch_no: disp.dispatch_no || `DISP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      created_at: new Date().toISOString(),
     };
-    const idx = DEMO_DISPATCH.findIndex(x => x.id === newD.id);
+    const idx = DEMO_DISPATCH.findIndex((x) => x.id === newD.id || x.dispatch_no === newD.dispatch_no);
     if (idx !== -1) {
       DEMO_DISPATCH[idx] = newD;
     } else {
       DEMO_DISPATCH.unshift(newD);
     }
     saveToStorage("demo_dispatch", DEMO_DISPATCH);
+
+    try {
+      const userId = (disp as any).user_id || (await SupabaseService.getUserId());
+      const payload = {
+        ...newD,
+        ...(userId ? { user_id: userId } : {}),
+      };
+      await supabase.from("ma_dispatch").upsert(payload);
+    } catch (e) {
+      console.warn("Supabase dispatch write error:", e);
+    }
+
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "dispatch",
+        value: DEMO_DISPATCH,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase dispatch cloud sync error:", e);
+    }
+
     return newD;
   }
 
@@ -2552,7 +2717,7 @@ export class SupabaseService {
         .from("ma_employees")
         .select("*")
         .order("name", { ascending: true });
-      if (!error && data) return data as Employee[];
+      if (!error && data && Array.isArray(data) && data.length > 0) return data as Employee[];
     } catch {
       // Fallback
     }
@@ -2566,7 +2731,7 @@ export class SupabaseService {
         .from("ma_quotes")
         .select("*")
         .order("quote_date", { ascending: false });
-      if (!error && data) return data as Quote[];
+      if (!error && data && Array.isArray(data) && data.length > 0) return data as Quote[];
     } catch {
       // Fallback
     }
@@ -2580,7 +2745,7 @@ export class SupabaseService {
         .from("ma_campaigns")
         .select("*")
         .order("start_date", { ascending: false });
-      if (!error && data) return data as Campaign[];
+      if (!error && data && Array.isArray(data) && data.length > 0) return data as Campaign[];
     } catch {
       // Fallback
     }
@@ -2594,11 +2759,29 @@ export class SupabaseService {
         .from("ma_receipts")
         .select("*")
         .order("receipt_date", { ascending: false });
-      if (!error && data) return data as PaymentReceipt[];
+      if (!error && data && Array.isArray(data) && data.length > 0) {
+        saveToStorage("demo_receipts", data);
+        return data as PaymentReceipt[];
+      }
     } catch {
       // Fallback
     }
-    return DEMO_RECEIPTS;
+
+    try {
+      const { data: cloudData } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "receipts")
+        .single();
+      if (cloudData?.value && Array.isArray(cloudData.value) && cloudData.value.length > 0) {
+        saveToStorage("demo_receipts", cloudData.value);
+        return cloudData.value as PaymentReceipt[];
+      }
+    } catch {
+      // Fallback
+    }
+
+    return loadFromStorage("demo_receipts", DEMO_RECEIPTS);
   }
 
   static async savePaymentReceipt(rec: Partial<PaymentReceipt>): Promise<PaymentReceipt> {
@@ -2612,6 +2795,14 @@ export class SupabaseService {
       payment_mode: rec.payment_mode || "UPI",
     };
 
+    const idx = DEMO_RECEIPTS.findIndex((r) => r.id === newRec.id);
+    if (idx !== -1) {
+      DEMO_RECEIPTS[idx] = newRec;
+    } else {
+      DEMO_RECEIPTS.unshift(newRec);
+    }
+    saveToStorage("demo_receipts", DEMO_RECEIPTS);
+
     try {
       const userId = (rec as any).user_id || (await SupabaseService.getUserId());
       const payload = {
@@ -2620,17 +2811,18 @@ export class SupabaseService {
       };
       await supabase.from("ma_receipts").upsert(payload);
     } catch (e) {
-      console.error("Supabase save receipt error:", e);
+      console.warn("Supabase save receipt error:", e);
     }
 
-    // Save to local storage
-    const idx = DEMO_RECEIPTS.findIndex((r) => r.id === newRec.id);
-    if (idx !== -1) {
-      DEMO_RECEIPTS[idx] = newRec;
-    } else {
-      DEMO_RECEIPTS.unshift(newRec);
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "receipts",
+        value: DEMO_RECEIPTS,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase receipt cloud sync error:", e);
     }
-    saveToStorage("demo_receipts", DEMO_RECEIPTS);
 
     // If receipt is linked to a specific Order, update the Order's paid amount & status!
     if (newRec.order_id || newRec.order_no) {
@@ -2672,11 +2864,29 @@ export class SupabaseService {
         .from("ma_purchase_bills")
         .select("*")
         .order("bill_date", { ascending: false });
-      if (!error && data && Array.isArray(data)) return data as PurchaseBill[];
+      if (!error && data && Array.isArray(data) && data.length > 0) {
+        saveToStorage("demo_purchase_bills", data);
+        return data as PurchaseBill[];
+      }
     } catch {
       // Fallback
     }
-    return DEMO_PURCHASE_BILLS;
+
+    try {
+      const { data: cloudData } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "purchase_bills")
+        .single();
+      if (cloudData?.value && Array.isArray(cloudData.value) && cloudData.value.length > 0) {
+        saveToStorage("demo_purchase_bills", cloudData.value);
+        return cloudData.value as PurchaseBill[];
+      }
+    } catch {
+      // Fallback
+    }
+
+    return loadFromStorage("demo_purchase_bills", DEMO_PURCHASE_BILLS);
   }
 
   static async savePurchaseBill(bill: PurchaseBill): Promise<PurchaseBill> {
@@ -2708,21 +2918,31 @@ export class SupabaseService {
 
     const fullBill: PurchaseBill = {
       ...bill,
+      id: bill.id || `pur-${Date.now()}`,
       bill_no: billNo,
       items_total: itemsTotal,
       gst_amount: gstAmount,
       total_amount: totalAmount,
       due_amount: dueAmount,
       status: status,
+      created_at: new Date().toISOString(),
     };
+
+    const idx = DEMO_PURCHASE_BILLS.findIndex((b) => b.id === fullBill.id || b.bill_no === fullBill.bill_no);
+    if (idx !== -1) {
+      DEMO_PURCHASE_BILLS[idx] = fullBill;
+    } else {
+      DEMO_PURCHASE_BILLS.unshift(fullBill);
+    }
+    saveToStorage("demo_purchase_bills", DEMO_PURCHASE_BILLS);
 
     try {
       const userId = bill.user_id || (await SupabaseService.getUserId());
       const { data: billData, error: billErr } = await supabase
         .from("ma_purchase_bills")
         .upsert({
+          id: fullBill.id,
           ...(userId ? { user_id: userId } : {}),
-          ...(fullBill.id ? { id: fullBill.id } : {}),
           bill_no: fullBill.bill_no,
           party_id: fullBill.party_id,
           party_name: fullBill.party_name,
@@ -2741,48 +2961,58 @@ export class SupabaseService {
         .select()
         .single();
 
-      if (!billErr && billData) {
-        if (bill.items) {
-          await supabase.from("ma_purchase_bill_items").delete().eq("bill_id", billData.id);
-          if (bill.items.length > 0) {
-            const itemPayloads = bill.items.map((it) => ({
-              bill_id: billData.id,
-              product_name: it.product_name,
-              variant_name: it.variant_name,
-              price: it.price,
-              quantity: it.quantity,
-              line_total: (it.price || 0) * (it.quantity || 0),
-            }));
-            await supabase.from("ma_purchase_bill_items").insert(itemPayloads);
-          }
+      if (!billErr && billData && bill.items) {
+        await supabase.from("ma_purchase_bill_items").delete().eq("bill_id", billData.id);
+        if (bill.items.length > 0) {
+          const itemPayloads = bill.items.map((it) => ({
+            bill_id: billData.id,
+            product_name: it.product_name,
+            variant_name: it.variant_name,
+            price: it.price,
+            quantity: it.quantity,
+            line_total: (it.price || 0) * (it.quantity || 0),
+          }));
+          await supabase.from("ma_purchase_bill_items").insert(itemPayloads);
         }
-        return { ...billData, items: bill.items } as PurchaseBill;
       }
-    } catch {
-      // Fallback
+    } catch (e) {
+      console.warn("Supabase purchase bill table write error:", e);
     }
 
-    const localBill = { ...fullBill, id: fullBill.id || `pur-${Date.now()}` };
-    const idx = DEMO_PURCHASE_BILLS.findIndex((b) => b.id === localBill.id || b.bill_no === localBill.bill_no);
-    if (idx !== -1) {
-      DEMO_PURCHASE_BILLS[idx] = localBill;
-    } else {
-      DEMO_PURCHASE_BILLS.unshift(localBill);
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "purchase_bills",
+        value: DEMO_PURCHASE_BILLS,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase purchase bill cloud sync error:", e);
     }
-    saveToStorage("demo_purchase_bills", DEMO_PURCHASE_BILLS);
-    return localBill;
+
+    return fullBill;
   }
 
   static async deletePurchaseBill(billId: string): Promise<boolean> {
+    DEMO_PURCHASE_BILLS = DEMO_PURCHASE_BILLS.filter((b) => b.id !== billId && b.bill_no !== billId);
+    saveToStorage("demo_purchase_bills", DEMO_PURCHASE_BILLS);
+
     try {
       await supabase.from("ma_purchase_bill_items").delete().eq("bill_id", billId);
       await supabase.from("ma_purchase_bills").delete().eq("id", billId);
     } catch (e) {
-      console.error("Supabase delete purchase bill error:", e);
+      console.warn("Supabase delete purchase bill error:", e);
     }
 
-    DEMO_PURCHASE_BILLS = DEMO_PURCHASE_BILLS.filter((b) => b.id !== billId && b.bill_no !== billId);
-    saveToStorage("demo_purchase_bills", DEMO_PURCHASE_BILLS);
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "purchase_bills",
+        value: DEMO_PURCHASE_BILLS,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase purchase bill delete sync error:", e);
+    }
+
     return true;
   }
 
@@ -2793,11 +3023,29 @@ export class SupabaseService {
         .from("ma_drivers")
         .select("*")
         .order("name", { ascending: true });
-      if (!error && data && Array.isArray(data)) return data as Driver[];
+      if (!error && data && Array.isArray(data) && data.length > 0) {
+        saveToStorage("demo_drivers", data);
+        return data as Driver[];
+      }
     } catch {
       // Fallback
     }
-    return DEMO_DRIVERS;
+
+    try {
+      const { data: cloudData } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "drivers")
+        .single();
+      if (cloudData?.value && Array.isArray(cloudData.value) && cloudData.value.length > 0) {
+        saveToStorage("demo_drivers", cloudData.value);
+        return cloudData.value as Driver[];
+      }
+    } catch {
+      // Fallback
+    }
+
+    return loadFromStorage("demo_drivers", DEMO_DRIVERS);
   }
 
   static async saveDriver(drv: Partial<Driver>): Promise<Driver> {
@@ -2812,12 +3060,6 @@ export class SupabaseService {
       status: drv.status || "Active",
     };
 
-    try {
-      await supabase.from("ma_drivers").upsert(newD);
-    } catch {
-      // Fallback
-    }
-
     const idx = DEMO_DRIVERS.findIndex((d) => d.id === newD.id);
     if (idx !== -1) {
       DEMO_DRIVERS[idx] = newD;
@@ -2825,17 +3067,46 @@ export class SupabaseService {
       DEMO_DRIVERS.unshift(newD);
     }
     saveToStorage("demo_drivers", DEMO_DRIVERS);
+
+    try {
+      await supabase.from("ma_drivers").upsert(newD);
+    } catch (e) {
+      console.warn("Supabase driver table write error:", e);
+    }
+
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "drivers",
+        value: DEMO_DRIVERS,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase driver cloud sync error:", e);
+    }
+
     return newD;
   }
 
   static async deleteDriver(driverId: string): Promise<boolean> {
-    try {
-      await supabase.from("ma_drivers").delete().eq("id", driverId);
-    } catch {
-      // Fallback
-    }
     DEMO_DRIVERS = DEMO_DRIVERS.filter((d) => d.id !== driverId);
     saveToStorage("demo_drivers", DEMO_DRIVERS);
+
+    try {
+      await supabase.from("ma_drivers").delete().eq("id", driverId);
+    } catch (e) {
+      console.warn("Supabase driver delete error:", e);
+    }
+
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "drivers",
+        value: DEMO_DRIVERS,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase driver delete sync error:", e);
+    }
+
     return true;
   }
 
