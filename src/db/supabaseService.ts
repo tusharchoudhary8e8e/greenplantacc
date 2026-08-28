@@ -2841,7 +2841,39 @@ export class SupabaseService {
 
   // ─── BANK ACCOUNTS MANAGEMENT ─────────────────────────────────────
   static async getBankAccounts(): Promise<BankAccount[]> {
+    // 1. Try fetching from Supabase Cloud
+    try {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "bank_accounts")
+        .single();
+      if (!error && data?.value && Array.isArray(data.value) && data.value.length > 0) {
+        saveToStorage("demo_bank_accounts", data.value);
+        return data.value as BankAccount[];
+      }
+    } catch {
+      // Fallback to local cache
+    }
+
     let list = loadFromStorage<BankAccount[]>("demo_bank_accounts", []);
+    if (list.length === 0) {
+      list = [
+        {
+          id: "bank-sbi-1",
+          account_name: "SBI Current A/C",
+          account_number: "XXXX-XXXX-4812",
+          bank_name: "State Bank of India",
+          balance: 0,
+          account_type: "Current",
+        },
+      ];
+      saveToStorage("demo_bank_accounts", list);
+      supabase
+        .from("app_settings")
+        .upsert({ key: "bank_accounts", value: list, updated_at: new Date().toISOString() })
+        .then();
+    }
     return list;
   }
 
@@ -2862,6 +2894,18 @@ export class SupabaseService {
       list.push(newAcc);
     }
     saveToStorage("demo_bank_accounts", list);
+
+    // Sync to Supabase Cloud
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "bank_accounts",
+        value: list,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase bank sync error:", e);
+    }
+
     return newAcc;
   }
 
@@ -2869,11 +2913,48 @@ export class SupabaseService {
     let list = await this.getBankAccounts();
     list = list.filter((a) => a.id !== accId);
     saveToStorage("demo_bank_accounts", list);
+
+    // Sync to Supabase Cloud
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "bank_accounts",
+        value: list,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase bank delete sync error:", e);
+    }
+
     return true;
   }
 
   // ─── BANK TRANSACTIONS MANAGEMENT ─────────────────────────────────
   static async getBankTransactions(bankAccountId?: string): Promise<BankTransaction[]> {
+    // 1. Try fetching from Supabase Cloud
+    try {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "bank_transactions")
+        .single();
+      if (!error && data?.value && Array.isArray(data.value)) {
+        saveToStorage("demo_bank_transactions", data.value);
+        let list = data.value as BankTransaction[];
+        if (bankAccountId) {
+          list = list.filter(
+            (t) =>
+              t.from_account === bankAccountId ||
+              t.to_account === bankAccountId ||
+              (t.from_account && bankAccountId && t.from_account.toLowerCase().trim() === bankAccountId.toLowerCase().trim()) ||
+              (t.to_account && bankAccountId && t.to_account.toLowerCase().trim() === bankAccountId.toLowerCase().trim())
+          );
+        }
+        return list;
+      }
+    } catch {
+      // Fallback to local cache
+    }
+
     let list = loadFromStorage<BankTransaction[]>("demo_bank_transactions", []);
     if (bankAccountId) {
       list = list.filter(
@@ -2890,7 +2971,7 @@ export class SupabaseService {
   static async saveBankTransaction(
     txn: Partial<BankTransaction> & { adjust_type?: "add" | "reduce" }
   ): Promise<BankTransaction> {
-    let txns = loadFromStorage<BankTransaction[]>("demo_bank_transactions", []);
+    let txns = await this.getBankTransactions();
     let bankList = await this.getBankAccounts();
 
     const existingIdx = txns.findIndex((t) => t.id === txn.id);
@@ -2967,11 +3048,30 @@ export class SupabaseService {
 
     saveToStorage("demo_bank_accounts", bankList);
     saveToStorage("demo_bank_transactions", txns);
+
+    // Sync both bank accounts and transactions to Supabase Cloud
+    try {
+      await Promise.all([
+        supabase.from("app_settings").upsert({
+          key: "bank_accounts",
+          value: bankList,
+          updated_at: new Date().toISOString(),
+        }),
+        supabase.from("app_settings").upsert({
+          key: "bank_transactions",
+          value: txns,
+          updated_at: new Date().toISOString(),
+        }),
+      ]);
+    } catch (e) {
+      console.warn("Supabase bank txn sync error:", e);
+    }
+
     return newTxn;
   }
 
   static async deleteBankTransaction(txnId: string): Promise<boolean> {
-    let txns = loadFromStorage<BankTransaction[]>("demo_bank_transactions", []);
+    let txns = await this.getBankTransactions();
     let bankList = await this.getBankAccounts();
 
     const idx = txns.findIndex((t) => t.id === txnId);
@@ -3002,6 +3102,24 @@ export class SupabaseService {
       txns.splice(idx, 1);
       saveToStorage("demo_bank_accounts", bankList);
       saveToStorage("demo_bank_transactions", txns);
+
+      // Sync both to Supabase Cloud
+      try {
+        await Promise.all([
+          supabase.from("app_settings").upsert({
+            key: "bank_accounts",
+            value: bankList,
+            updated_at: new Date().toISOString(),
+          }),
+          supabase.from("app_settings").upsert({
+            key: "bank_transactions",
+            value: txns,
+            updated_at: new Date().toISOString(),
+          }),
+        ]);
+      } catch (e) {
+        console.warn("Supabase bank delete sync error:", e);
+      }
     }
     return true;
   }
@@ -3013,6 +3131,21 @@ export class SupabaseService {
 
   // ─── EXPENSES MANAGEMENT ──────────────────────────────────────────
   static async getExpenses(): Promise<ExpenseRecord[]> {
+    // 1. Try fetching from Supabase Cloud
+    try {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "expenses")
+        .single();
+      if (!error && data?.value && Array.isArray(data.value)) {
+        saveToStorage("demo_expenses", data.value);
+        return data.value as ExpenseRecord[];
+      }
+    } catch {
+      // Fallback to local cache
+    }
+
     let list = loadFromStorage<ExpenseRecord[]>("demo_expenses", []);
     return list;
   }
@@ -3045,7 +3178,22 @@ export class SupabaseService {
       if (bAcc) {
         bAcc.balance = Math.max(0, bAcc.balance - newExp.total_amount);
         saveToStorage("demo_bank_accounts", bankList);
+        supabase
+          .from("app_settings")
+          .upsert({ key: "bank_accounts", value: bankList, updated_at: new Date().toISOString() })
+          .then();
       }
+    }
+
+    // Sync to Supabase Cloud
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "expenses",
+        value: list,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase expense sync error:", e);
     }
 
     return newExp;
@@ -3055,6 +3203,18 @@ export class SupabaseService {
     let list = await this.getExpenses();
     list = list.filter((e) => e.id !== expId);
     saveToStorage("demo_expenses", list);
+
+    // Sync to Supabase Cloud
+    try {
+      await supabase.from("app_settings").upsert({
+        key: "expenses",
+        value: list,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn("Supabase expense delete sync error:", e);
+    }
+
     return true;
   }
 }
