@@ -506,7 +506,9 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
                       type="number"
                       placeholder="Qty"
                       value={item.quantity || ""}
-                      onChange={(e) => updateItemRow(idx, "price", Number(e.target.value))}
+                      onChange={(e) =>
+                        updateItemRow(idx, "quantity", Math.max(0, parseInt(e.target.value, 10) || 0))
+                      }
                       className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 bg-white focus:ring-2 focus:ring-emerald-500"
                     />
                   </div>
