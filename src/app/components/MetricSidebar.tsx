@@ -11,7 +11,8 @@ import {
   Leaf,
   Truck,
   Calendar,
-  Wallet,
+  Users,
+  LogOut,
 } from "lucide-react";
 
 export type MetricTab =
