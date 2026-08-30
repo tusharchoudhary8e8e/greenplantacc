@@ -382,6 +382,7 @@ function MainAppContent() {
                   customers={customers}
                   orders={orders}
                   purchaseBills={purchaseBills}
+                  paymentReceipts={paymentReceipts}
                   onNavigateToTab={(tab) => setActiveTab(tab as any)}
                 />
               )}

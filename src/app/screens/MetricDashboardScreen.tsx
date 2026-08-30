@@ -23,6 +23,7 @@ import {
   Customer,
   Order,
   PurchaseBill,
+  PaymentReceipt,
   BankAccount,
   ExpenseRecord,
   SupabaseService,
@@ -32,6 +33,7 @@ interface DashboardProps {
   customers: Customer[];
   orders: Order[];
   purchaseBills?: PurchaseBill[];
+  paymentReceipts?: PaymentReceipt[];
   onNavigateToTab: (tab: string) => void;
 }
 
@@ -39,11 +41,13 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
   customers = [],
   orders = [],
   purchaseBills = [],
+  paymentReceipts = [],
   onNavigateToTab,
 }) => {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeCustomers = Array.isArray(customers) ? customers : [];
   const safePurchaseBills = Array.isArray(purchaseBills) ? purchaseBills : [];
+  const safePaymentReceipts = Array.isArray(paymentReceipts) ? paymentReceipts : [];
 
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>([]);
@@ -60,23 +64,47 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
     fetchData();
   }, []);
 
-  // 1. You'll Get Total (Sum of positive customer balances)
-  const totalYoullGet = useMemo(() => {
-    return safeCustomers.reduce((sum, c) => {
-      const bal = c.opening_balance || 0;
-      return bal > 0 ? sum + bal : sum;
-    }, 0);
-  }, [safeCustomers]);
+  // 1. Dynamic Live Receivables (You'll Get) and Payables (You'll Give)
+  const { totalYoullGet, totalYoullGive } = useMemo(() => {
+    let youllGet = 0;
+    let youllGive = 0;
 
-  // 2. You'll Give Total (Sum of negative customer balances + purchase bills due)
-  const totalYoullGive = useMemo(() => {
-    const custGive = safeCustomers.reduce((sum, c) => {
-      const bal = c.opening_balance || 0;
-      return bal < 0 ? sum + Math.abs(bal) : sum;
-    }, 0);
-    const purGive = safePurchaseBills.reduce((sum, b) => sum + (b.due_amount || 0), 0);
-    return custGive + purGive;
-  }, [safeCustomers, safePurchaseBills]);
+    safeCustomers.forEach((cust) => {
+      const cOrders = safeOrders.filter(
+        (o) =>
+          o.customer_id === cust.id ||
+          (o.customer_name && o.customer_name.trim().toLowerCase() === cust.name.trim().toLowerCase())
+      );
+      const totalSales = cOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+      const totalAdvance = cOrders.reduce((sum, o) => sum + (o.advance_payment || 0), 0);
+
+      const cReceipts = safePaymentReceipts.filter(
+        (r) =>
+          r.customer_id === cust.id ||
+          (r.customer_name && r.customer_name.trim().toLowerCase() === cust.name.trim().toLowerCase())
+      );
+      const totalReceipts = cReceipts.reduce((sum, r) => sum + (r.amount || 0), 0);
+
+      const cPurchaseBills = safePurchaseBills.filter(
+        (b) =>
+          b.party_id === cust.id ||
+          (b.party_name && b.party_name.trim().toLowerCase() === cust.name.trim().toLowerCase())
+      );
+      const totalPurchases = cPurchaseBills.reduce((sum, b) => sum + (b.total_amount || 0), 0);
+      const totalPurchasePaid = cPurchaseBills.reduce((sum, b) => sum + (b.paid_amount || 0), 0);
+
+      const openingBal = cust.opening_balance || 0;
+      const net = (openingBal + totalSales - totalReceipts - totalAdvance) - (totalPurchases - totalPurchasePaid);
+
+      if (net > 0) {
+        youllGet += net;
+      } else if (net < 0) {
+        youllGive += Math.abs(net);
+      }
+    });
+
+    return { totalYoullGet: youllGet, totalYoullGive: youllGive };
+  }, [safeCustomers, safeOrders, safePaymentReceipts, safePurchaseBills]);
 
   // 3. Sales Breakdown
   const { salesThisMonth, salesLastMonth, salesTrendPct, monthlySalesChartData } = useMemo(() => {
