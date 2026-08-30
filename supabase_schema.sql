@@ -202,36 +202,36 @@ ALTER TABLE public.voucher_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Create Open & Auth Access Policies for all tables
+-- Create Secure Authenticated Access Policies for all tables
 DROP POLICY IF EXISTS "Allow public access for tenants" ON public.tenants;
-CREATE POLICY "Allow public access for tenants" ON public.tenants FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public access for tenants" ON public.tenants FOR ALL TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Allow public access for companies" ON public.companies;
-CREATE POLICY "Allow public access for companies" ON public.companies FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public access for companies" ON public.companies FOR ALL TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Allow public access for ledgers" ON public.ledgers;
-CREATE POLICY "Allow public access for ledgers" ON public.ledgers FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public access for ledgers" ON public.ledgers FOR ALL TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Allow public access for parties" ON public.parties;
-CREATE POLICY "Allow public access for parties" ON public.parties FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public access for parties" ON public.parties FOR ALL TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Allow public access for stock_items" ON public.stock_items;
-CREATE POLICY "Allow public access for stock_items" ON public.stock_items FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public access for stock_items" ON public.stock_items FOR ALL TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Allow public access for vouchers" ON public.vouchers;
-CREATE POLICY "Allow public access for vouchers" ON public.vouchers FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public access for vouchers" ON public.vouchers FOR ALL TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Allow public access for voucher_items" ON public.voucher_items;
-CREATE POLICY "Allow public access for voucher_items" ON public.voucher_items FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public access for voucher_items" ON public.voucher_items FOR ALL TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Allow public access for voucher_entries" ON public.voucher_entries;
-CREATE POLICY "Allow public access for voucher_entries" ON public.voucher_entries FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public access for voucher_entries" ON public.voucher_entries FOR ALL TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Allow public access for app_settings" ON public.app_settings;
-CREATE POLICY "Allow public access for app_settings" ON public.app_settings FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public access for app_settings" ON public.app_settings FOR ALL TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 DROP POLICY IF EXISTS "Allow public access for audit_logs" ON public.audit_logs;
-CREATE POLICY "Allow public access for audit_logs" ON public.audit_logs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public access for audit_logs" ON public.audit_logs FOR ALL TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
 -- Enable Realtime replication for instant UI updates
 DO $$
