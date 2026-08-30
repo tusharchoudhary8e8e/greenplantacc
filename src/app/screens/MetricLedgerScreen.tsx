@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   BookOpen,
   Search,
@@ -30,8 +30,21 @@ import {
   MoreVertical,
   X,
   Eye,
+  Scale,
+  FileSpreadsheet,
+  Layers,
 } from "lucide-react";
-import { Customer, Order, OrderItem, DispatchRecord, PaymentReceipt, PurchaseBill, SupabaseService } from "../../db/supabaseService";
+import {
+  Customer,
+  Order,
+  OrderItem,
+  DispatchRecord,
+  PaymentReceipt,
+  PurchaseBill,
+  BankAccount,
+  ExpenseRecord,
+  SupabaseService,
+} from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "../components/SearchableSelect";
 
 interface MetricLedgerScreenProps {
@@ -41,7 +54,7 @@ interface MetricLedgerScreenProps {
   paymentReceipts?: PaymentReceipt[];
   purchaseBills?: PurchaseBill[];
   initialCustomerId?: string;
-  initialMode?: "party_balances" | "transaction_details";
+  initialMode?: "party_balances" | "transaction_details" | "journal_vouchers";
   onBack?: () => void;
   onNavigateToCustomer?: (custId: string) => void;
   onNavigateToCreateOrder?: () => void;
@@ -71,9 +84,32 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
   const safePaymentReceipts = Array.isArray(paymentReceipts) ? paymentReceipts : [];
   const safePurchaseBills = Array.isArray(purchaseBills) ? purchaseBills : [];
 
-  // View Mode: "transaction_details" | "party_balances"
-  const [viewMode, setViewMode] = useState<"party_balances" | "transaction_details">(initialMode);
+  // View Mode: "transaction_details" | "party_balances" | "journal_vouchers"
+  const [viewMode, setViewMode] = useState<"party_balances" | "transaction_details" | "journal_vouchers">(initialMode);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(initialCustomerId);
+
+  // Journal Sub-Tab: "journal_feed" | "trial_balance"
+  const [journalSubTab, setJournalSubTab] = useState<"journal_feed" | "trial_balance">("journal_feed");
+
+  // Expenses & Bank Accounts for full double-entry coverage
+  const [expensesList, setExpensesList] = useState<ExpenseRecord[]>([]);
+  const [bankAccountsList, setBankAccountsList] = useState<BankAccount[]>([]);
+
+  useEffect(() => {
+    const fetchExtraFinance = async () => {
+      try {
+        const [exp, b] = await Promise.all([
+          SupabaseService.getExpenses(),
+          SupabaseService.getBankAccounts(),
+        ]);
+        setExpensesList(exp || []);
+        setBankAccountsList(b || []);
+      } catch (e) {
+        console.warn("Failed to load extra finance data for journal:", e);
+      }
+    };
+    fetchExtraFinance();
+  }, []);
 
   // Selected Order for Modal Viewer
   const [activeOrderModal, setActiveOrderModal] = useState<Order | null>(null);
@@ -333,6 +369,325 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
     return list;
   }, [partyBalancesList, partySearchTerm, partyFilter, partySortBy]);
 
+  // ─── DOUBLE-ENTRY JOURNAL & TRIAL BALANCE ENGINE ────────────────────────────
+  const { journalVouchers, totalJournalDr, totalJournalCr, trialBalanceAccounts } = useMemo(() => {
+    interface JournalLeg {
+      account: string;
+      group: "Asset" | "Liability" | "Income" | "Expense";
+      dr: number;
+      cr: number;
+    }
+
+    interface VoucherItem {
+      id: string;
+      voucherNo: string;
+      date: string;
+      formattedDate: string;
+      type: "Sales Invoice" | "Payment Inward" | "Purchase Bill" | "Expense Voucher";
+      partyName: string;
+      narration: string;
+      legs: JournalLeg[];
+      totalDr: number;
+      totalCr: number;
+      isBalanced: boolean;
+    }
+
+    const vouchers: VoucherItem[] = [];
+
+    // 1. Sales Invoices (Orders)
+    safeOrders.forEach((ord) => {
+      const dateStr = ord.order_date || (ord.created_at ? ord.created_at.split("T")[0] : "2026-08-25");
+      let formattedDate = dateStr;
+      try {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          formattedDate = `${d.getDate()} ${d.toLocaleDateString("en-US", { month: "short" })}, ${String(d.getFullYear()).slice(2)}`;
+        }
+      } catch {}
+
+      const total = ord.total_amount || 0;
+      const advance = ord.advance_payment || 0;
+      const due = Math.max(0, total - advance);
+      const transport = ord.transport_charge || 0;
+      const salesRev = Math.max(0, total - transport);
+
+      const legs: JournalLeg[] = [];
+
+      // Debits (Assets)
+      if (due > 0) {
+        legs.push({
+          account: `Sundry Debtors - ${ord.customer_name || "Customer"}`,
+          group: "Asset",
+          dr: due,
+          cr: 0,
+        });
+      }
+      if (advance > 0) {
+        legs.push({
+          account: `Cash / Bank (${ord.payment_type || "Advance Received"})`,
+          group: "Asset",
+          dr: advance,
+          cr: 0,
+        });
+      }
+
+      // Credits (Income)
+      legs.push({
+        account: "Nursery Plant Sales Revenue",
+        group: "Income",
+        dr: 0,
+        cr: salesRev,
+      });
+      if (transport > 0) {
+        legs.push({
+          account: "Freight & Transport Recovery",
+          group: "Income",
+          dr: 0,
+          cr: transport,
+        });
+      }
+
+      const totDr = legs.reduce((s, l) => s + l.dr, 0);
+      const totCr = legs.reduce((s, l) => s + l.cr, 0);
+
+      vouchers.push({
+        id: `jv-sale-${ord.id || ord.order_no}`,
+        voucherNo: ord.order_no || `#ORD-${ord.id?.slice(0, 6)}`,
+        date: dateStr,
+        formattedDate,
+        type: "Sales Invoice",
+        partyName: ord.customer_name || "Customer",
+        narration: `Sale of nursery seedlings. Total: ₹${total.toLocaleString()}, Advance: ₹${advance.toLocaleString()}, Due: ₹${due.toLocaleString()}`,
+        legs,
+        totalDr: totDr,
+        totalCr: totCr,
+        isBalanced: Math.abs(totDr - totCr) < 0.01,
+      });
+    });
+
+    // 2. Payment Inwards (Payment Receipts)
+    safePaymentReceipts.forEach((rec) => {
+      const dateStr = rec.receipt_date || (rec.created_at ? rec.created_at.split("T")[0] : "2026-08-25");
+      let formattedDate = dateStr;
+      try {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          formattedDate = `${d.getDate()} ${d.toLocaleDateString("en-US", { month: "short" })}, ${String(d.getFullYear()).slice(2)}`;
+        }
+      } catch {}
+
+      const amt = rec.amount || 0;
+      const legs: JournalLeg[] = [
+        {
+          account: `Bank / Cash (${rec.payment_mode || "Bank Inward"})`,
+          group: "Asset",
+          dr: amt,
+          cr: 0,
+        },
+        {
+          account: `Sundry Debtors - ${rec.customer_name || "Customer"}`,
+          group: "Asset",
+          dr: 0,
+          cr: amt,
+        },
+      ];
+
+      vouchers.push({
+        id: `jv-rec-${rec.id || rec.receipt_no}`,
+        voucherNo: rec.receipt_no || `#REC-${rec.id?.slice(0, 6)}`,
+        date: dateStr,
+        formattedDate,
+        type: "Payment Inward",
+        partyName: rec.customer_name || "Customer",
+        narration: `Payment received against customer balance via ${rec.payment_mode || "Bank/UPI"}${rec.notes ? ` (${rec.notes})` : ""}`,
+        legs,
+        totalDr: amt,
+        totalCr: amt,
+        isBalanced: true,
+      });
+    });
+
+    // 3. Purchase Bills
+    safePurchaseBills.forEach((pur) => {
+      const dateStr = pur.bill_date || (pur.created_at ? pur.created_at.split("T")[0] : "2026-08-25");
+      let formattedDate = dateStr;
+      try {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          formattedDate = `${d.getDate()} ${d.toLocaleDateString("en-US", { month: "short" })}, ${String(d.getFullYear()).slice(2)}`;
+        }
+      } catch {}
+
+      const total = pur.total_amount || 0;
+      const paid = pur.paid_amount || 0;
+      const due = Math.max(0, total - paid);
+      const gst = pur.gst_amount || 0;
+      const transport = pur.transport_charge || 0;
+      const rawMat = Math.max(0, total - gst - transport);
+
+      const legs: JournalLeg[] = [
+        {
+          account: "Nursery Raw Materials & Seeds Purchase",
+          group: "Expense",
+          dr: rawMat,
+          cr: 0,
+        },
+      ];
+
+      if (gst > 0) {
+        legs.push({
+          account: "Input GST Credit Receivable",
+          group: "Asset",
+          dr: gst,
+          cr: 0,
+        });
+      }
+      if (transport > 0) {
+        legs.push({
+          account: "Inward Freight & Transport",
+          group: "Expense",
+          dr: transport,
+          cr: 0,
+        });
+      }
+
+      if (paid > 0) {
+        legs.push({
+          account: "Cash in Hand / Bank Account",
+          group: "Asset",
+          dr: 0,
+          cr: paid,
+        });
+      }
+      if (due > 0) {
+        legs.push({
+          account: `Sundry Creditors - ${pur.party_name || "Supplier"}`,
+          group: "Liability",
+          dr: 0,
+          cr: due,
+        });
+      }
+
+      const totDr = legs.reduce((s, l) => s + l.dr, 0);
+      const totCr = legs.reduce((s, l) => s + l.cr, 0);
+
+      vouchers.push({
+        id: `jv-pur-${pur.id || pur.bill_no}`,
+        voucherNo: pur.bill_no || `#PUR-${pur.id?.slice(0, 6)}`,
+        date: dateStr,
+        formattedDate,
+        type: "Purchase Bill",
+        partyName: pur.party_name || "Supplier",
+        narration: `Purchase bill for nursery materials from ${pur.party_name}. Total: ₹${total.toLocaleString()}, Paid: ₹${paid.toLocaleString()}, Due: ₹${due.toLocaleString()}`,
+        legs,
+        totalDr: totDr,
+        totalCr: totCr,
+        isBalanced: Math.abs(totDr - totCr) < 0.01,
+      });
+    });
+
+    // 4. Expenses
+    expensesList.forEach((exp) => {
+      const dateStr = exp.expense_date || (exp.created_at ? exp.created_at.split("T")[0] : "2026-08-25");
+      let formattedDate = dateStr;
+      try {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          formattedDate = `${d.getDate()} ${d.toLocaleDateString("en-US", { month: "short" })}, ${String(d.getFullYear()).slice(2)}`;
+        }
+      } catch {}
+
+      const amt = exp.amount || 0;
+      const legs: JournalLeg[] = [
+        {
+          account: `Operating Expense - ${exp.category || "General"}`,
+          group: "Expense",
+          dr: amt,
+          cr: 0,
+        },
+        {
+          account: `${exp.payment_type || "Cash"} Account`,
+          group: "Asset",
+          dr: 0,
+          cr: amt,
+        },
+      ];
+
+      vouchers.push({
+        id: `jv-exp-${exp.id}`,
+        voucherNo: `EXP-${exp.id?.slice(0, 6)}`,
+        date: dateStr,
+        formattedDate,
+        type: "Expense Voucher",
+        partyName: exp.category || "Nursery Operating",
+        narration: `Expense for ${exp.category} paid via ${exp.payment_type || "Cash"}${exp.notes ? ` (${exp.notes})` : ""}`,
+        legs,
+        totalDr: amt,
+        totalCr: amt,
+        isBalanced: true,
+      });
+    });
+
+    vouchers.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const overallDr = vouchers.reduce((s, v) => s + v.totalDr, 0);
+    const overallCr = vouchers.reduce((s, v) => s + v.totalCr, 0);
+
+    // ─── COMPILE TRIAL BALANCE (T-ACCOUNTS) ──────────────────────────────────
+    const accountMap: Record<
+      string,
+      {
+        account: string;
+        group: "Asset" | "Liability" | "Income" | "Expense";
+        totalDr: number;
+        totalCr: number;
+        netDr: number;
+        netCr: number;
+      }
+    > = {};
+
+    vouchers.forEach((v) => {
+      v.legs.forEach((l) => {
+        if (!accountMap[l.account]) {
+          accountMap[l.account] = {
+            account: l.account,
+            group: l.group,
+            totalDr: 0,
+            totalCr: 0,
+            netDr: 0,
+            netCr: 0,
+          };
+        }
+        accountMap[l.account].totalDr += l.dr;
+        accountMap[l.account].totalCr += l.cr;
+      });
+    });
+
+    const tbAccounts = Object.values(accountMap).map((acc) => {
+      const diff = acc.totalDr - acc.totalCr;
+      if (diff > 0) {
+        acc.netDr = diff;
+        acc.netCr = 0;
+      } else if (diff < 0) {
+        acc.netDr = 0;
+        acc.netCr = Math.abs(diff);
+      } else {
+        acc.netDr = 0;
+        acc.netCr = 0;
+      }
+      return acc;
+    });
+
+    tbAccounts.sort((a, b) => a.group.localeCompare(b.group) || a.account.localeCompare(b.account));
+
+    return {
+      journalVouchers: vouchers,
+      totalJournalDr: overallDr,
+      totalJournalCr: overallCr,
+      trialBalanceAccounts: tbAccounts,
+    };
+  }, [safeOrders, safePaymentReceipts, safePurchaseBills, expensesList]);
+
   const handlePrint = () => {
     window.print();
   };
@@ -361,11 +716,14 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
             </button>
           )}
           <div>
-            <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight">
-              Party Ledger &amp; Transactions
+            <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight flex items-center gap-2">
+              <span>Party Ledger &amp; Journal</span>
+              <span className="bg-emerald-100 text-emerald-800 text-[11px] font-black px-2 py-0.5 rounded-full border border-emerald-300 uppercase">
+                Double-Entry GAAP
+              </span>
             </h1>
             <p className="text-xs text-[#888] font-medium mt-0.5">
-              View customer receivables, vendor payables &amp; transaction history
+              Receivables, vendor payables, double-entry general journal &amp; trial balance
             </p>
           </div>
         </div>
@@ -393,27 +751,38 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
         </div>
       </div>
 
-      {/* Top Mode Toggle Bar */}
-      <div className="flex items-center gap-2 justify-center bg-white p-1.5 rounded-[10px] border border-[#e8e8e8] max-w-sm mx-auto">
+      {/* Top 3-Way Mode Toggle Bar */}
+      <div className="flex items-center gap-2 justify-center bg-white p-1.5 rounded-[12px] border border-[#e8e8e8] max-w-lg mx-auto shadow-xs">
         <button
           onClick={() => setViewMode("transaction_details")}
-          className={`flex-1 py-2 px-3 rounded-[6px] text-xs font-bold transition text-center cursor-pointer ${
+          className={`flex-1 py-2 px-3 rounded-[8px] text-xs font-bold transition text-center cursor-pointer ${
             viewMode === "transaction_details"
               ? "bg-[#1e4d2b] text-white shadow-xs"
               : "bg-white text-[#666] hover:bg-[#f4f4f0]"
           }`}
         >
-          Transaction Details
+          Transaction Feed
         </button>
         <button
           onClick={() => setViewMode("party_balances")}
-          className={`flex-1 py-2 px-3 rounded-[6px] text-xs font-bold transition text-center cursor-pointer ${
+          className={`flex-1 py-2 px-3 rounded-[8px] text-xs font-bold transition text-center cursor-pointer ${
             viewMode === "party_balances"
               ? "bg-[#1e4d2b] text-white shadow-xs"
               : "bg-white text-[#666] hover:bg-[#f4f4f0]"
           }`}
         >
-          Party Details
+          Party Balances
+        </button>
+        <button
+          onClick={() => setViewMode("journal_vouchers")}
+          className={`flex-1 py-2 px-3 rounded-[8px] text-xs font-bold transition text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+            viewMode === "journal_vouchers"
+              ? "bg-[#1e4d2b] text-white shadow-xs"
+              : "bg-white text-[#666] hover:bg-[#f4f4f0]"
+          }`}
+        >
+          <Scale className="w-3.5 h-3.5" />
+          <span>Journal &amp; Trial Balance</span>
         </button>
       </div>
 
@@ -722,6 +1091,389 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* VIEW MODE 3: DOUBLE-ENTRY GENERAL JOURNAL & TRIAL BALANCE */}
+      {viewMode === "journal_vouchers" && (
+        <div className="space-y-6">
+          {/* Top Double-Entry Status & KPI Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white border border-emerald-200 rounded-[12px] p-4 flex items-center justify-between shadow-xs">
+              <div>
+                <span className="text-[11px] font-bold uppercase text-emerald-800 tracking-wider">
+                  Total Journal Debits (Dr)
+                </span>
+                <div className="text-xl font-black text-emerald-700 font-mono mt-1">
+                  ₹ {totalJournalDr.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">Asset additions &amp; operating costs</p>
+              </div>
+              <div className="w-10 h-10 bg-emerald-100 rounded-[10px] flex items-center justify-center text-emerald-700 font-black font-mono text-sm shrink-0">
+                Dr
+              </div>
+            </div>
+
+            <div className="bg-white border border-blue-200 rounded-[12px] p-4 flex items-center justify-between shadow-xs">
+              <div>
+                <span className="text-[11px] font-bold uppercase text-blue-800 tracking-wider">
+                  Total Journal Credits (Cr)
+                </span>
+                <div className="text-xl font-black text-blue-700 font-mono mt-1">
+                  ₹ {totalJournalCr.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">Revenues earned &amp; liabilities</p>
+              </div>
+              <div className="w-10 h-10 bg-blue-100 rounded-[10px] flex items-center justify-center text-blue-700 font-black font-mono text-sm shrink-0">
+                Cr
+              </div>
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-[12px] p-4 flex items-center justify-between shadow-xs">
+              <div>
+                <span className="text-[11px] font-bold uppercase text-slate-600 tracking-wider">
+                  Double-Entry Integrity
+                </span>
+                <div className="flex items-center gap-1.5 mt-1">
+                  {Math.abs(totalJournalDr - totalJournalCr) < 0.01 ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-700 font-extrabold text-sm bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-300">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      100% Balanced Ledger
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-red-600 font-bold text-xs bg-red-50 px-2.5 py-1 rounded-full border border-red-200">
+                      <AlertCircle className="w-4 h-4" />
+                      Discrepancy: ₹{Math.abs(totalJournalDr - totalJournalCr).toFixed(2)}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                  {journalVouchers.length} Total Journal Vouchers
+                </p>
+              </div>
+              <div className="w-10 h-10 bg-slate-100 rounded-[10px] flex items-center justify-center text-slate-700 shrink-0">
+                <Scale className="w-5 h-5 text-slate-700" />
+              </div>
+            </div>
+          </div>
+
+          {/* Sub-Tab Selector: General Journal vs Trial Balance */}
+          <div className="flex items-center justify-between flex-wrap gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-xs">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setJournalSubTab("journal_feed")}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
+                  journalSubTab === "journal_feed"
+                    ? "bg-[#1e4d2b] text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>General Journal Entries ({journalVouchers.length})</span>
+              </button>
+              <button
+                onClick={() => setJournalSubTab("trial_balance")}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1.5 ${
+                  journalSubTab === "trial_balance"
+                    ? "bg-[#1e4d2b] text-white shadow-xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Trial Balance Summary ({trialBalanceAccounts.length} Accounts)</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handlePrint()}
+                className="px-3.5 py-1.5 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Accounting Report</span>
+              </button>
+            </div>
+          </div>
+
+          {/* SUB-TAB 1: GENERAL JOURNAL FEED */}
+          {journalSubTab === "journal_feed" && (
+            <div className="space-y-4">
+              {/* Search & Filter Bar */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="relative flex-1 w-full">
+                  <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search journal entries by voucher #, account name, party..."
+                    value={txnSearchTerm}
+                    onChange={(e) => setTxnSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto">
+                  <button
+                    onClick={() => setTxnTypeFilter("all")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                      txnTypeFilter === "all" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    All Types
+                  </button>
+                  <button
+                    onClick={() => setTxnTypeFilter("sale")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                      txnTypeFilter === "sale" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    }`}
+                  >
+                    Sales Invoices
+                  </button>
+                  <button
+                    onClick={() => setTxnTypeFilter("payin")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                      txnTypeFilter === "payin" ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                    }`}
+                  >
+                    Payment Inwards
+                  </button>
+                  <button
+                    onClick={() => setTxnTypeFilter("purchase")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                      txnTypeFilter === "purchase" ? "bg-red-600 text-white" : "bg-red-50 text-red-600 hover:bg-red-100"
+                    }`}
+                  >
+                    Purchases
+                  </button>
+                  <button
+                    onClick={() => setTxnTypeFilter("expense")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                      txnTypeFilter === "expense" ? "bg-purple-600 text-white" : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+                    }`}
+                  >
+                    Expenses
+                  </button>
+                </div>
+              </div>
+
+              {/* Journal Vouchers Cards */}
+              <div className="space-y-4">
+                {journalVouchers
+                  .filter((v) => {
+                    if (txnTypeFilter === "sale" && v.type !== "Sales Invoice") return false;
+                    if (txnTypeFilter === "payin" && v.type !== "Payment Inward") return false;
+                    if (txnTypeFilter === "purchase" && v.type !== "Purchase Bill") return false;
+                    if (txnTypeFilter === "expense" && v.type !== "Expense Voucher") return false;
+
+                    if (txnSearchTerm) {
+                      const q = txnSearchTerm.toLowerCase();
+                      const matchVno = v.voucherNo.toLowerCase().includes(q);
+                      const matchParty = v.partyName.toLowerCase().includes(q);
+                      const matchNarr = v.narration.toLowerCase().includes(q);
+                      const matchLegs = v.legs.some((l) => l.account.toLowerCase().includes(q));
+                      if (!matchVno && !matchParty && !matchNarr && !matchLegs) return false;
+                    }
+                    return true;
+                  })
+                  .map((jv) => (
+                    <div
+                      key={jv.id}
+                      className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden hover:border-emerald-300 transition"
+                    >
+                      {/* Voucher Top Header */}
+                      <div className="bg-slate-50/80 px-5 py-3 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono font-extrabold text-xs text-slate-800 bg-white px-2.5 py-1 rounded-md border border-slate-200 shadow-2xs">
+                            {jv.voucherNo}
+                          </span>
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                              jv.type === "Sales Invoice"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : jv.type === "Payment Inward"
+                                ? "bg-amber-100 text-amber-800"
+                                : jv.type === "Purchase Bill"
+                                ? "bg-red-100 text-red-800"
+                                : "bg-purple-100 text-purple-800"
+                            }`}
+                          >
+                            {jv.type}
+                          </span>
+                          <span className="text-xs font-bold text-slate-700">
+                            {jv.partyName}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
+                          <span>{jv.formattedDate}</span>
+                          <span className="text-emerald-600 font-extrabold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[10px]">
+                            BALANCED
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Double-Entry Legs Table */}
+                      <div className="p-4 overflow-x-auto">
+                        <table className="w-full text-xs text-left border-collapse">
+                          <thead>
+                            <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1">
+                              <th className="py-1.5 px-3">PARTICULARS (LEDGER ACCOUNT)</th>
+                              <th className="py-1.5 px-3">GROUP</th>
+                              <th className="py-1.5 px-3 text-right">DEBIT (Dr) ₹</th>
+                              <th className="py-1.5 px-3 text-right">CREDIT (Cr) ₹</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50 font-medium">
+                            {jv.legs.map((leg, idx) => (
+                              <tr key={idx} className="hover:bg-slate-50/50">
+                                <td className="py-2.5 px-3">
+                                  {leg.dr > 0 ? (
+                                    <span className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                                      <span className="text-emerald-700 font-mono font-black text-[11px]">Dr.</span>
+                                      <span>{leg.account}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-700 pl-6 flex items-center gap-1.5">
+                                      <span className="text-blue-700 font-mono font-bold text-[11px]">To</span>
+                                      <span>{leg.account}</span>
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      leg.group === "Asset"
+                                        ? "bg-emerald-50 text-emerald-700"
+                                        : leg.group === "Liability"
+                                        ? "bg-amber-50 text-amber-700"
+                                        : leg.group === "Income"
+                                        ? "bg-blue-50 text-blue-700"
+                                        : "bg-purple-50 text-purple-700"
+                                    }`}
+                                  >
+                                    {leg.group}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-extrabold text-emerald-700">
+                                  {leg.dr > 0 ? `₹ ${leg.dr.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "-"}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-extrabold text-blue-700">
+                                  {leg.cr > 0 ? `₹ ${leg.cr.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "-"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t-2 border-slate-200 font-black font-mono text-xs bg-slate-50/50">
+                              <td colSpan={2} className="py-2 px-3 text-slate-500 italic font-normal text-[11px]">
+                                Narration: {jv.narration}
+                              </td>
+                              <td className="py-2 px-3 text-right text-emerald-800">
+                                ₹ {jv.totalDr.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="py-2 px-3 text-right text-blue-800">
+                                ₹ {jv.totalCr.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* SUB-TAB 2: TRIAL BALANCE (T-ACCOUNTS) */}
+          {journalSubTab === "trial_balance" && (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2 bg-slate-50">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-800">
+                    Trial Balance as on {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Summary of all General Ledger account closing balances verified against double-entry rules
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full font-black text-xs border border-emerald-300">
+                    ✓ Balanced: ₹{trialBalanceAccounts.reduce((s, a) => s + a.netDr, 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100/70 text-[10px] font-black uppercase tracking-wider text-slate-600 border-b border-slate-200">
+                      <th className="py-3 px-4">LEDGER ACCOUNT HEAD</th>
+                      <th className="py-3 px-4">ACCOUNT GROUP</th>
+                      <th className="py-3 px-4 text-right">TOTAL DR TURNOVER (₹)</th>
+                      <th className="py-3 px-4 text-right">TOTAL CR TURNOVER (₹)</th>
+                      <th className="py-3 px-4 text-right bg-emerald-50/50 text-emerald-900">NET DEBIT BALANCE (Dr) ₹</th>
+                      <th className="py-3 px-4 text-right bg-blue-50/50 text-blue-900">NET CREDIT BALANCE (Cr) ₹</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    {trialBalanceAccounts.map((acc, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/80 transition">
+                        <td className="py-3 px-4 font-bold text-slate-900">
+                          {acc.account}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase ${
+                              acc.group === "Asset"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : acc.group === "Liability"
+                                ? "bg-amber-100 text-amber-800"
+                                : acc.group === "Income"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-purple-100 text-purple-800"
+                            }`}
+                          >
+                            {acc.group}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-slate-500">
+                          {acc.totalDr > 0 ? acc.totalDr.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "-"}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono text-slate-500">
+                          {acc.totalCr > 0 ? acc.totalCr.toLocaleString("en-IN", { minimumFractionDigits: 2 }) : "-"}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono font-extrabold text-emerald-700 bg-emerald-50/30">
+                          {acc.netDr > 0 ? `₹ ${acc.netDr.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "-"}
+                        </td>
+                        <td className="py-3 px-4 text-right font-mono font-extrabold text-blue-700 bg-blue-50/30">
+                          {acc.netCr > 0 ? `₹ ${acc.netCr.toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-slate-900 text-white font-black font-mono text-xs border-t-2 border-slate-900">
+                      <td colSpan={2} className="py-3.5 px-4 uppercase tracking-wider text-[11px] font-sans">
+                        GRAND TRIAL BALANCE TOTALS
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-slate-300">
+                        ₹ {trialBalanceAccounts.reduce((s, a) => s + a.totalDr, 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-slate-300">
+                        ₹ {trialBalanceAccounts.reduce((s, a) => s + a.totalCr, 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-emerald-400 bg-emerald-950/60 text-sm">
+                        ₹ {trialBalanceAccounts.reduce((s, a) => s + a.netDr, 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="py-3.5 px-4 text-right text-cyan-300 bg-cyan-950/60 text-sm">
+                        ₹ {trialBalanceAccounts.reduce((s, a) => s + a.netCr, 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
