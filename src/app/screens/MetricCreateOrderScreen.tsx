@@ -14,6 +14,7 @@ import {
 import { Customer, Product, Order, OrderItem, ProductionBatch, BankAccount, SupabaseService } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "../components/SearchableSelect";
 import { printReceiptPDF } from "../utils/receiptPdfGenerator";
+import { calculateOrderTotals, roundCurrency, formatCurrencyINR } from "../utils/financialMath";
 
 interface CreateOrderProps {
   customers: Customer[];
@@ -25,18 +26,31 @@ interface CreateOrderProps {
 }
 
 export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
-  customers,
-  products,
+  customers = [],
+  products = [],
   batches = [],
   editingOrder = null,
   onOrderSaved,
   onCancel,
 }) => {
-  const todayStr = new Date().toISOString().split("T")[0];
-
-  const [selectedCustId, setSelectedCustId] = useState<string>(editingOrder?.customer_id || "");
-  const [orderDate, setOrderDate] = useState<string>(editingOrder?.order_date || todayStr);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(
+    editingOrder?.customer_id || ""
+  );
+  const [orderDate, setOrderDate] = useState<string>(
+    editingOrder?.order_date || new Date().toISOString().split("T")[0]
+  );
+  const [transportCharge, setTransportCharge] = useState<string>(
+    editingOrder?.transport_charge ? String(editingOrder.transport_charge) : ""
+  );
+  const [advancePayment, setAdvancePayment] = useState<string>(
+    editingOrder?.advance_payment ? String(editingOrder.advance_payment) : ""
+  );
+  const [focAmount, setFocAmount] = useState<string>(
+    editingOrder?.foc_amount ? String(editingOrder.foc_amount) : ""
+  );
+  const [paymentType, setPaymentType] = useState<string>("Cash");
+  const [customPaymentMethod, setCustomPaymentMethod] = useState<string>("");
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
 
   const [items, setItems] = useState<OrderItem[]>(
     editingOrder?.items && editingOrder.items.length > 0
@@ -47,78 +61,64 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
             variant_name: "",
             price: 0,
             quantity: 0,
-            dispatch_from: todayStr,
-            dispatch_to: todayStr,
-            sowing_date: todayStr,
+            dispatch_from: new Date().toISOString().split("T")[0],
+            dispatch_to: new Date().toISOString().split("T")[0],
+            sowing_date: new Date().toISOString().split("T")[0],
             remaining_qty: 0,
           },
         ]
   );
 
-  // Payment States
-  const [transportCharge, setTransportCharge] = useState(
-    editingOrder?.transport_charge ? String(editingOrder.transport_charge) : ""
-  );
-  const [advancePayment, setAdvancePayment] = useState(
-    editingOrder?.advance_payment ? String(editingOrder.advance_payment) : ""
-  );
-  const [focAmount, setFocAmount] = useState(
-    editingOrder?.foc_amount ? String(editingOrder.foc_amount) : ""
-  );
-  const [paymentType, setPaymentType] = useState<string>(
-    editingOrder?.payment_type || "Cash"
-  );
-  const [customPaymentMethod, setCustomPaymentMethod] = useState("");
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     const fetchBanks = async () => {
-      const list = await SupabaseService.getBankAccounts();
-      setBankAccounts(list);
+      try {
+        const list = await SupabaseService.getBankAccounts();
+        setBankAccounts(list || []);
+      } catch {}
     };
     fetchBanks();
   }, []);
 
-  // Selected customer object (undefined if not selected yet)
-  const selectedCustomer = customers.find((c) => c.id === selectedCustId);
+  const safeCustomers = Array.isArray(customers) ? customers : [];
+  const safeProducts = Array.isArray(products) ? products : [];
 
-  // Customer options for SearchableSelect
-  const customerOptions: SearchableOption[] = customers.map((c) => {
-    const hasDuplicateName = customers.filter(
-      (cust) => (cust.name || "").trim().toLowerCase() === (c.name || "").trim().toLowerCase()
-    ).length > 1;
-    const label = hasDuplicateName
-      ? `${c.name} (${c.city || c.address || "No Address"})`
-      : c.name;
-    return {
-      value: c.id || "",
-      label,
-      subLabel: c.address || `${c.city || ""}, ${c.state || ""}`.trim(),
-      badge: c.zone || "ZONE1",
-    };
-  });
+  const customerOptions: SearchableOption[] = safeCustomers.map((c) => ({
+    value: c.id || "",
+    label: c.name,
+    subLabel: `${c.phone || "No phone"} • ${c.city || "No city"} ${c.zone ? `(${c.zone})` : ""}`.trim(),
+    badge: c.size_category || "Customer",
+  }));
 
-  // Product options for SearchableSelect
-  const productOptions: SearchableOption[] = products.map((p) => ({
+  const selectedCustomer = safeCustomers.find((c) => c.id === selectedCustomerId);
+
+  const productOptions: SearchableOption[] = safeProducts.map((p) => ({
     value: p.name,
     label: p.name,
     subLabel: `${p.variants?.length || 0} varieties`,
     badge: p.category || "Crop",
   }));
 
-  const itemsTotal = items.reduce(
-    (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
-    0
+  // Calculate Order Totals with exact 2-decimal GAAP banker's precision
+  const rawTransportVal = parseFloat(transportCharge) || 0;
+  const rawAdvanceVal = parseFloat(advancePayment) || 0;
+  const rawFocVal = parseFloat(focAmount) || 0;
+
+  const {
+    itemsTotal,
+    transportVal,
+    focVal,
+    advanceVal,
+    netGrandTotal,
+    dueBalanceAmount,
+  } = calculateOrderTotals(
+    items.map((i) => ({ price: i.price || 0, quantity: i.quantity || 0 })),
+    rawTransportVal,
+    rawFocVal,
+    rawAdvanceVal
   );
-  const transportVal = parseFloat(transportCharge) || 0;
-  const advanceVal = parseFloat(advancePayment) || 0;
-  const focVal = parseFloat(focAmount) || 0;
-
-  // Net Grand Total = Items + Transport - FOC Discount
-  const netTotalAmount = Math.max(0, itemsTotal + transportVal - focVal);
-
-  // Balance Due = Net Grand Total - Advance Paid
-  const dueBalanceAmount = Math.max(0, netTotalAmount - advanceVal);
 
   const calculateSowingDate = (dispatchFrom: string, productName: string, variantName: string): string => {
     const prod = products.find(p => p.name === productName);
@@ -183,14 +183,12 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
     setItems(updated);
   };
 
-  const [submitting, setSubmitting] = useState(false);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     setErrorMsg("");
 
-    if (!selectedCustId || !selectedCustomer) {
+    if (!selectedCustomerId || !selectedCustomer) {
       setErrorMsg("Please search and select a customer before saving the order.");
       return;
     }

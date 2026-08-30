@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Plus, X, Calendar, User, CheckCircle2, ArrowLeft, Receipt, Percent, DollarSign } from "lucide-react";
 import { Customer, Product, PurchaseBill, PurchaseBillItem, SupabaseService } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "../components/SearchableSelect";
+import { calculatePurchaseBillTotals, roundCurrency, formatCurrencyINR } from "../utils/financialMath";
 
 interface CreatePurchaseBillProps {
   customers: Customer[];
@@ -72,24 +73,25 @@ export const MetricCreatePurchaseBillScreen: React.FC<CreatePurchaseBillProps> =
   const selectedCustomer = safeCustomers.find((c) => c.id === selectedPartyId);
   const effectivePartyName = selectedCustomer ? selectedCustomer.name : customPartyName;
 
-  // Calculate Subtotal & GST
-  const itemsTotal = items.reduce(
-    (sum, item) => sum + (item.price || 0) * (item.quantity || 0),
-    0
-  );
-
+  // Calculate Subtotal & GST with exact 2-decimal GAAP banker's precision
   const numGstVal = parseFloat(gstValue) || 0;
-  let gstAmount = 0;
-  if (gstType === "percentage") {
-    gstAmount = (itemsTotal * numGstVal) / 100;
-  } else if (gstType === "amount") {
-    gstAmount = numGstVal;
-  }
+  const rawTransportVal = parseFloat(transportCharge) || 0;
+  const rawPaidVal = parseFloat(paidAmount) || 0;
 
-  const transportVal = parseFloat(transportCharge) || 0;
-  const paidVal = parseFloat(paidAmount) || 0;
-  const totalAmount = itemsTotal + gstAmount + transportVal;
-  const dueBalance = Math.max(0, totalAmount - paidVal);
+  const {
+    itemsTotal,
+    gstAmount,
+    transportVal,
+    paidVal,
+    netGrandTotal: totalAmount,
+    dueBalance,
+  } = calculatePurchaseBillTotals(
+    items.map((i) => ({ price: i.price || 0, quantity: i.quantity || 0 })),
+    gstType,
+    numGstVal,
+    rawTransportVal,
+    rawPaidVal
+  );
 
   const addItemRow = () => {
     setItems([
