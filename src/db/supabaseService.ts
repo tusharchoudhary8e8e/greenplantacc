@@ -22,6 +22,7 @@ export interface Customer {
 export interface ProductVariant {
   name: string;
   price: number;
+  cost_price?: number;
   duration?: number;
   description?: string;
 }
@@ -146,6 +147,7 @@ export interface ProductionBatch {
   allocated_quantity?: number;
   surplus_quantity?: number;
   maturity_days?: number;
+  cost_per_plant?: number;
   created_at?: string;
 }
 

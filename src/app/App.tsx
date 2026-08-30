@@ -381,6 +381,8 @@ function MainAppContent() {
                 <MetricDashboardScreen
                   customers={customers}
                   orders={orders}
+                  products={products}
+                  batches={batches}
                   purchaseBills={purchaseBills}
                   paymentReceipts={paymentReceipts}
                   onNavigateToTab={(tab) => setActiveTab(tab as any)}

@@ -18,12 +18,17 @@ import {
   ArrowRight,
   Landmark,
   Wallet,
+  Sprout,
+  Leaf,
+  Layers,
 } from "lucide-react";
 import {
   Customer,
   Order,
   PurchaseBill,
   PaymentReceipt,
+  Product,
+  ProductionBatch,
   BankAccount,
   ExpenseRecord,
   SupabaseService,
@@ -32,6 +37,8 @@ import {
 interface DashboardProps {
   customers: Customer[];
   orders: Order[];
+  products?: Product[];
+  batches?: ProductionBatch[];
   purchaseBills?: PurchaseBill[];
   paymentReceipts?: PaymentReceipt[];
   onNavigateToTab: (tab: string) => void;
@@ -40,12 +47,16 @@ interface DashboardProps {
 export const MetricDashboardScreen: React.FC<DashboardProps> = ({
   customers = [],
   orders = [],
+  products = [],
+  batches = [],
   purchaseBills = [],
   paymentReceipts = [],
   onNavigateToTab,
 }) => {
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeCustomers = Array.isArray(customers) ? customers : [];
+  const safeProducts = Array.isArray(products) ? products : [];
+  const safeBatches = Array.isArray(batches) ? batches : [];
   const safePurchaseBills = Array.isArray(purchaseBills) ? purchaseBills : [];
   const safePaymentReceipts = Array.isArray(paymentReceipts) ? paymentReceipts : [];
 
@@ -206,17 +217,79 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
     return Math.max(0, cashAdvances - cashExpenses);
   }, [safeOrders, expenses]);
 
-  const { totalStockValue, itemCount } = useMemo(() => {
-    let val = 0;
-    let count = 0;
-    safeOrders.forEach((o) => {
-      (o.items || []).forEach((item) => {
-        val += (item.quantity || 0) * (item.price || 0);
-        count++;
-      });
+  // 4. Live Crop Inventory Telemetry: True COGS Valuation & Gross Market Sales Value
+  const {
+    totalInventoryGrossSalesValue,
+    totalInventoryCogsValue,
+    projectedGrossProfit,
+    grossProfitMarginPct,
+    totalLivePlants,
+    activeBatchesCount,
+  } = useMemo(() => {
+    let grossSalesVal = 0;
+    let cogsVal = 0;
+    let totalPlants = 0;
+    let batchCount = 0;
+
+    // Calculate from Live Greenhouse Batches
+    safeBatches.forEach((b) => {
+      const qty =
+        b.actual_plants ||
+        b.germinated_quantity ||
+        b.expected_plants ||
+        (b.required_quantity || 0) + (b.surplus_quantity || 0);
+
+      if (qty > 0) {
+        totalPlants += qty;
+        batchCount++;
+
+        // Lookup product/variant price and cost
+        const prod = safeProducts.find(
+          (p) => p.name.toLowerCase() === (b.product_name || "").toLowerCase()
+        );
+        const variant =
+          prod?.variants?.find(
+            (v) => v.name.toLowerCase() === (b.variant_name || "").toLowerCase()
+          ) || prod?.variants?.[0];
+
+        const sellPrice = variant?.price || 1.2;
+        const unitCost =
+          b.cost_per_plant ||
+          variant?.cost_price ||
+          Math.round(sellPrice * 0.55 * 100) / 100;
+
+        grossSalesVal += qty * sellPrice;
+        cogsVal += qty * unitCost;
+      }
     });
-    return { totalStockValue: val, itemCount: count };
-  }, [safeOrders]);
+
+    // If no batches exist yet, fall back to orders items
+    if (totalPlants === 0) {
+      safeOrders.forEach((o) => {
+        (o.items || []).forEach((item) => {
+          const qty = item.quantity || 0;
+          const sellPrice = item.price || 1.2;
+          const unitCost = Math.round(sellPrice * 0.55 * 100) / 100;
+          totalPlants += qty;
+          grossSalesVal += qty * sellPrice;
+          cogsVal += qty * unitCost;
+          batchCount++;
+        });
+      });
+    }
+
+    const profit = Math.max(0, grossSalesVal - cogsVal);
+    const marginPct = grossSalesVal > 0 ? (profit / grossSalesVal) * 100 : 0;
+
+    return {
+      totalInventoryGrossSalesValue: grossSalesVal,
+      totalInventoryCogsValue: cogsVal,
+      projectedGrossProfit: profit,
+      grossProfitMarginPct: marginPct,
+      totalLivePlants: totalPlants,
+      activeBatchesCount: batchCount,
+    };
+  }, [safeBatches, safeProducts, safeOrders]);
 
   const currentMonthName = useMemo(() => {
     return new Date().toLocaleDateString("en-US", { month: "short" });
@@ -467,25 +540,67 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
             </div>
           </div>
 
-          {/* Live Crop Inventory Summary */}
+          {/* Live Crop Inventory Summary (True COGS & Gross Sales Value) */}
           <div
             onClick={() => onNavigateToTab("inventory")}
-            className="bg-white p-4 rounded-[10px] border border-[#e8e8e8] space-y-3 cursor-pointer hover:border-slate-300 transition"
+            className="bg-white p-4 rounded-[10px] border border-[#e8e8e8] space-y-3 cursor-pointer hover:border-emerald-500/50 transition group shadow-xs"
           >
-            <h4 className="text-xs font-bold text-[#1a1a1a]">Live Crop Inventory Summary</h4>
+            <div className="flex items-center justify-between border-b border-[#f0f0ec] pb-2">
+              <h4 className="text-xs font-bold text-[#1a1a1a] flex items-center gap-1.5 group-hover:text-emerald-700 transition">
+                <Sprout className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Live Greenhouse Inventory</span>
+              </h4>
+              <ArrowRight className="w-3.5 h-3.5 text-[#888] group-hover:translate-x-0.5 transition" />
+            </div>
 
-            <div className="space-y-2 text-[12px]">
-              <div className="flex items-center justify-between py-1.5 border-b border-[#f0f0ec]">
-                <span className="text-[#666]">Total Stock Value</span>
-                <span className="font-mono font-extrabold text-[#1a1a1a]">
-                  ₹ {totalStockValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+            <div className="space-y-2.5 text-[12px]">
+              {/* Gross Sales Value (No Expenses Deducted) */}
+              <div className="bg-emerald-50/70 p-2.5 rounded-[8px] border border-emerald-200/70">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-tight">
+                    Total Inventory Sales Value
+                  </span>
+                  <span className="text-[10px] font-bold bg-emerald-200 text-emerald-900 px-1.5 py-0.2 rounded">
+                    Gross Market
+                  </span>
+                </div>
+                <div className="font-mono font-black text-[16px] text-emerald-800 mt-0.5">
+                  ₹ {totalInventoryGrossSalesValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                </div>
+                <p className="text-[10px] text-emerald-700 font-medium mt-0.5">
+                  Gross sales potential of all live plants (0 expenses deducted)
+                </p>
+              </div>
+
+              {/* COGS Asset Valuation */}
+              <div className="flex items-center justify-between py-1 border-b border-[#f0f0ec]">
+                <div>
+                  <span className="text-[#555] font-semibold block text-[11px]">Stock Value (At COGS Cost)</span>
+                  <span className="text-[10px] text-[#888]">Seeds + Trays + Media + Labor</span>
+                </div>
+                <span className="font-mono font-extrabold text-[#1a1a1a] text-[13px]">
+                  ₹ {totalInventoryCogsValue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between py-1.5">
-                <span className="text-[#666]">Total Tracked Item Count</span>
-                <span className="font-bold text-[#1a1a1a] bg-[#f4f4f0] px-2 py-0.5 rounded text-[11px]">
-                  {itemCount} {itemCount === 1 ? "Item" : "Items"}
+              {/* Projected Margin */}
+              <div className="flex items-center justify-between py-1 border-b border-[#f0f0ec]">
+                <span className="text-[#555] font-semibold text-[11px]">Projected Gross Margin</span>
+                <div className="text-right">
+                  <span className="font-mono font-bold text-blue-700 text-[12px] block">
+                    +₹ {projectedGrossProfit.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
+                  </span>
+                  <span className="text-[10px] font-extrabold text-emerald-600 bg-emerald-50 px-1.5 rounded border border-emerald-200">
+                    {grossProfitMarginPct.toFixed(1)}% Margin
+                  </span>
+                </div>
+              </div>
+
+              {/* Live Plant Count */}
+              <div className="flex items-center justify-between pt-0.5">
+                <span className="text-[#777] text-[11px]">Live Tracked Seedlings</span>
+                <span className="font-bold text-[#1a1a1a] bg-[#f4f4f0] px-2 py-0.5 rounded text-[11px] font-mono">
+                  🌱 {totalLivePlants.toLocaleString()} Plants ({activeBatchesCount} Lots)
                 </span>
               </div>
             </div>
