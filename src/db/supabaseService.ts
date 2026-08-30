@@ -1,4 +1,16 @@
 import { supabase } from "../lib/supabase";
+import {
+  sanitizeCustomer,
+  sanitizeProduct,
+  sanitizeOrder,
+  sanitizeBatch,
+  sanitizePurchaseBill,
+  sanitizePaymentReceipt,
+  sanitizeDispatch,
+  sanitizeExpense,
+  sanitizeBankAccount,
+  sanitizeDriver,
+} from "../app/utils/mutationSanitizer";
 
 export interface Customer {
   id?: string;
@@ -2219,10 +2231,11 @@ export class SupabaseService {
   }
 
   static async saveCustomer(cust: Customer): Promise<Customer> {
+    const cleanCust = sanitizeCustomer(cust);
     const newCust = {
-      ...cust,
-      id: cust.id || `cust-${Date.now()}`,
-      org_id: cust.org_id || `#ORG1_CUST_2026_${Math.floor(1000 + Math.random() * 9000)}`,
+      ...cleanCust,
+      id: cleanCust.id || `cust-${Date.now()}`,
+      org_id: cleanCust.org_id || `#ORG1_CUST_2026_${Math.floor(1000 + Math.random() * 9000)}`,
       updated_at: new Date().toISOString(),
     };
 
@@ -2236,7 +2249,7 @@ export class SupabaseService {
 
     // 1. Write to Supabase ma_customers
     try {
-      const userId = cust.user_id || (await SupabaseService.getUserId());
+      const userId = cleanCust.user_id || (await SupabaseService.getUserId());
       const payload = {
         ...newCust,
         ...(userId ? { user_id: userId } : {}),
@@ -2293,7 +2306,8 @@ export class SupabaseService {
   }
 
   static async saveProduct(prod: Product): Promise<Product> {
-    const newProd = { ...prod, id: prod.id || `prod-${Date.now()}` };
+    const cleanProd = sanitizeProduct(prod);
+    const newProd = { ...cleanProd, id: cleanProd.id || `prod-${Date.now()}` };
     const idx = DEMO_PRODUCTS.findIndex((p) => p.id === newProd.id);
     if (idx !== -1) {
       DEMO_PRODUCTS[idx] = newProd;
@@ -2303,7 +2317,7 @@ export class SupabaseService {
     saveToStorage("demo_products", DEMO_PRODUCTS);
 
     try {
-      const userId = prod.user_id || (await SupabaseService.getUserId());
+      const userId = cleanProd.user_id || (await SupabaseService.getUserId());
       const payload = {
         ...newProd,
         ...(userId ? { user_id: userId } : {}),
@@ -2389,25 +2403,11 @@ export class SupabaseService {
   }
 
   static async createOrder(order: Order): Promise<Order> {
-    const orderNo = order.order_no || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const itemsTotal = (order.items || []).reduce(
-      (sum, i) => sum + (i.price || 0) * (i.quantity || 0),
-      0
-    );
-    const transport = order.transport_charge || 0;
-    const advance = order.advance_payment || 0;
-    const foc = order.foc_amount || 0;
-    const totalAmount = Math.max(0, itemsTotal + transport - foc);
-    const dueAmount = Math.max(0, totalAmount - advance);
-
+    const cleanOrder = sanitizeOrder(order);
     const fullOrder: Order = {
-      ...order,
-      id: order.id || `ord-${Date.now()}`,
-      order_no: orderNo,
-      items_total: itemsTotal,
-      total_amount: totalAmount,
-      due_amount: dueAmount,
-      status: "pending",
+      ...cleanOrder,
+      id: cleanOrder.id || `ord-${Date.now()}`,
+      status: cleanOrder.status || "pending",
       created_at: new Date().toISOString(),
     };
 
@@ -2416,7 +2416,7 @@ export class SupabaseService {
 
     // 1. Direct write to Supabase dedicated table
     try {
-      const userId = order.user_id || (await SupabaseService.getUserId());
+      const userId = cleanOrder.user_id || (await SupabaseService.getUserId());
       const { data: ordData, error: ordErr } = await supabase
         .from("ma_orders")
         .insert({
@@ -2437,8 +2437,8 @@ export class SupabaseService {
         .select()
         .single();
 
-      if (!ordErr && ordData && order.items && order.items.length > 0) {
-        const itemPayloads = order.items.map((it) => ({
+      if (!ordErr && ordData && fullOrder.items && fullOrder.items.length > 0) {
+        const itemPayloads = fullOrder.items.map((it) => ({
           order_id: ordData.id,
           product_name: it.product_name,
           variant_name: it.variant_name,
@@ -2473,21 +2473,9 @@ export class SupabaseService {
   static async updateOrder(order: Order): Promise<Order> {
     if (!order.id) return this.createOrder(order);
 
-    const itemsTotal = (order.items || []).reduce(
-      (sum, i) => sum + (i.price || 0) * (i.quantity || 0),
-      0
-    );
-    const transport = order.transport_charge || 0;
-    const advance = order.advance_payment || 0;
-    const foc = order.foc_amount || 0;
-    const totalAmount = Math.max(0, itemsTotal + transport - foc);
-    const dueAmount = Math.max(0, totalAmount - advance);
-
+    const cleanOrder = sanitizeOrder(order);
     const updatedOrder: Order = {
-      ...order,
-      items_total: itemsTotal,
-      total_amount: totalAmount,
-      due_amount: dueAmount,
+      ...cleanOrder,
       updated_at: new Date().toISOString(),
     };
 
@@ -2608,7 +2596,12 @@ export class SupabaseService {
   }
 
   static async saveBatch(b: ProductionBatch): Promise<ProductionBatch> {
-    const newB = { ...b, id: b.id || `batch-${Date.now()}` };
+    const cleanB = sanitizeBatch(b);
+    const newB: ProductionBatch = {
+      ...cleanB,
+      id: cleanB.id || `batch-${Date.now()}`,
+      created_at: new Date().toISOString(),
+    };
     const idx = DEMO_BATCHES.findIndex((x) => x.id === newB.id || x.batch_no === newB.batch_no);
     if (idx !== -1) {
       DEMO_BATCHES[idx] = newB;
@@ -2618,7 +2611,7 @@ export class SupabaseService {
     saveToStorage("demo_batches", DEMO_BATCHES);
 
     try {
-      const userId = b.user_id || (await SupabaseService.getUserId());
+      const userId = cleanB.user_id || (await SupabaseService.getUserId());
       const payload = {
         ...newB,
         ...(userId ? { user_id: userId } : {}),
@@ -2674,10 +2667,10 @@ export class SupabaseService {
   }
 
   static async saveDispatch(disp: Partial<DispatchRecord>): Promise<DispatchRecord> {
+    const cleanD = sanitizeDispatch(disp);
     const newD: DispatchRecord = {
-      ...disp,
-      id: disp.id || `disp-${Date.now()}`,
-      dispatch_no: disp.dispatch_no || `DISP-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      ...cleanD,
+      id: cleanD.id || `disp-${Date.now()}`,
       created_at: new Date().toISOString(),
     };
     const idx = DEMO_DISPATCH.findIndex((x) => x.id === newD.id || x.dispatch_no === newD.dispatch_no);
@@ -2787,14 +2780,11 @@ export class SupabaseService {
   }
 
   static async savePaymentReceipt(rec: Partial<PaymentReceipt>): Promise<PaymentReceipt> {
-    const receiptNo = rec.receipt_no || `REC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const cleanRec = sanitizePaymentReceipt(rec);
     const newRec: PaymentReceipt = {
-      ...rec,
-      id: rec.id || `rec-${Date.now()}`,
-      receipt_no: receiptNo,
-      receipt_date: rec.receipt_date || new Date().toISOString().split("T")[0],
-      amount: Number(rec.amount) || 0,
-      payment_mode: rec.payment_mode || "UPI",
+      ...cleanRec,
+      id: cleanRec.id || `rec-${Date.now()}`,
+      created_at: new Date().toISOString(),
     };
 
     const idx = DEMO_RECEIPTS.findIndex((r) => r.id === newRec.id);
@@ -2806,7 +2796,7 @@ export class SupabaseService {
     saveToStorage("demo_receipts", DEMO_RECEIPTS);
 
     try {
-      const userId = (rec as any).user_id || (await SupabaseService.getUserId());
+      const userId = (cleanRec as any).user_id || (await SupabaseService.getUserId());
       const payload = {
         ...newRec,
         ...(userId ? { user_id: userId } : {}),
@@ -2892,40 +2882,17 @@ export class SupabaseService {
   }
 
   static async savePurchaseBill(bill: PurchaseBill): Promise<PurchaseBill> {
-    const billNo = bill.bill_no || `PUR-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-    const itemsTotal = (bill.items || []).reduce(
-      (sum, i) => sum + (i.price || 0) * (i.quantity || 0),
-      0
-    );
-
-    // Calculate Custom GST
-    let gstAmount = 0;
-    if (bill.gst_type === "percentage") {
-      gstAmount = (itemsTotal * (bill.gst_value || 0)) / 100;
-    } else if (bill.gst_type === "amount") {
-      gstAmount = bill.gst_value || 0;
-    }
-
-    const transport = bill.transport_charge || 0;
-    const paid = bill.paid_amount || 0;
-    const totalAmount = itemsTotal + gstAmount + transport;
-    const dueAmount = Math.max(0, totalAmount - paid);
-
+    const cleanBill = sanitizePurchaseBill(bill);
     let status: "unpaid" | "partially_paid" | "paid" = "unpaid";
-    if (dueAmount === 0) {
+    if (cleanBill.due_amount === 0) {
       status = "paid";
-    } else if (paid > 0) {
+    } else if ((cleanBill.paid_amount || 0) > 0) {
       status = "partially_paid";
     }
 
     const fullBill: PurchaseBill = {
-      ...bill,
-      id: bill.id || `pur-${Date.now()}`,
-      bill_no: billNo,
-      items_total: itemsTotal,
-      gst_amount: gstAmount,
-      total_amount: totalAmount,
-      due_amount: dueAmount,
+      ...cleanBill,
+      id: cleanBill.id || `pur-${Date.now()}`,
       status: status,
       created_at: new Date().toISOString(),
     };
@@ -2939,7 +2906,7 @@ export class SupabaseService {
     saveToStorage("demo_purchase_bills", DEMO_PURCHASE_BILLS);
 
     try {
-      const userId = bill.user_id || (await SupabaseService.getUserId());
+      const userId = cleanBill.user_id || (await SupabaseService.getUserId());
       const { data: billData, error: billErr } = await supabase
         .from("ma_purchase_bills")
         .upsert({
@@ -2963,10 +2930,10 @@ export class SupabaseService {
         .select()
         .single();
 
-      if (!billErr && billData && bill.items) {
+      if (!billErr && billData && fullBill.items) {
         await supabase.from("ma_purchase_bill_items").delete().eq("bill_id", billData.id);
-        if (bill.items.length > 0) {
-          const itemPayloads = bill.items.map((it) => ({
+        if (fullBill.items.length > 0) {
+          const itemPayloads = fullBill.items.map((it) => ({
             bill_id: billData.id,
             product_name: it.product_name,
             variant_name: it.variant_name,
@@ -3051,15 +3018,11 @@ export class SupabaseService {
   }
 
   static async saveDriver(drv: Partial<Driver>): Promise<Driver> {
+    const cleanD = sanitizeDriver(drv);
     const newD: Driver = {
-      ...drv,
-      id: drv.id || `drv-${Date.now()}`,
-      name: drv.name || "Driver",
-      phone: drv.phone || "",
-      vehicle_name: drv.vehicle_name || "",
-      vehicle_number: drv.vehicle_number || "",
-      balance: drv.balance !== undefined ? Number(drv.balance) : 0,
-      status: drv.status || "Active",
+      ...cleanD,
+      id: cleanD.id || `drv-${Date.now()}`,
+      created_at: new Date().toISOString(),
     };
 
     const idx = DEMO_DRIVERS.findIndex((d) => d.id === newD.id);
@@ -3151,13 +3114,12 @@ export class SupabaseService {
   }
 
   static async saveBankAccount(acc: Partial<BankAccount>): Promise<BankAccount> {
+    const cleanAcc = sanitizeBankAccount(acc);
     const list = await this.getBankAccounts();
     const newAcc: BankAccount = {
-      ...acc,
-      id: acc.id || `bank-${Date.now()}`,
-      account_name: acc.account_name || "New Bank Account",
-      balance: acc.balance !== undefined ? Number(acc.balance) : 0,
-      account_type: acc.account_type || "Current",
+      ...cleanAcc,
+      id: cleanAcc.id || `bank-${Date.now()}`,
+      created_at: new Date().toISOString(),
     };
 
     const idx = list.findIndex((a) => a.id === newAcc.id);
@@ -3424,16 +3386,13 @@ export class SupabaseService {
   }
 
   static async saveExpense(exp: Partial<ExpenseRecord>): Promise<ExpenseRecord> {
+    const cleanExp = sanitizeExpense(exp);
     const list = await this.getExpenses();
     const newExp: ExpenseRecord = {
-      ...exp,
-      id: exp.id || `exp-${Date.now()}`,
-      expense_no: exp.expense_no || `EXP-${String(list.length + 1).padStart(3, "0")}`,
-      expense_date: exp.expense_date || new Date().toISOString().split("T")[0],
-      category_name: exp.category_name || "General Expense",
-      total_amount: exp.total_amount !== undefined ? Number(exp.total_amount) : 0,
-      payment_type: exp.payment_type || "Cash",
-      payment_status: exp.payment_status || "paid",
+      ...cleanExp,
+      id: cleanExp.id || `exp-${Date.now()}`,
+      expense_no: cleanExp.expense_no || `EXP-${String(list.length + 1).padStart(3, "0")}`,
+      created_at: new Date().toISOString(),
     };
 
     const idx = list.findIndex((e) => e.id === newExp.id);
