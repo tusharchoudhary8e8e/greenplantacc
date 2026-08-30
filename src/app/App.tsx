@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { User } from "@supabase/supabase-js";
-import { getCurrentUser, onAuthStateChange, signOutUser } from "../lib/supabase";
+import { getCurrentUser, onAuthStateChange, signOutUser, supabase } from "../lib/supabase";
 import { MetricSidebar, MetricTab } from "./components/MetricSidebar";
 import { MetricDashboardScreen } from "./screens/MetricDashboardScreen";
 import { MetricSowingPlansScreen } from "./screens/MetricSowingPlansScreen";
@@ -224,6 +224,17 @@ function MainAppContent() {
 
     loadAllData();
 
+    // Multi-User Concurrency Realtime Live Sync:
+    // Listens for external changes made by other users/devices and updates local state automatically
+    const realtimeChannel = supabase
+      .channel("nursery-realtime-sync")
+      .on("postgres_changes", { event: "*", schema: "public" }, () => {
+        if (isSubscribed) {
+          refreshAppData();
+        }
+      })
+      .subscribe();
+
     // Disable 2-finger touchpad / mouse wheel gesture from changing number inputs
     const handleWheel = () => {
       const activeEl = document.activeElement as HTMLInputElement;
@@ -236,6 +247,7 @@ function MainAppContent() {
     return () => {
       isSubscribed = false;
       authListener.subscription.unsubscribe();
+      supabase.removeChannel(realtimeChannel);
       window.removeEventListener("wheel", handleWheel);
     };
   }, [loadAllData, refreshAppData]);

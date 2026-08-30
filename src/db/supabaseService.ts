@@ -2168,6 +2168,56 @@ export class SupabaseService {
     }
   }
 
+  /**
+   * Atomically merges an entity into app_settings without overwriting concurrent updates from other users.
+   */
+  static async atomicMergeAppSettings<T extends { id?: string; name?: string; order_no?: string; bill_no?: string; receipt_no?: string; batch_no?: string }>(
+    key: string,
+    item: T,
+    isDelete: boolean = false
+  ): Promise<T[]> {
+    try {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", key)
+        .single();
+
+      let remoteList: T[] = Array.isArray(data?.value) ? (data.value as T[]) : [];
+
+      if (isDelete) {
+        remoteList = remoteList.filter((x) => (item.id ? x.id !== item.id : true));
+      } else {
+        const idx = remoteList.findIndex(
+          (x) =>
+            (item.id && x.id === item.id) ||
+            (item.order_no && (x as any).order_no === item.order_no) ||
+            (item.bill_no && (x as any).bill_no === item.bill_no) ||
+            (item.receipt_no && (x as any).receipt_no === item.receipt_no) ||
+            (item.batch_no && (x as any).batch_no === item.batch_no)
+        );
+
+        if (idx !== -1) {
+          remoteList[idx] = { ...remoteList[idx], ...item };
+        } else {
+          remoteList.unshift(item);
+        }
+      }
+
+      await supabase.from("app_settings").upsert({
+        key,
+        value: remoteList,
+        updated_at: new Date().toISOString(),
+      });
+
+      saveToStorage(`demo_${key}`, remoteList);
+      return remoteList;
+    } catch (e) {
+      console.warn(`Atomic sync error for ${key}:`, e);
+      return [];
+    }
+  }
+
   // Customers
   static async getCustomers(): Promise<Customer[]> {
     let list: Customer[] = [];
@@ -2243,16 +2293,8 @@ export class SupabaseService {
       console.warn("Supabase customer table write error:", e);
     }
 
-    // 2. Dual-write to Supabase app_settings cloud store
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "customers",
-        value: DEMO_CUSTOMERS,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase customer cloud sync error:", e);
-    }
+    // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
+    SupabaseService.atomicMergeAppSettings("customers", newCust);
 
     return newCust;
   }
@@ -2311,15 +2353,8 @@ export class SupabaseService {
       console.warn("Supabase product table write error:", e);
     }
 
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "products",
-        value: DEMO_PRODUCTS,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase product cloud sync error:", e);
-    }
+    // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
+    SupabaseService.atomicMergeAppSettings("products", newProd);
 
     return newProd;
   }
@@ -2440,16 +2475,8 @@ export class SupabaseService {
       console.warn("Supabase order table write error:", e);
     }
 
-    // 2. Dual-write to Supabase app_settings cloud store
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "orders",
-        value: DEMO_ORDERS,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase order cloud sync error:", e);
-    }
+    // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
+    SupabaseService.atomicMergeAppSettings("orders", fullOrder);
 
     return fullOrder;
   }
@@ -2510,15 +2537,8 @@ export class SupabaseService {
       console.warn("Supabase order update error:", e);
     }
 
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "orders",
-        value: DEMO_ORDERS,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase order cloud sync error:", e);
-    }
+    // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
+    SupabaseService.atomicMergeAppSettings("orders", updatedOrder);
 
     return updatedOrder;
   }
@@ -2534,15 +2554,8 @@ export class SupabaseService {
       console.warn("Supabase delete order error:", e);
     }
 
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "orders",
-        value: DEMO_ORDERS,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase order delete sync error:", e);
-    }
+    // Atomic removal in app_settings
+    SupabaseService.atomicMergeAppSettings("orders", { id: orderId }, true);
 
     return true;
   }
@@ -2605,15 +2618,8 @@ export class SupabaseService {
       console.warn("Supabase batch write error:", e);
     }
 
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "batches",
-        value: DEMO_BATCHES,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase batch cloud sync error:", e);
-    }
+    // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
+    SupabaseService.atomicMergeAppSettings("batches", newB);
 
     return newB;
   }
@@ -2676,15 +2682,8 @@ export class SupabaseService {
       console.warn("Supabase dispatch write error:", e);
     }
 
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "dispatch",
-        value: DEMO_DISPATCH,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase dispatch cloud sync error:", e);
-    }
+    // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
+    SupabaseService.atomicMergeAppSettings("dispatch", newD);
 
     return newD;
   }
@@ -2790,15 +2789,8 @@ export class SupabaseService {
       console.warn("Supabase save receipt error:", e);
     }
 
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "receipts",
-        value: DEMO_RECEIPTS,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase receipt cloud sync error:", e);
-    }
+    // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
+    SupabaseService.atomicMergeAppSettings("receipts", newRec);
 
     // If receipt is linked to a specific Order, update the Order's paid amount & status!
     if (newRec.order_id || newRec.order_no) {
@@ -2932,15 +2924,8 @@ export class SupabaseService {
       console.warn("Supabase purchase bill table write error:", e);
     }
 
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "purchase_bills",
-        value: DEMO_PURCHASE_BILLS,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase purchase bill cloud sync error:", e);
-    }
+    // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
+    SupabaseService.atomicMergeAppSettings("purchase_bills", fullBill);
 
     return fullBill;
   }
@@ -2956,15 +2941,8 @@ export class SupabaseService {
       console.warn("Supabase delete purchase bill error:", e);
     }
 
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "purchase_bills",
-        value: DEMO_PURCHASE_BILLS,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase purchase bill delete sync error:", e);
-    }
+    // Atomic removal in app_settings
+    SupabaseService.atomicMergeAppSettings("purchase_bills", { id: billId }, true);
 
     return true;
   }
@@ -3023,15 +3001,8 @@ export class SupabaseService {
       console.warn("Supabase driver table write error:", e);
     }
 
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "drivers",
-        value: DEMO_DRIVERS,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase driver cloud sync error:", e);
-    }
+    // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
+    SupabaseService.atomicMergeAppSettings("drivers", newD);
 
     return newD;
   }
@@ -3046,15 +3017,8 @@ export class SupabaseService {
       console.warn("Supabase driver delete error:", e);
     }
 
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "drivers",
-        value: DEMO_DRIVERS,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase driver delete sync error:", e);
-    }
+    // Atomic removal in app_settings
+    SupabaseService.atomicMergeAppSettings("drivers", { id: driverId }, true);
 
     return true;
   }
@@ -3114,16 +3078,8 @@ export class SupabaseService {
     }
     saveToStorage("demo_bank_accounts", list);
 
-    // Sync to Supabase Cloud
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "bank_accounts",
-        value: list,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase bank sync error:", e);
-    }
+    // Sync to Supabase Cloud via Atomic Merge
+    SupabaseService.atomicMergeAppSettings("bank_accounts", newAcc);
 
     return newAcc;
   }
@@ -3133,16 +3089,8 @@ export class SupabaseService {
     list = list.filter((a) => a.id !== accId);
     saveToStorage("demo_bank_accounts", list);
 
-    // Sync to Supabase Cloud
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "bank_accounts",
-        value: list,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase bank delete sync error:", e);
-    }
+    // Sync to Supabase Cloud via Atomic Merge
+    SupabaseService.atomicMergeAppSettings("bank_accounts", { id: accId }, true);
 
     return true;
   }
@@ -3268,23 +3216,13 @@ export class SupabaseService {
     saveToStorage("demo_bank_accounts", bankList);
     saveToStorage("demo_bank_transactions", txns);
 
-    // Sync both bank accounts and transactions to Supabase Cloud
-    try {
-      await Promise.all([
-        supabase.from("app_settings").upsert({
-          key: "bank_accounts",
-          value: bankList,
-          updated_at: new Date().toISOString(),
-        }),
-        supabase.from("app_settings").upsert({
-          key: "bank_transactions",
-          value: txns,
-          updated_at: new Date().toISOString(),
-        }),
-      ]);
-    } catch (e) {
-      console.warn("Supabase bank txn sync error:", e);
-    }
+    // Sync via atomic merges
+    SupabaseService.atomicMergeAppSettings("bank_transactions", newTxn);
+    supabase.from("app_settings").upsert({
+      key: "bank_accounts",
+      value: bankList,
+      updated_at: new Date().toISOString(),
+    }).then();
 
     return newTxn;
   }
@@ -3322,23 +3260,8 @@ export class SupabaseService {
       saveToStorage("demo_bank_accounts", bankList);
       saveToStorage("demo_bank_transactions", txns);
 
-      // Sync both to Supabase Cloud
-      try {
-        await Promise.all([
-          supabase.from("app_settings").upsert({
-            key: "bank_accounts",
-            value: bankList,
-            updated_at: new Date().toISOString(),
-          }),
-          supabase.from("app_settings").upsert({
-            key: "bank_transactions",
-            value: txns,
-            updated_at: new Date().toISOString(),
-          }),
-        ]);
-      } catch (e) {
-        console.warn("Supabase bank delete sync error:", e);
-      }
+      // Atomic removal in app_settings
+      SupabaseService.atomicMergeAppSettings("bank_transactions", { id: txnId }, true);
     }
     return true;
   }
@@ -3401,16 +3324,8 @@ export class SupabaseService {
       }
     }
 
-    // Sync to Supabase Cloud
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "expenses",
-        value: list,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase expense sync error:", e);
-    }
+    // Sync to Supabase Cloud via Atomic Merge
+    SupabaseService.atomicMergeAppSettings("expenses", newExp);
 
     return newExp;
   }
@@ -3420,16 +3335,8 @@ export class SupabaseService {
     list = list.filter((e) => e.id !== expId);
     saveToStorage("demo_expenses", list);
 
-    // Sync to Supabase Cloud
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "expenses",
-        value: list,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase expense delete sync error:", e);
-    }
+    // Atomic removal in app_settings
+    SupabaseService.atomicMergeAppSettings("expenses", { id: expId }, true);
 
     return true;
   }
