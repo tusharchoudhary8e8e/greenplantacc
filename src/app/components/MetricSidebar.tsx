@@ -13,7 +13,9 @@ import {
   Calendar,
   Users,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
+import { hasScreenAccess, getCurrentUserRole, UserRole } from "../utils/rbac";
 
 export type MetricTab =
   | "dashboard"
@@ -35,19 +37,23 @@ export type MetricTab =
   | "inventory"
   | "crops"
   | "customers"
-  | "employees";
+  | "employees"
+  | "role_permissions";
 
 interface SidebarProps {
   activeTab: MetricTab;
   setActiveTab: (tab: MetricTab) => void;
   onLogout?: () => void;
+  userRole?: UserRole;
 }
 
 export const MetricSidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   onLogout,
+  userRole,
 }) => {
+  const currentRole = userRole || getCurrentUserRole();
   const [prodExpanded, setProdExpanded] = React.useState(true);
   const [dispatchExpanded, setDispatchExpanded] = React.useState(true);
   const [invExpanded, setInvExpanded] = React.useState(true);
@@ -91,6 +97,7 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
         { id: "inventory" as MetricTab, label: "Crops", icon: Sprout },
         { id: "customers" as MetricTab, label: "Customers", icon: Users },
         { id: "employees" as MetricTab, label: "Employees", icon: Building2 },
+        { id: "role_permissions" as MetricTab, label: "Roles & Permissions", icon: ShieldCheck },
       ],
     },
   ];
@@ -114,48 +121,65 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
+      {/* Role Badge Indicator */}
+      <div className="px-4 pb-3">
+        <div className="px-2.5 py-1 bg-[#243d24] border border-[#315231] rounded-md flex items-center justify-between text-[10px]">
+          <span className="text-emerald-400 font-semibold uppercase tracking-wider">Role:</span>
+          <span className="font-bold text-white capitalize">{currentRole}</span>
+        </div>
+      </div>
+
       {/* Navigation Menu */}
       <nav className="px-3 pb-6 flex-1 overflow-y-auto space-y-4">
-        {groups.map((group, gIdx) => (
-          <div key={gIdx} className="space-y-0.5">
-            <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[#7cad7c]">
-              {group.title}
-            </div>
-            {group.items.map((item, idx) => {
-              const Icon = item.icon;
-              const isActive =
-                activeTab === item.id ||
-                (item.id === "orders" && activeTab === "create_order") ||
-                (item.id === "purchase_bills" && activeTab === "create_purchase_bill");
+        {groups.map((group, gIdx) => {
+          // Filter items based on current role's permissions
+          const visibleItems = group.items.filter((item) =>
+            hasScreenAccess(currentRole, item.id)
+          );
 
-              return (
-                <motion.button
-                  key={idx}
-                  onClick={() => setActiveTab(item.id)}
-                  whileHover={{ x: 3 }}
-                  whileTap={{ scale: 0.97 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-md font-medium transition-colors text-[13px] cursor-pointer ${
-                    isActive
-                      ? "bg-white text-[#1a2e1a] font-bold shadow-xs"
-                      : "text-[#c8e0c8] hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Icon className={`w-4 h-4 ${isActive ? "text-[#1a2e1a]" : "text-[#7cad7c]"}`} strokeWidth={2} />
-                    <span>{item.label}</span>
-                  </div>
-                  {isActive && (
-                    <motion.span
-                      layoutId="activeTabDot"
-                      className="w-1.5 h-1.5 rounded-full bg-[#1a2e1a]"
-                    />
-                  )}
-                </motion.button>
-              );
-            })}
-          </div>
-        ))}
+          if (visibleItems.length === 0) return null;
+
+          return (
+            <div key={gIdx} className="space-y-0.5">
+              <div className="px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-[#7cad7c]">
+                {group.title}
+              </div>
+              {visibleItems.map((item, idx) => {
+                const Icon = item.icon;
+                const isActive =
+                  activeTab === item.id ||
+                  (item.id === "orders" && activeTab === "create_order") ||
+                  (item.id === "purchase_bills" && activeTab === "create_purchase_bill");
+
+                return (
+                  <motion.button
+                    key={idx}
+                    onClick={() => setActiveTab(item.id)}
+                    whileHover={{ x: 3 }}
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-md font-medium transition-colors text-[13px] cursor-pointer ${
+                      isActive
+                        ? "bg-white text-[#1a2e1a] font-bold shadow-xs"
+                        : "text-[#c8e0c8] hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Icon className={`w-4 h-4 ${isActive ? "text-[#1a2e1a]" : "text-[#7cad7c]"}`} strokeWidth={2} />
+                      <span>{item.label}</span>
+                    </div>
+                    {isActive && (
+                      <motion.span
+                        layoutId="activeTabDot"
+                        className="w-1.5 h-1.5 rounded-full bg-[#1a2e1a]"
+                      />
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
+          );
+        })}
 
         {/* Logout at bottom of nav list */}
         <div className="pt-4 border-t border-[#264226]">

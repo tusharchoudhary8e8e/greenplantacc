@@ -47,6 +47,18 @@ const MetricBankAccountsScreen = lazy(() =>
 const MetricExpensesScreen = lazy(() =>
   import("./screens/MetricExpensesScreen").then((m) => ({ default: m.MetricExpensesScreen }))
 );
+const MetricRolePermissionsScreen = lazy(() =>
+  import("./screens/MetricRolePermissionsScreen").then((m) => ({ default: m.MetricRolePermissionsScreen }))
+);
+
+import {
+  UserRole,
+  getCurrentUserRole,
+  setCurrentUserRole,
+  hasScreenAccess,
+  canPerform,
+  loadRoleMatrix,
+} from "./utils/rbac";
 
 const MetricProductionScreen = lazy(() =>
   import("./screens/MetricModulesScreen").then((m) => ({ default: m.MetricProductionScreen }))
@@ -138,6 +150,13 @@ export default function App() {
 function MainAppContent() {
   const [activeTab, setActiveTab] = useState<MetricTab>("dashboard");
   const [authUser, setAuthUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<UserRole>(getCurrentUserRole());
+
+  useEffect(() => {
+    loadRoleMatrix().then(() => {
+      setUserRole(getCurrentUserRole());
+    });
+  }, []);
 
   // State data
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -414,6 +433,7 @@ function MainAppContent() {
         >
           <MetricSidebar
             activeTab={activeTab}
+            userRole={userRole}
             setActiveTab={(tab) => {
               setActiveTab(tab);
               setIsMobileMenuOpen(false);
@@ -611,6 +631,14 @@ function MainAppContent() {
                 )}
                 {activeTab === "quotes" && <MetricQuotesScreen quotes={quotes} />}
                 {activeTab === "campaign" && <MetricCampaignScreen campaigns={campaigns} />}
+                {activeTab === "role_permissions" && (
+                  <MetricRolePermissionsScreen
+                    onRoleChanged={(newR) => setUserRole(newR)}
+                    onPermissionsUpdated={() => {
+                      loadRoleMatrix().then(() => setUserRole(getCurrentUserRole()));
+                    }}
+                  />
+                )}
               </Suspense>
             </motion.div>
           </AnimatePresence>
