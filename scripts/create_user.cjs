@@ -20,8 +20,13 @@ Example:
   process.exit(0);
 }
 
-const SUPABASE_URL = "https://vgyxuaistuegijwjopnf.supabase.co";
-const SUPABASE_KEY = "sb_publishable_HOyOBnSCNUnClEfzvPeiVw_bO2gzrrL";
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "";
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || "";
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error("Error: Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment or .env file.");
+  process.exit(1);
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 

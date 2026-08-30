@@ -1,8 +1,8 @@
 import { createClient, SupabaseClient, User, Session } from '@supabase/supabase-js';
 import { secureStorage } from '../app/utils/secureStorage';
 
-export const DEFAULT_SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || "https://vgyxuaistuegijwjopnf.supabase.co";
-export const DEFAULT_SUPABASE_PUBLISHABLE_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || "sb_publishable_HOyOBnSCNUnClEfzvPeiVw_bO2gzrrL";
+export const DEFAULT_SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || "";
+export const DEFAULT_SUPABASE_PUBLISHABLE_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || "";
 
 function getInitialConfig() {
   const customUrl = secureStorage.getItem<string | null>("custom_supabase_url", null);
