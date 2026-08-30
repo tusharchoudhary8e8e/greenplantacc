@@ -1,32 +1,84 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, Suspense, lazy } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { User } from "@supabase/supabase-js";
 import { getCurrentUser, onAuthStateChange, signOutUser, supabase } from "../lib/supabase";
 import { MetricSidebar, MetricTab } from "./components/MetricSidebar";
-import { MetricDashboardScreen } from "./screens/MetricDashboardScreen";
-import { MetricSowingPlansScreen } from "./screens/MetricSowingPlansScreen";
-import { MetricCreateOrderScreen } from "./screens/MetricCreateOrderScreen";
-import { MetricOrdersListScreen } from "./screens/MetricOrdersListScreen";
-import { MetricCustomersScreen } from "./screens/MetricCustomersScreen";
-import { MetricInventoryScreen } from "./screens/MetricInventoryScreen";
-import { MetricLedgerScreen } from "./screens/MetricLedgerScreen";
-import { MetricLoginScreen } from "./screens/MetricLoginScreen";
-import {
-  MetricProductionScreen,
-  MetricDispatchScreen,
-  MetricQuotesScreen,
-  MetricCampaignScreen,
-  MetricEmployeesScreen,
-} from "./screens/MetricModulesScreen";
-import { MetricDispatchPlansScreen } from "./screens/MetricDispatchPlansScreen";
-import { MetricDriversScreen } from "./screens/MetricDriversScreen";
-import { CreateBatchModal } from "./components/CreateBatchModal";
-import { ReceivePaymentModal } from "./components/ReceivePaymentModal";
 
-import { MetricPurchaseBillsScreen } from "./screens/MetricPurchaseBillsScreen";
-import { MetricCreatePurchaseBillScreen } from "./screens/MetricCreatePurchaseBillScreen";
-import { MetricBankAccountsScreen } from "./screens/MetricBankAccountsScreen";
-import { MetricExpensesScreen } from "./screens/MetricExpensesScreen";
+// Lazy-loaded screens for dynamic code-splitting and instant initial page load
+const MetricDashboardScreen = lazy(() =>
+  import("./screens/MetricDashboardScreen").then((m) => ({ default: m.MetricDashboardScreen }))
+);
+const MetricSowingPlansScreen = lazy(() =>
+  import("./screens/MetricSowingPlansScreen").then((m) => ({ default: m.MetricSowingPlansScreen }))
+);
+const MetricCreateOrderScreen = lazy(() =>
+  import("./screens/MetricCreateOrderScreen").then((m) => ({ default: m.MetricCreateOrderScreen }))
+);
+const MetricOrdersListScreen = lazy(() =>
+  import("./screens/MetricOrdersListScreen").then((m) => ({ default: m.MetricOrdersListScreen }))
+);
+const MetricCustomersScreen = lazy(() =>
+  import("./screens/MetricCustomersScreen").then((m) => ({ default: m.MetricCustomersScreen }))
+);
+const MetricInventoryScreen = lazy(() =>
+  import("./screens/MetricInventoryScreen").then((m) => ({ default: m.MetricInventoryScreen }))
+);
+const MetricLedgerScreen = lazy(() =>
+  import("./screens/MetricLedgerScreen").then((m) => ({ default: m.MetricLedgerScreen }))
+);
+const MetricLoginScreen = lazy(() =>
+  import("./screens/MetricLoginScreen").then((m) => ({ default: m.MetricLoginScreen }))
+);
+const MetricDispatchPlansScreen = lazy(() =>
+  import("./screens/MetricDispatchPlansScreen").then((m) => ({ default: m.MetricDispatchPlansScreen }))
+);
+const MetricDriversScreen = lazy(() =>
+  import("./screens/MetricDriversScreen").then((m) => ({ default: m.MetricDriversScreen }))
+);
+const MetricPurchaseBillsScreen = lazy(() =>
+  import("./screens/MetricPurchaseBillsScreen").then((m) => ({ default: m.MetricPurchaseBillsScreen }))
+);
+const MetricCreatePurchaseBillScreen = lazy(() =>
+  import("./screens/MetricCreatePurchaseBillScreen").then((m) => ({ default: m.MetricCreatePurchaseBillScreen }))
+);
+const MetricBankAccountsScreen = lazy(() =>
+  import("./screens/MetricBankAccountsScreen").then((m) => ({ default: m.MetricBankAccountsScreen }))
+);
+const MetricExpensesScreen = lazy(() =>
+  import("./screens/MetricExpensesScreen").then((m) => ({ default: m.MetricExpensesScreen }))
+);
+
+const MetricProductionScreen = lazy(() =>
+  import("./screens/MetricModulesScreen").then((m) => ({ default: m.MetricProductionScreen }))
+);
+const MetricDispatchScreen = lazy(() =>
+  import("./screens/MetricModulesScreen").then((m) => ({ default: m.MetricDispatchScreen }))
+);
+const MetricQuotesScreen = lazy(() =>
+  import("./screens/MetricModulesScreen").then((m) => ({ default: m.MetricQuotesScreen }))
+);
+const MetricCampaignScreen = lazy(() =>
+  import("./screens/MetricModulesScreen").then((m) => ({ default: m.MetricCampaignScreen }))
+);
+const MetricEmployeesScreen = lazy(() =>
+  import("./screens/MetricModulesScreen").then((m) => ({ default: m.MetricEmployeesScreen }))
+);
+
+const CreateBatchModal = lazy(() =>
+  import("./components/CreateBatchModal").then((m) => ({ default: m.CreateBatchModal }))
+);
+const ReceivePaymentModal = lazy(() =>
+  import("./components/ReceivePaymentModal").then((m) => ({ default: m.ReceivePaymentModal }))
+);
+
+const ModuleLoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-[300px] w-full py-16 text-slate-400">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-7 h-7 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+      <span className="text-xs font-medium text-slate-500">Loading module...</span>
+    </div>
+  </div>
+);
 
 import {
   Customer,
@@ -310,9 +362,9 @@ function MainAppContent() {
   // If user is not authenticated, show Login screen
   if (!authUser) {
     return (
-      <MetricLoginScreen
-        onLoginSuccess={() => loadAllData()}
-      />
+      <Suspense fallback={<ModuleLoadingFallback />}>
+        <MetricLoginScreen onLoginSuccess={() => loadAllData()} />
+      </Suspense>
     );
   }
 
@@ -389,197 +441,205 @@ function MainAppContent() {
               exit={{ opacity: 0, y: -8, scale: 0.995 }}
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             >
-              {activeTab === "dashboard" && (
-                <MetricDashboardScreen
-                  customers={customers}
-                  orders={orders}
-                  products={products}
-                  batches={batches}
-                  purchaseBills={purchaseBills}
-                  paymentReceipts={paymentReceipts}
-                  onNavigateToTab={(tab) => setActiveTab(tab as any)}
-                />
-              )}
+              <Suspense fallback={<ModuleLoadingFallback />}>
+                {activeTab === "dashboard" && (
+                  <MetricDashboardScreen
+                    customers={customers}
+                    orders={orders}
+                    products={products}
+                    batches={batches}
+                    purchaseBills={purchaseBills}
+                    paymentReceipts={paymentReceipts}
+                    onNavigateToTab={(tab) => setActiveTab(tab as any)}
+                  />
+                )}
 
-              {activeTab === "bank_accounts" && (
-                <MetricBankAccountsScreen
-                  onBack={() => setActiveTab("dashboard")}
-                  onAccountsUpdated={refreshAppData}
-                />
-              )}
+                {activeTab === "bank_accounts" && (
+                  <MetricBankAccountsScreen
+                    onBack={() => setActiveTab("dashboard")}
+                    onAccountsUpdated={refreshAppData}
+                  />
+                )}
 
-              {activeTab === "expenses" && (
-                <MetricExpensesScreen
-                  onBack={() => setActiveTab("dashboard")}
-                  onExpensesUpdated={refreshAppData}
-                />
-              )}
+                {activeTab === "expenses" && (
+                  <MetricExpensesScreen
+                    onBack={() => setActiveTab("dashboard")}
+                    onExpensesUpdated={refreshAppData}
+                  />
+                )}
 
-              {activeTab === "sowing_plans" && (
-                <MetricSowingPlansScreen
-                  orders={orders}
-                  batches={batches}
-                  customers={customers}
-                  onOpenCreateBatch={() => setShowCreateBatch(true)}
-                />
-              )}
+                {activeTab === "sowing_plans" && (
+                  <MetricSowingPlansScreen
+                    orders={orders}
+                    batches={batches}
+                    customers={customers}
+                    onOpenCreateBatch={() => setShowCreateBatch(true)}
+                  />
+                )}
 
-              {activeTab === "orders" && (
-                <MetricOrdersListScreen
-                  orders={orders}
-                  customers={customers}
-                  onCreateOrder={() => {
-                    setEditingOrder(null);
-                    setActiveTab("create_order");
-                  }}
-                  onEditOrder={handleEditOrder}
-                  onDeleteOrder={handleDeleteOrder}
-                  onViewLedger={(custId) => {
-                    setSelectedLedgerCustomerId(custId);
-                    setActiveTab("ledger");
-                  }}
-                  onOpenReceivePayment={handleOpenReceivePaymentModal}
-                />
-              )}
+                {activeTab === "orders" && (
+                  <MetricOrdersListScreen
+                    orders={orders}
+                    customers={customers}
+                    onCreateOrder={() => {
+                      setEditingOrder(null);
+                      setActiveTab("create_order");
+                    }}
+                    onEditOrder={handleEditOrder}
+                    onDeleteOrder={handleDeleteOrder}
+                    onViewLedger={(custId) => {
+                      setSelectedLedgerCustomerId(custId);
+                      setActiveTab("ledger");
+                    }}
+                    onOpenReceivePayment={handleOpenReceivePaymentModal}
+                  />
+                )}
 
-              {activeTab === "purchase_bills" && (
-                <MetricPurchaseBillsScreen
-                  bills={purchaseBills}
-                  customers={customers}
-                  onCreateBill={() => {
-                    setEditingPurchaseBill(null);
-                    setActiveTab("create_purchase_bill");
-                  }}
-                  onEditBill={handleEditPurchaseBill}
-                  onDeleteBill={handleDeletePurchaseBill}
-                  onViewLedger={(partyId) => {
-                    setSelectedLedgerCustomerId(partyId);
-                    setActiveTab("ledger");
-                  }}
-                />
-              )}
+                {activeTab === "purchase_bills" && (
+                  <MetricPurchaseBillsScreen
+                    bills={purchaseBills}
+                    customers={customers}
+                    onCreateBill={() => {
+                      setEditingPurchaseBill(null);
+                      setActiveTab("create_purchase_bill");
+                    }}
+                    onEditBill={handleEditPurchaseBill}
+                    onDeleteBill={handleDeletePurchaseBill}
+                    onViewLedger={(partyId) => {
+                      setSelectedLedgerCustomerId(partyId);
+                      setActiveTab("ledger");
+                    }}
+                  />
+                )}
 
-              {activeTab === "create_purchase_bill" && (
-                <MetricCreatePurchaseBillScreen
-                  customers={customers}
-                  products={products}
-                  editingBill={editingPurchaseBill}
-                  onBillSaved={handleSavePurchaseBill}
-                  onCancel={() => {
-                    setEditingPurchaseBill(null);
-                    setActiveTab("purchase_bills");
-                  }}
-                />
-              )}
+                {activeTab === "create_purchase_bill" && (
+                  <MetricCreatePurchaseBillScreen
+                    customers={customers}
+                    products={products}
+                    editingBill={editingPurchaseBill}
+                    onBillSaved={handleSavePurchaseBill}
+                    onCancel={() => {
+                      setEditingPurchaseBill(null);
+                      setActiveTab("purchase_bills");
+                    }}
+                  />
+                )}
 
-              {activeTab === "create_order" && (
-                <MetricCreateOrderScreen
-                  customers={customers}
-                  products={products}
-                  batches={batches}
-                  editingOrder={editingOrder}
-                  onOrderSaved={handleOrderSaved}
-                  onCancel={() => {
-                    setEditingOrder(null);
-                    setActiveTab("orders");
-                  }}
-                />
-              )}
+                {activeTab === "create_order" && (
+                  <MetricCreateOrderScreen
+                    customers={customers}
+                    products={products}
+                    batches={batches}
+                    editingOrder={editingOrder}
+                    onOrderSaved={handleOrderSaved}
+                    onCancel={() => {
+                      setEditingOrder(null);
+                      setActiveTab("orders");
+                    }}
+                  />
+                )}
 
-              {activeTab === "customers" && (
-                <MetricCustomersScreen
-                  customers={customers}
-                  onCustomerAdded={handleCustomerAdded}
-                  onViewLedger={(custId) => {
-                    setSelectedLedgerCustomerId(custId);
-                    setActiveTab("ledger");
-                  }}
-                />
-              )}
+                {activeTab === "customers" && (
+                  <MetricCustomersScreen
+                    customers={customers}
+                    onCustomerAdded={handleCustomerAdded}
+                    onViewLedger={(custId) => {
+                      setSelectedLedgerCustomerId(custId);
+                      setActiveTab("ledger");
+                    }}
+                  />
+                )}
 
-              {activeTab === "ledger" && (
-                <MetricLedgerScreen
-                  customers={customers}
-                  orders={orders}
-                  dispatches={dispatches}
-                  paymentReceipts={paymentReceipts}
-                  purchaseBills={purchaseBills}
-                  initialCustomerId={selectedLedgerCustomerId}
-                  onBack={() => setActiveTab("dashboard")}
-                  onEditOrder={handleEditOrder}
-                  onDeleteOrder={handleDeleteOrder}
-                  onOpenReceivePayment={handleOpenReceivePaymentModal}
-                  onNavigateToCreateOrder={() => {
-                    setEditingOrder(null);
-                    setActiveTab("create_order");
-                  }}
-                />
-              )}
+                {activeTab === "ledger" && (
+                  <MetricLedgerScreen
+                    customers={customers}
+                    orders={orders}
+                    dispatches={dispatches}
+                    paymentReceipts={paymentReceipts}
+                    purchaseBills={purchaseBills}
+                    initialCustomerId={selectedLedgerCustomerId}
+                    onBack={() => setActiveTab("dashboard")}
+                    onEditOrder={handleEditOrder}
+                    onDeleteOrder={handleDeleteOrder}
+                    onOpenReceivePayment={handleOpenReceivePaymentModal}
+                    onNavigateToCreateOrder={() => {
+                      setEditingOrder(null);
+                      setActiveTab("create_order");
+                    }}
+                  />
+                )}
 
-              {activeTab === "inventory" && (
-                <MetricInventoryScreen
-                  products={products}
-                  batches={batches}
-                  onProductsUpdated={loadAllData}
-                />
-              )}
+                {activeTab === "inventory" && (
+                  <MetricInventoryScreen
+                    products={products}
+                    batches={batches}
+                    onProductsUpdated={loadAllData}
+                  />
+                )}
 
-              {activeTab === "production" && (
-                <MetricProductionScreen 
-                  batches={batches} 
-                  orders={orders} 
-                  onCreateBatch={() => setShowCreateBatch(true)} 
-                />
-              )}
-              
-              {activeTab === "dispatch_plans" && (
-                <MetricDispatchPlansScreen
-                  orders={orders}
-                  dispatches={dispatches}
-                  drivers={drivers}
-                  customers={customers}
-                  employees={employees}
-                  onDispatchSaved={(newD) => setDispatches([newD, ...dispatches])}
-                />
-              )}
-              {activeTab === "drivers" && (
-                <MetricDriversScreen drivers={drivers} onDriversUpdated={loadAllData} />
-              )}
+                {activeTab === "production" && (
+                  <MetricProductionScreen 
+                    batches={batches} 
+                    orders={orders} 
+                    onCreateBatch={() => setShowCreateBatch(true)} 
+                  />
+                )}
+                
+                {activeTab === "dispatch_plans" && (
+                  <MetricDispatchPlansScreen
+                    orders={orders}
+                    dispatches={dispatches}
+                    drivers={drivers}
+                    customers={customers}
+                    employees={employees}
+                    onDispatchSaved={(newD) => setDispatches([newD, ...dispatches])}
+                  />
+                )}
+                {activeTab === "drivers" && (
+                  <MetricDriversScreen drivers={drivers} onDriversUpdated={loadAllData} />
+                )}
 
-              {activeTab === "dispatch" && (
-                <MetricDispatchScreen
-                  dispatches={dispatches}
-                  customers={customers}
-                  orders={orders}
-                  employees={employees}
-                  drivers={drivers}
-                  onDispatchSaved={(newD) => setDispatches([newD, ...dispatches])}
-                />
-              )}
-              {activeTab === "quotes" && <MetricQuotesScreen quotes={quotes} />}
-              {activeTab === "campaign" && <MetricCampaignScreen campaigns={campaigns} />}
+                {activeTab === "dispatch" && (
+                  <MetricDispatchScreen
+                    dispatches={dispatches}
+                    customers={customers}
+                    orders={orders}
+                    employees={employees}
+                    drivers={drivers}
+                    onDispatchSaved={(newD) => setDispatches([newD, ...dispatches])}
+                  />
+                )}
+                {activeTab === "quotes" && <MetricQuotesScreen quotes={quotes} />}
+                {activeTab === "campaign" && <MetricCampaignScreen campaigns={campaigns} />}
+              </Suspense>
             </motion.div>
           </AnimatePresence>
         )}
       </main>
 
-      <CreateBatchModal 
-        isOpen={showCreateBatch} 
-        onClose={() => setShowCreateBatch(false)} 
-        products={products} 
-        orders={orders}
-        onSave={handleSaveBatch} 
-      />
+      <Suspense fallback={null}>
+        {showCreateBatch && (
+          <CreateBatchModal 
+            isOpen={showCreateBatch} 
+            onClose={() => setShowCreateBatch(false)} 
+            products={products} 
+            orders={orders}
+            onSave={handleSaveBatch} 
+          />
+        )}
 
-      <ReceivePaymentModal
-        isOpen={isReceivePaymentOpen}
-        onClose={() => setIsReceivePaymentOpen(false)}
-        customers={customers}
-        orders={orders}
-        initialCustomerId={receivePaymentCustId}
-        initialOrderId={receivePaymentOrderId}
-        onPaymentSaved={handlePaymentSaved}
-      />
+        {isReceivePaymentOpen && (
+          <ReceivePaymentModal
+            isOpen={isReceivePaymentOpen}
+            onClose={() => setIsReceivePaymentOpen(false)}
+            customers={customers}
+            orders={orders}
+            initialCustomerId={receivePaymentCustId}
+            initialOrderId={receivePaymentOrderId}
+            onPaymentSaved={handlePaymentSaved}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }
