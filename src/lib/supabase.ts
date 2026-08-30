@@ -1,11 +1,12 @@
 import { createClient, SupabaseClient, User, Session } from '@supabase/supabase-js';
+import { secureStorage } from '../app/utils/secureStorage';
 
 export const DEFAULT_SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string) || "https://vgyxuaistuegijwjopnf.supabase.co";
 export const DEFAULT_SUPABASE_PUBLISHABLE_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || "sb_publishable_HOyOBnSCNUnClEfzvPeiVw_bO2gzrrL";
 
 function getInitialConfig() {
-  const customUrl = localStorage.getItem("custom_supabase_url");
-  const customKey = localStorage.getItem("custom_supabase_key");
+  const customUrl = secureStorage.getItem<string | null>("custom_supabase_url", null);
+  const customKey = secureStorage.getItem<string | null>("custom_supabase_key", null);
   if (customUrl && customKey) {
     return { url: customUrl, key: customKey, isCustom: true };
   }
@@ -26,8 +27,8 @@ export function getSupabaseConfig() {
 }
 
 export function updateCustomSupabaseConfig(url: string, key: string) {
-  localStorage.setItem("custom_supabase_url", url);
-  localStorage.setItem("custom_supabase_key", key);
+  secureStorage.setItem("custom_supabase_url", url);
+  secureStorage.setItem("custom_supabase_key", key);
   currentConfig = { url, key, isCustom: true };
   supabase = createClient(url, key, {
     auth: {
@@ -40,8 +41,8 @@ export function updateCustomSupabaseConfig(url: string, key: string) {
 }
 
 export function resetSupabaseConfig() {
-  localStorage.removeItem("custom_supabase_url");
-  localStorage.removeItem("custom_supabase_key");
+  secureStorage.removeItem("custom_supabase_url");
+  secureStorage.removeItem("custom_supabase_key");
   currentConfig = { url: DEFAULT_SUPABASE_URL, key: DEFAULT_SUPABASE_PUBLISHABLE_KEY, isCustom: false };
   supabase = createClient(currentConfig.url, currentConfig.key, {
     auth: {

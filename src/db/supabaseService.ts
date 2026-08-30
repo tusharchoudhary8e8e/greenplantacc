@@ -11,6 +11,7 @@ import {
   sanitizeBankAccount,
   sanitizeDriver,
 } from "../app/utils/mutationSanitizer";
+import { secureStorage } from "../app/utils/secureStorage";
 
 export interface Customer {
   id?: string;
@@ -293,20 +294,11 @@ export interface BankTransaction {
 // ─── LOCAL DEMO SEED DATA (fallback if offline / Supabase setup pending) ──────
 
 const loadFromStorage = <T>(key: string, defaultValue: T): T => {
-  try {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : defaultValue;
-  } catch {
-    return defaultValue;
-  }
+  return secureStorage.getItem<T>(key, defaultValue);
 };
 
 const saveToStorage = (key: string, data: any) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch (e) {
-    console.error("Storage error:", e);
-  }
+  secureStorage.setItem(key, data);
 };
 
 const INITIAL_CUSTOMERS: Customer[] = [
@@ -2128,30 +2120,22 @@ const INITIAL_DRIVERS: Driver[] = [
 
 const loadCustomersFromStorage = (): Customer[] => {
   try {
-    const data = localStorage.getItem("demo_customers_v3");
-    if (data) {
-      const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length >= 100) {
-        return parsed;
-      }
+    const data = secureStorage.getItem<Customer[] | null>("demo_customers_v3", null);
+    if (data && Array.isArray(data) && data.length >= 100) {
+      return data;
     }
 
     // Merge INITIAL_CUSTOMERS with any user-created local storage customers
-    const oldData = localStorage.getItem("demo_customers");
+    const oldData = secureStorage.getItem<Customer[] | null>("demo_customers", null);
     let mergedList = [...INITIAL_CUSTOMERS];
 
-    if (oldData) {
-      try {
-        const parsedOld = JSON.parse(oldData);
-        if (Array.isArray(parsedOld)) {
-          const existingNames = new Set(INITIAL_CUSTOMERS.map((c) => (c.name || "").trim().toUpperCase()));
-          parsedOld.forEach((cust: any) => {
-            if (cust && cust.name && !existingNames.has(cust.name.trim().toUpperCase())) {
-              mergedList.push(cust);
-            }
-          });
+    if (oldData && Array.isArray(oldData)) {
+      const existingNames = new Set(INITIAL_CUSTOMERS.map((c) => (c.name || "").trim().toUpperCase()));
+      oldData.forEach((cust: any) => {
+        if (cust && cust.name && !existingNames.has(cust.name.trim().toUpperCase())) {
+          mergedList.push(cust);
         }
-      } catch {}
+      });
     }
 
     saveToStorage("demo_customers_v3", mergedList);
