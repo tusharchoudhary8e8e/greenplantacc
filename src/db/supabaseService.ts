@@ -12,6 +12,7 @@ import {
   sanitizeDriver,
 } from "../app/utils/mutationSanitizer";
 import { secureStorage } from "../app/utils/secureStorage";
+import { logAuditAction } from "../app/utils/auditLogger";
 
 export interface Customer {
   id?: string;
@@ -2517,12 +2518,22 @@ export class SupabaseService {
     // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
     SupabaseService.atomicMergeAppSettings("orders", fullOrder);
 
+    // 3. Audit Trail Logging
+    logAuditAction({
+      entity_type: "order",
+      entity_id: fullOrder.id || fullOrder.order_no,
+      entity_label: `Order #${fullOrder.order_no} - ${fullOrder.customer_name}`,
+      action: "CREATE",
+      new_state: fullOrder,
+    });
+
     return fullOrder;
   }
 
   static async updateOrder(order: Order): Promise<Order> {
     if (!order.id) return this.createOrder(order);
 
+    const previousOrder = DEMO_ORDERS.find((o) => o.id === order.id || o.order_no === order.order_no);
     const cleanOrder = sanitizeOrder(order);
     const updatedOrder: Order = {
       ...cleanOrder,
@@ -2590,10 +2601,21 @@ export class SupabaseService {
     // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
     SupabaseService.atomicMergeAppSettings("orders", updatedOrder);
 
+    // 3. Audit Trail Logging
+    logAuditAction({
+      entity_type: "order",
+      entity_id: updatedOrder.id || updatedOrder.order_no,
+      entity_label: `Order #${updatedOrder.order_no} - ${updatedOrder.customer_name}`,
+      action: "UPDATE",
+      previous_state: previousOrder,
+      new_state: updatedOrder,
+    });
+
     return updatedOrder;
   }
 
   static async deleteOrder(orderId: string): Promise<boolean> {
+    const deletedOrder = DEMO_ORDERS.find((o) => o.id === orderId || o.order_no === orderId);
     DEMO_ORDERS = DEMO_ORDERS.filter((o) => o.id !== orderId && o.order_no !== orderId);
     saveToStorage("demo_orders", DEMO_ORDERS);
 
@@ -2606,6 +2628,15 @@ export class SupabaseService {
 
     // Atomic removal in app_settings
     SupabaseService.atomicMergeAppSettings("orders", { id: orderId }, true);
+
+    // Audit Trail Logging
+    logAuditAction({
+      entity_type: "order",
+      entity_id: orderId,
+      entity_label: deletedOrder ? `Order #${deletedOrder.order_no} - ${deletedOrder.customer_name}` : `Order #${orderId}`,
+      action: "DELETE",
+      previous_state: deletedOrder,
+    });
 
     return true;
   }
@@ -2881,6 +2912,15 @@ export class SupabaseService {
     // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
     SupabaseService.atomicMergeAppSettings("receipts", newRec);
 
+    // 3. Audit Trail Logging
+    logAuditAction({
+      entity_type: "receipt",
+      entity_id: newRec.id || newRec.receipt_no,
+      entity_label: `Receipt #${newRec.receipt_no || newRec.id} - ${newRec.customer_name} (₹${newRec.amount})`,
+      action: "CREATE",
+      new_state: newRec,
+    });
+
     // If receipt is linked to a specific Order, update the Order's paid amount & status!
     if (newRec.order_id || newRec.order_no) {
       const targetOrd = DEMO_ORDERS.find(
@@ -2959,6 +2999,7 @@ export class SupabaseService {
   }
 
   static async savePurchaseBill(bill: PurchaseBill): Promise<PurchaseBill> {
+    const previousBill = DEMO_PURCHASE_BILLS.find((b) => b.id === bill.id || b.bill_no === bill.bill_no);
     const cleanBill = sanitizePurchaseBill(bill);
     let status: "unpaid" | "partially_paid" | "paid" = "unpaid";
     if (cleanBill.due_amount === 0) {
@@ -3042,10 +3083,21 @@ export class SupabaseService {
     // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
     SupabaseService.atomicMergeAppSettings("purchase_bills", fullBill);
 
+    // 3. Audit Trail Logging
+    logAuditAction({
+      entity_type: "purchase_bill",
+      entity_id: fullBill.id || fullBill.bill_no,
+      entity_label: `Purchase Bill #${fullBill.bill_no} - ${fullBill.party_name}`,
+      action: previousBill ? "UPDATE" : "CREATE",
+      previous_state: previousBill,
+      new_state: fullBill,
+    });
+
     return fullBill;
   }
 
   static async deletePurchaseBill(billId: string): Promise<boolean> {
+    const deletedBill = DEMO_PURCHASE_BILLS.find((b) => b.id === billId || b.bill_no === billId);
     DEMO_PURCHASE_BILLS = DEMO_PURCHASE_BILLS.filter((b) => b.id !== billId && b.bill_no !== billId);
     saveToStorage("demo_purchase_bills", DEMO_PURCHASE_BILLS);
 
@@ -3058,6 +3110,15 @@ export class SupabaseService {
 
     // Atomic removal in app_settings
     SupabaseService.atomicMergeAppSettings("purchase_bills", { id: billId }, true);
+
+    // Audit Trail Logging
+    logAuditAction({
+      entity_type: "purchase_bill",
+      entity_id: billId,
+      entity_label: deletedBill ? `Purchase Bill #${deletedBill.bill_no} - ${deletedBill.party_name}` : `Bill #${billId}`,
+      action: "DELETE",
+      previous_state: deletedBill,
+    });
 
     return true;
   }

@@ -42,6 +42,7 @@ export const ALL_SCREENS = [
   { id: "employees", label: "Employees & Team", category: "Management" },
   { id: "quotes", label: "Quotations", category: "Management" },
   { id: "campaign", label: "Campaigns", category: "Management" },
+  { id: "audit_logs", label: "Audit Trail & Logs", category: "Management" },
   { id: "role_permissions", label: "Roles & Permissions Matrix", category: "Management" },
 ];
 
@@ -76,6 +77,7 @@ export const DEFAULT_ROLE_MATRIX: RoleMatrix = {
       "expenses",
       "customers",
       "inventory",
+      "audit_logs",
     ],
     actions: {
       canDeleteOrders: false,

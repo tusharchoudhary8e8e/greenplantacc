@@ -50,6 +50,9 @@ const MetricExpensesScreen = lazy(() =>
 const MetricRolePermissionsScreen = lazy(() =>
   import("./screens/MetricRolePermissionsScreen").then((m) => ({ default: m.MetricRolePermissionsScreen }))
 );
+const MetricAuditLogScreen = lazy(() =>
+  import("./screens/MetricAuditLogScreen").then((m) => ({ default: m.MetricAuditLogScreen }))
+);
 
 import {
   UserRole,
@@ -631,6 +634,7 @@ function MainAppContent() {
                 )}
                 {activeTab === "quotes" && <MetricQuotesScreen quotes={quotes} />}
                 {activeTab === "campaign" && <MetricCampaignScreen campaigns={campaigns} />}
+                {activeTab === "audit_logs" && <MetricAuditLogScreen />}
                 {activeTab === "role_permissions" && (
                   <MetricRolePermissionsScreen
                     onRoleChanged={(newR) => setUserRole(newR)}

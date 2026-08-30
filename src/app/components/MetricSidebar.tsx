@@ -14,6 +14,7 @@ import {
   Users,
   LogOut,
   ShieldCheck,
+  History,
 } from "lucide-react";
 import { hasScreenAccess, getCurrentUserRole, UserRole } from "../utils/rbac";
 
@@ -38,6 +39,7 @@ export type MetricTab =
   | "crops"
   | "customers"
   | "employees"
+  | "audit_logs"
   | "role_permissions";
 
 interface SidebarProps {
@@ -97,6 +99,7 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
         { id: "inventory" as MetricTab, label: "Crops", icon: Sprout },
         { id: "customers" as MetricTab, label: "Customers", icon: Users },
         { id: "employees" as MetricTab, label: "Employees", icon: Building2 },
+        { id: "audit_logs" as MetricTab, label: "Audit Trail & Logs", icon: History },
         { id: "role_permissions" as MetricTab, label: "Roles & Permissions", icon: ShieldCheck },
       ],
     },
