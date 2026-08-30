@@ -291,6 +291,12 @@ export interface BankTransaction {
   created_at?: string;
 }
 
+export interface PaginationOptions {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
 // ─── LOCAL DEMO SEED DATA (fallback if offline / Supabase setup pending) ──────
 
 const loadFromStorage = <T>(key: string, defaultValue: T): T => {
@@ -2219,13 +2225,25 @@ export class SupabaseService {
   }
 
   // Customers
-  static async getCustomers(): Promise<Customer[]> {
+  static async getCustomers(options?: PaginationOptions): Promise<Customer[]> {
     let list: Customer[] = [];
+    const limit = options?.limit || 1000;
+    const page = options?.page || 1;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("ma_customers")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (options?.search) {
+        query = query.ilike("name", `%${options.search}%`);
+      }
+
+      const { data, error } = await query;
       if (!error && data && Array.isArray(data) && data.length > 0) {
         list = data as Customer[];
       }
@@ -2305,7 +2323,8 @@ export class SupabaseService {
       const { data, error } = await supabase
         .from("ma_products")
         .select("*")
-        .order("name", { ascending: true });
+        .order("name", { ascending: true })
+        .limit(1000);
       if (!error && data && Array.isArray(data) && data.length > 0) {
         saveToStorage("demo_products", data);
         return data as Product[];
@@ -2376,26 +2395,33 @@ export class SupabaseService {
       console.warn("Supabase bulk products write error:", e);
     }
 
-    try {
-      await supabase.from("app_settings").upsert({
-        key: "products",
-        value: DEMO_PRODUCTS,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (e) {
-      console.warn("Supabase product cloud sync error:", e);
-    }
+    // 2. Dual-write to Supabase app_settings cloud store via Atomic Merge
+    products.forEach((p) => {
+      SupabaseService.atomicMergeAppSettings("products", p);
+    });
 
     return products.length;
   }
 
   // Orders
-  static async getOrders(): Promise<Order[]> {
+  static async getOrders(options?: PaginationOptions): Promise<Order[]> {
+    const limit = options?.limit || 1000;
+    const page = options?.page || 1;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("ma_orders")
         .select("*, items:ma_order_items(*)")
-        .order("order_date", { ascending: false });
+        .order("order_date", { ascending: false })
+        .range(from, to);
+
+      if (options?.search) {
+        query = query.ilike("customer_name", `%${options.search}%`);
+      }
+
+      const { data, error } = await query;
       if (!error && data && Array.isArray(data) && data.length > 0) {
         saveToStorage("demo_orders", data);
         return data as Order[];
@@ -2585,12 +2611,24 @@ export class SupabaseService {
   }
 
   // Production Batches
-  static async getBatches(): Promise<ProductionBatch[]> {
+  static async getBatches(options?: PaginationOptions): Promise<ProductionBatch[]> {
+    const limit = options?.limit || 1000;
+    const page = options?.page || 1;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("ma_batches")
         .select("*")
-        .order("sowing_date", { ascending: false });
+        .order("sowing_date", { ascending: false })
+        .range(from, to);
+
+      if (options?.search) {
+        query = query.ilike("product_name", `%${options.search}%`);
+      }
+
+      const { data, error } = await query;
       if (!error && data && Array.isArray(data) && data.length > 0) {
         saveToStorage("demo_batches", data);
         return data as ProductionBatch[];
@@ -2649,12 +2687,24 @@ export class SupabaseService {
   }
 
   // Dispatches
-  static async getDispatches(): Promise<DispatchRecord[]> {
+  static async getDispatches(options?: PaginationOptions): Promise<DispatchRecord[]> {
+    const limit = options?.limit || 1000;
+    const page = options?.page || 1;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("ma_dispatch")
         .select("*, items:ma_dispatch_items(*)")
-        .order("dispatch_date", { ascending: false });
+        .order("dispatch_date", { ascending: false })
+        .range(from, to);
+
+      if (options?.search) {
+        query = query.ilike("customer_name", `%${options.search}%`);
+      }
+
+      const { data, error } = await query;
       if (!error && data && Array.isArray(data) && data.length > 0) {
         saveToStorage("demo_dispatch", data);
         return data as DispatchRecord[];
@@ -2718,7 +2768,8 @@ export class SupabaseService {
       const { data, error } = await supabase
         .from("ma_employees")
         .select("*")
-        .order("name", { ascending: true });
+        .order("name", { ascending: true })
+        .limit(1000);
       if (!error && data && Array.isArray(data) && data.length > 0) return data as Employee[];
     } catch {
       // Fallback
@@ -2732,7 +2783,8 @@ export class SupabaseService {
       const { data, error } = await supabase
         .from("ma_quotes")
         .select("*")
-        .order("quote_date", { ascending: false });
+        .order("quote_date", { ascending: false })
+        .limit(1000);
       if (!error && data && Array.isArray(data) && data.length > 0) return data as Quote[];
     } catch {
       // Fallback
@@ -2746,7 +2798,8 @@ export class SupabaseService {
       const { data, error } = await supabase
         .from("ma_campaigns")
         .select("*")
-        .order("start_date", { ascending: false });
+        .order("start_date", { ascending: false })
+        .limit(1000);
       if (!error && data && Array.isArray(data) && data.length > 0) return data as Campaign[];
     } catch {
       // Fallback
@@ -2755,12 +2808,24 @@ export class SupabaseService {
   }
 
   // Payment Receipts
-  static async getPaymentReceipts(): Promise<PaymentReceipt[]> {
+  static async getPaymentReceipts(options?: PaginationOptions): Promise<PaymentReceipt[]> {
+    const limit = options?.limit || 1000;
+    const page = options?.page || 1;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("ma_receipts")
         .select("*")
-        .order("receipt_date", { ascending: false });
+        .order("receipt_date", { ascending: false })
+        .range(from, to);
+
+      if (options?.search) {
+        query = query.ilike("customer_name", `%${options.search}%`);
+      }
+
+      const { data, error } = await query;
       if (!error && data && Array.isArray(data) && data.length > 0) {
         saveToStorage("demo_receipts", data);
         return data as PaymentReceipt[];
@@ -2850,12 +2915,24 @@ export class SupabaseService {
   }
 
   // Purchase Bills
-  static async getPurchaseBills(): Promise<PurchaseBill[]> {
+  static async getPurchaseBills(options?: PaginationOptions): Promise<PurchaseBill[]> {
+    const limit = options?.limit || 1000;
+    const page = options?.page || 1;
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("ma_purchase_bills")
         .select("*")
-        .order("bill_date", { ascending: false });
+        .order("bill_date", { ascending: false })
+        .range(from, to);
+
+      if (options?.search) {
+        query = query.ilike("party_name", `%${options.search}%`);
+      }
+
+      const { data, error } = await query;
       if (!error && data && Array.isArray(data) && data.length > 0) {
         saveToStorage("demo_purchase_bills", data);
         return data as PurchaseBill[];

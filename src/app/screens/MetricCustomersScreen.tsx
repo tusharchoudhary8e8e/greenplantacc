@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Plus, Search, Filter, Phone, Mail, MapPin, Building, User, BookOpen } from "lucide-react";
 import { Customer, SupabaseService } from "../../db/supabaseService";
+import { PaginationControl } from "../components/PaginationControl";
 
 interface CustomersProps {
   customers: Customer[];
@@ -17,6 +18,15 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
   const [selectedZone, setSelectedZone] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(24);
+
+  // Reset page when searching
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const safeCustomers = Array.isArray(customers) ? customers : [];
 
@@ -62,13 +72,21 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
     }
   }, [editingCustomer, showAddModal]);
 
-  const filteredCustomers = safeCustomers.filter((c) => {
-    const matchesSearch =
-      (c.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.phone && c.phone.includes(searchTerm)) ||
-      (c.city && c.city.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesSearch;
-  });
+  const filteredCustomers = useMemo(() => {
+    return safeCustomers.filter((c) => {
+      const matchesSearch =
+        (c.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (c.phone && c.phone.includes(searchTerm)) ||
+        (c.city && c.city.toLowerCase().includes(searchTerm.toLowerCase()));
+      return matchesSearch;
+    });
+  }, [safeCustomers, searchTerm]);
+
+  const totalPages = Math.ceil(filteredCustomers.length / pageSize) || 1;
+  const paginatedCustomers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredCustomers.slice(start, start + pageSize);
+  }, [filteredCustomers, currentPage, pageSize]);
 
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,7 +188,7 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
 
       {/* Customer Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredCustomers.map((cust) => (
+        {paginatedCustomers.map((cust) => (
           <div
             key={cust.id}
             className="bg-white p-4 rounded-[10px] border border-[#e8e8e8] space-y-3 hover:border-[#1e4d2b]/30 transition"
@@ -241,6 +259,22 @@ export const MetricCustomersScreen: React.FC<CustomersProps> = ({
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="rounded-[10px] overflow-hidden border border-[#e8e8e8]">
+        <PaginationControl
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={filteredCustomers.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(sz) => {
+            setPageSize(sz);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[12, 24, 48, 96]}
+        />
       </div>
 
       {/* Add Customer Modal */}

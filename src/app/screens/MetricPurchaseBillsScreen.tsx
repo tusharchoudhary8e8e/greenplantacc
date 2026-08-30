@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   FileText,
   Search,
@@ -14,6 +14,7 @@ import {
   Download,
 } from "lucide-react";
 import { PurchaseBill, Customer, SupabaseService } from "../../db/supabaseService";
+import { PaginationControl } from "../components/PaginationControl";
 
 interface PurchaseBillsScreenProps {
   bills: PurchaseBill[];
@@ -41,25 +42,42 @@ export const MetricPurchaseBillsScreen: React.FC<PurchaseBillsScreenProps> = ({
   const [toDate, setToDate] = useState("");
   const [expandedBillIds, setExpandedBillIds] = useState<Record<string, boolean>>({});
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Reset pagination when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, fromDate, toDate]);
+
   const toggleExpand = (id: string) => {
     setExpandedBillIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   // Filter bills
-  const filteredBills = safeBills.filter((b) => {
-    const matchesSearch =
-      (b.bill_no || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (b.party_name || "").toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredBills = useMemo(() => {
+    return safeBills.filter((b) => {
+      const matchesSearch =
+        (b.bill_no || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (b.party_name || "").toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus =
-      statusFilter === "all" || b.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" || b.status === statusFilter;
 
-    let matchesDate = true;
-    if (fromDate && b.bill_date < fromDate) matchesDate = false;
-    if (toDate && b.bill_date > toDate) matchesDate = false;
+      let matchesDate = true;
+      if (fromDate && b.bill_date < fromDate) matchesDate = false;
+      if (toDate && b.bill_date > toDate) matchesDate = false;
 
-    return matchesSearch && matchesStatus && matchesDate;
-  });
+      return matchesSearch && matchesStatus && matchesDate;
+    });
+  }, [safeBills, searchTerm, statusFilter, fromDate, toDate]);
+
+  const totalPages = Math.ceil(filteredBills.length / pageSize) || 1;
+  const paginatedBills = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredBills.slice(start, start + pageSize);
+  }, [filteredBills, currentPage, pageSize]);
 
   // Calculate Aggregates
   const totalPurchases = safeBills.reduce((sum, b) => sum + (b.total_amount || 0), 0);
@@ -182,7 +200,7 @@ export const MetricPurchaseBillsScreen: React.FC<PurchaseBillsScreenProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filteredBills.map((b) => {
+              {paginatedBills.map((b) => {
                 const billIdKey = b.id || b.bill_no || "";
                 const isExpanded = expandedBillIds[billIdKey];
                 const cust = safeCustomers.find(
@@ -333,6 +351,20 @@ export const MetricPurchaseBillsScreen: React.FC<PurchaseBillsScreenProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        <PaginationControl
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={filteredBills.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(sz) => {
+            setPageSize(sz);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[10, 25, 50, 100]}
+        />
       </div>
     </div>
   );

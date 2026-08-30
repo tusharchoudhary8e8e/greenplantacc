@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { Order, Customer, SupabaseService } from "../../db/supabaseService";
 import { printReceiptPDF } from "../utils/receiptPdfGenerator";
+import { PaginationControl } from "../components/PaginationControl";
 
 interface OrdersListProps {
   orders: Order[];
@@ -53,6 +54,15 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
   const [expandedOrderIds, setExpandedOrderIds] = useState<Record<string, boolean>>({});
   const [isExporting, setIsExporting] = useState(false);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  // Reset pagination when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, fromDate, toDate]);
+
   // Filtered Orders
   const filteredOrders = useMemo(() => {
     return safeOrders.filter((ord) => {
@@ -79,6 +89,12 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
       return true;
     });
   }, [safeOrders, searchTerm, statusFilter, fromDate, toDate]);
+
+  const totalPages = Math.ceil(filteredOrders.length / pageSize) || 1;
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredOrders.slice(start, start + pageSize);
+  }, [filteredOrders, currentPage, pageSize]);
 
   const toggleExpand = (id: string) => {
     setExpandedOrderIds((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -239,7 +255,7 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f0ec] font-medium text-[#333]">
-              {filteredOrders.map((ord) => {
+              {paginatedOrders.map((ord) => {
                 const orderIdKey = ord.id || ord.order_no || "";
                 const isExpanded = expandedOrderIds[orderIdKey];
 
@@ -496,6 +512,20 @@ export const MetricOrdersListScreen: React.FC<OrdersListProps> = ({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        <PaginationControl
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={filteredOrders.length}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(sz) => {
+            setPageSize(sz);
+            setCurrentPage(1);
+          }}
+          pageSizeOptions={[10, 25, 50, 100]}
+        />
 
         {/* Sub-footer matching photo 2 */}
         <div className="py-4 text-center border-t border-[#f0f0ec]">
