@@ -416,13 +416,13 @@ function MainAppContent() {
 
       {/* Mobile/Drawer Menu Overlay */}
       <div 
-        className={`fixed inset-0 z-40 transition-all duration-300 ease-in-out ${
+        className={`fixed inset-0 z-[100] transition-all duration-300 ease-in-out ${
           isMobileMenuOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
         }`}
       >
         {/* Backdrop */}
         <div 
-          className={`absolute inset-0 bg-black/20 transition-opacity duration-300 ${
+          className={`absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300 ${
             isMobileMenuOpen ? "opacity-100" : "opacity-0"
           }`}
           onClick={() => setIsMobileMenuOpen(false)} 
@@ -430,13 +430,14 @@ function MainAppContent() {
         
         {/* Drawer */}
         <div 
-          className={`absolute top-0 left-0 h-full shadow-2xl overflow-y-auto transform transition-transform duration-300 ease-out ${
+          className={`absolute top-0 left-0 h-full max-h-screen shadow-2xl overflow-hidden transform transition-transform duration-300 ease-out z-10 ${
             isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
           <MetricSidebar
             activeTab={activeTab}
             userRole={userRole}
+            onClose={() => setIsMobileMenuOpen(false)}
             setActiveTab={(tab) => {
               setActiveTab(tab);
               setIsMobileMenuOpen(false);

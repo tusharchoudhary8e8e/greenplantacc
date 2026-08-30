@@ -15,6 +15,7 @@ import {
   LogOut,
   ShieldCheck,
   History,
+  X,
 } from "lucide-react";
 import { hasScreenAccess, getCurrentUserRole, UserRole } from "../utils/rbac";
 
@@ -47,6 +48,7 @@ interface SidebarProps {
   setActiveTab: (tab: MetricTab) => void;
   onLogout?: () => void;
   userRole?: UserRole;
+  onClose?: () => void;
 }
 
 export const MetricSidebar: React.FC<SidebarProps> = ({
@@ -54,6 +56,7 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
   setActiveTab,
   onLogout,
   userRole,
+  onClose,
 }) => {
   const currentRole = userRole || getCurrentUserRole();
   const [prodExpanded, setProdExpanded] = React.useState(true);
@@ -106,11 +109,11 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-[230px] bg-[#1a2e1a] text-white min-h-screen flex flex-col select-none shrink-0 font-sans border-r border-[#264226]">
+    <aside className="w-[260px] bg-[#1a2e1a] text-white min-h-screen h-full flex flex-col select-none shrink-0 font-sans border-r border-[#264226]">
       {/* Brand Header */}
-      <div className="pt-6 pb-4 px-5 flex items-center justify-between">
+      <div className="pt-5 pb-3.5 px-4 flex items-center justify-between border-b border-[#264226]">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 bg-[#2d5c36] rounded-md flex items-center justify-center text-white font-bold text-xs shadow-xs">
+          <div className="w-8 h-8 bg-[#2d5c36] rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-xs">
             <Sprout className="w-4 h-4 text-emerald-300" />
           </div>
           <div>
@@ -122,13 +125,24 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
             </span>
           </div>
         </div>
+
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-[#7cad7c] hover:text-white hover:bg-white/10 transition cursor-pointer"
+            title="Close menu"
+            aria-label="Close menu"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Role Badge Indicator */}
-      <div className="px-4 pb-3">
-        <div className="px-2.5 py-1 bg-[#243d24] border border-[#315231] rounded-md flex items-center justify-between text-[10px]">
-          <span className="text-emerald-400 font-semibold uppercase tracking-wider">Role:</span>
-          <span className="font-bold text-white capitalize">{currentRole}</span>
+      <div className="px-4 py-2.5">
+        <div className="px-2.5 py-1.5 bg-[#243d24] border border-[#315231] rounded-lg flex items-center justify-between text-[11px]">
+          <span className="text-emerald-400 font-semibold uppercase tracking-wider text-[10px]">Active Role:</span>
+          <span className="font-bold text-white capitalize bg-[#2d5c36] px-2 py-0.5 rounded text-[10px]">{currentRole}</span>
         </div>
       </div>
 
