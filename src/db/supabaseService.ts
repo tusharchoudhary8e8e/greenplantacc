@@ -2433,43 +2433,56 @@ export class SupabaseService {
     DEMO_ORDERS.unshift(fullOrder);
     saveToStorage("demo_orders", DEMO_ORDERS);
 
-    // 1. Direct write to Supabase dedicated table
+    // 1. Direct write to Supabase with Atomic Transaction / Rollback Protection
     try {
-      const userId = cleanOrder.user_id || (await SupabaseService.getUserId());
-      const { data: ordData, error: ordErr } = await supabase
-        .from("ma_orders")
-        .insert({
-          id: fullOrder.id,
-          ...(userId ? { user_id: userId } : {}),
-          order_no: fullOrder.order_no,
-          customer_id: fullOrder.customer_id,
-          customer_name: fullOrder.customer_name,
-          order_date: fullOrder.order_date,
-          status: fullOrder.status,
-          transport_charge: fullOrder.transport_charge,
-          advance_payment: fullOrder.advance_payment,
-          foc_amount: fullOrder.foc_amount,
-          items_total: fullOrder.items_total,
-          total_amount: fullOrder.total_amount,
-          narration: fullOrder.narration,
-        })
-        .select()
-        .single();
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("atomic_create_order", {
+        p_order: fullOrder,
+        p_items: fullOrder.items || [],
+      });
 
-      if (!ordErr && ordData && fullOrder.items && fullOrder.items.length > 0) {
-        const itemPayloads = fullOrder.items.map((it) => ({
-          order_id: ordData.id,
-          product_name: it.product_name,
-          variant_name: it.variant_name,
-          price: it.price,
-          quantity: it.quantity,
-          dispatch_from: it.dispatch_from,
-          dispatch_to: it.dispatch_to,
-          sowing_date: it.sowing_date,
-          dispatched_qty: 0,
-          status: "pending",
-        }));
-        await supabase.from("ma_order_items").insert(itemPayloads);
+      if (rpcErr || !rpcRes) {
+        // Fallback to client-orchestrated transaction with automatic rollback
+        const userId = cleanOrder.user_id || (await SupabaseService.getUserId());
+        const { data: ordData, error: ordErr } = await supabase
+          .from("ma_orders")
+          .insert({
+            id: fullOrder.id,
+            ...(userId ? { user_id: userId } : {}),
+            order_no: fullOrder.order_no,
+            customer_id: fullOrder.customer_id,
+            customer_name: fullOrder.customer_name,
+            order_date: fullOrder.order_date,
+            status: fullOrder.status,
+            transport_charge: fullOrder.transport_charge,
+            advance_payment: fullOrder.advance_payment,
+            foc_amount: fullOrder.foc_amount,
+            items_total: fullOrder.items_total,
+            total_amount: fullOrder.total_amount,
+            narration: fullOrder.narration,
+          })
+          .select()
+          .single();
+
+        if (!ordErr && ordData && fullOrder.items && fullOrder.items.length > 0) {
+          const itemPayloads = fullOrder.items.map((it) => ({
+            order_id: ordData.id,
+            product_name: it.product_name,
+            variant_name: it.variant_name,
+            price: it.price,
+            quantity: it.quantity,
+            dispatch_from: it.dispatch_from,
+            dispatch_to: it.dispatch_to,
+            sowing_date: it.sowing_date,
+            dispatched_qty: 0,
+            status: "pending",
+          }));
+          const { error: itemsErr } = await supabase.from("ma_order_items").insert(itemPayloads);
+          if (itemsErr) {
+            // Rollback orphan order header to guarantee ACID consistency!
+            await supabase.from("ma_orders").delete().eq("id", ordData.id);
+            console.error("Order items insert failed. Orphan order header rolled back:", itemsErr);
+          }
+        }
       }
     } catch (e) {
       console.warn("Supabase order table write error:", e);
@@ -2499,6 +2512,12 @@ export class SupabaseService {
     saveToStorage("demo_orders", DEMO_ORDERS);
 
     try {
+      // Backup previous items for rollback protection in case of network drops
+      const { data: previousItems } = await supabase
+        .from("ma_order_items")
+        .select("*")
+        .eq("order_id", order.id);
+
       await supabase
         .from("ma_orders")
         .update({
@@ -2530,7 +2549,12 @@ export class SupabaseService {
             dispatched_qty: it.dispatched_qty || 0,
             status: it.status || "pending",
           }));
-          await supabase.from("ma_order_items").insert(itemPayloads);
+          const { error: itemsErr } = await supabase.from("ma_order_items").insert(itemPayloads);
+          if (itemsErr && previousItems && previousItems.length > 0) {
+            // Restore previous items on failure to prevent data loss
+            await supabase.from("ma_order_items").insert(previousItems);
+            console.error("Order items update failed. Previous items restored:", itemsErr);
+          }
         }
       }
     } catch (e) {
@@ -2881,43 +2905,57 @@ export class SupabaseService {
     }
     saveToStorage("demo_purchase_bills", DEMO_PURCHASE_BILLS);
 
+    // 1. Direct write to Supabase with Atomic Transaction / Rollback Protection
     try {
-      const userId = cleanBill.user_id || (await SupabaseService.getUserId());
-      const { data: billData, error: billErr } = await supabase
-        .from("ma_purchase_bills")
-        .upsert({
-          id: fullBill.id,
-          ...(userId ? { user_id: userId } : {}),
-          bill_no: fullBill.bill_no,
-          party_id: fullBill.party_id,
-          party_name: fullBill.party_name,
-          bill_date: fullBill.bill_date,
-          gst_type: fullBill.gst_type,
-          gst_value: fullBill.gst_value,
-          gst_amount: fullBill.gst_amount,
-          transport_charge: fullBill.transport_charge,
-          paid_amount: fullBill.paid_amount,
-          items_total: fullBill.items_total,
-          total_amount: fullBill.total_amount,
-          due_amount: fullBill.due_amount,
-          status: fullBill.status,
-          narration: fullBill.narration,
-        })
-        .select()
-        .single();
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc("atomic_create_purchase_bill", {
+        p_bill: fullBill,
+        p_items: fullBill.items || [],
+      });
 
-      if (!billErr && billData && fullBill.items) {
-        await supabase.from("ma_purchase_bill_items").delete().eq("bill_id", billData.id);
-        if (fullBill.items.length > 0) {
-          const itemPayloads = fullBill.items.map((it) => ({
-            bill_id: billData.id,
-            product_name: it.product_name,
-            variant_name: it.variant_name,
-            price: it.price,
-            quantity: it.quantity,
-            line_total: (it.price || 0) * (it.quantity || 0),
-          }));
-          await supabase.from("ma_purchase_bill_items").insert(itemPayloads);
+      if (rpcErr || !rpcRes) {
+        // Fallback to client-orchestrated transaction with automatic rollback
+        const userId = cleanBill.user_id || (await SupabaseService.getUserId());
+        const { data: billData, error: billErr } = await supabase
+          .from("ma_purchase_bills")
+          .upsert({
+            id: fullBill.id,
+            ...(userId ? { user_id: userId } : {}),
+            bill_no: fullBill.bill_no,
+            party_id: fullBill.party_id,
+            party_name: fullBill.party_name,
+            bill_date: fullBill.bill_date,
+            gst_type: fullBill.gst_type,
+            gst_value: fullBill.gst_value,
+            gst_amount: fullBill.gst_amount,
+            transport_charge: fullBill.transport_charge,
+            paid_amount: fullBill.paid_amount,
+            items_total: fullBill.items_total,
+            total_amount: fullBill.total_amount,
+            due_amount: fullBill.due_amount,
+            status: fullBill.status,
+            narration: fullBill.narration,
+          })
+          .select()
+          .single();
+
+        if (!billErr && billData && fullBill.items) {
+          await supabase.from("ma_purchase_bill_items").delete().eq("bill_id", billData.id);
+          if (fullBill.items.length > 0) {
+            const itemPayloads = fullBill.items.map((it) => ({
+              bill_id: billData.id,
+              product_name: it.product_name,
+              variant_name: it.variant_name,
+              price: it.price,
+              quantity: it.quantity,
+              line_total: (it.price || 0) * (it.quantity || 0),
+            }));
+            const { error: itemsErr } = await supabase.from("ma_purchase_bill_items").insert(itemPayloads);
+            if (itemsErr) {
+              // Rollback orphan purchase bill on failure!
+              await supabase.from("ma_purchase_bills").delete().eq("id", billData.id);
+              console.error("Purchase bill items insert failed. Orphan bill rolled back:", itemsErr);
+            }
+          }
         }
       }
     } catch (e) {
