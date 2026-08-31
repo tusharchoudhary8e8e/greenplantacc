@@ -84,6 +84,13 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
   const safePaymentReceipts = Array.isArray(paymentReceipts) ? paymentReceipts : [];
   const safePurchaseBills = Array.isArray(purchaseBills) ? purchaseBills : [];
 
+  // Filter ONLY Invoiced / Posted Orders to hit the Party Ledger & Financial Statements
+  const invoicedOrders = useMemo(() => {
+    return safeOrders.filter(
+      (o) => o.is_invoiced || o.posted_to_ledger || o.status === "invoiced" || o.status === "dispatched"
+    );
+  }, [safeOrders]);
+
   // View Mode: "transaction_details" | "party_balances" | "journal_vouchers"
   const [viewMode, setViewMode] = useState<"party_balances" | "transaction_details" | "journal_vouchers">(initialMode);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(initialCustomerId);
@@ -163,8 +170,8 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       paymentReceipt?: PaymentReceipt;
     }> = [];
 
-    // 1. Sales Orders
-    safeOrders.forEach((ord) => {
+    // 1. Sales Invoices (Only Invoiced / Posted Orders hit the Sales Ledger)
+    invoicedOrders.forEach((ord) => {
       const dateStr = ord.order_date || (ord.created_at ? ord.created_at.split("T")[0] : "2026-08-25");
       let formattedDate = dateStr;
       try {
@@ -182,7 +189,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       feed.push({
         id: `sale-${ord.id || ord.order_no}`,
         partyName: ord.customer_name || "Cash Sale",
-        voucherNo: ord.order_no || `#ORD-${ord.id?.slice(0, 6)}`,
+        voucherNo: ord.invoice_no || ord.order_no || `#ORD-${ord.id?.slice(0, 6)}`,
         date: dateStr,
         formattedDate,
         type: "sale",
@@ -279,7 +286,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
   // Calculate Party Balances for ALL Customers/Vendors
   const partyBalancesList = useMemo(() => {
     return safeCustomers.map((cust) => {
-      const cOrders = safeOrders.filter(
+      const cOrders = invoicedOrders.filter(
         (o) =>
           o.customer_id === cust.id ||
           (o.customer_name && o.customer_name.trim().toLowerCase() === cust.name.trim().toLowerCase())
@@ -329,7 +336,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
         formattedLastDate,
       };
     });
-  }, [safeCustomers, safeOrders, safePaymentReceipts, safePurchaseBills]);
+  }, [safeCustomers, invoicedOrders, safePaymentReceipts, safePurchaseBills]);
 
   const totalYoullGet = useMemo(() => {
     return partyBalancesList.filter((p) => p.netBalance > 0).reduce((sum, p) => sum + p.netBalance, 0);
@@ -394,8 +401,8 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
 
     const vouchers: VoucherItem[] = [];
 
-    // 1. Sales Invoices (Orders)
-    safeOrders.forEach((ord) => {
+    // 1. Sales Invoices (Only Invoiced / Posted Orders hit the General Journal)
+    invoicedOrders.forEach((ord) => {
       const dateStr = ord.order_date || (ord.created_at ? ord.created_at.split("T")[0] : "2026-08-25");
       let formattedDate = dateStr;
       try {
@@ -686,7 +693,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       totalJournalCr: overallCr,
       trialBalanceAccounts: tbAccounts,
     };
-  }, [safeOrders, safePaymentReceipts, safePurchaseBills, expensesList]);
+  }, [invoicedOrders, safePaymentReceipts, safePurchaseBills, expensesList]);
 
   const handlePrint = () => {
     window.print();

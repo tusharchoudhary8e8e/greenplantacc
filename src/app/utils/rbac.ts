@@ -26,6 +26,7 @@ export type RoleMatrix = Record<UserRole, RoleConfig>;
 export const ALL_SCREENS = [
   { id: "dashboard", label: "Dashboard", category: "Core" },
   { id: "orders", label: "Sales Orders", category: "Core" },
+  { id: "sales_invoicing", label: "Post to Sales & Ledger", category: "Core" },
   { id: "create_order", label: "Create Order Form", category: "Core" },
   { id: "purchase_bills", label: "Purchase Bills", category: "Core" },
   { id: "create_purchase_bill", label: "Create Purchase Bill", category: "Core" },
@@ -70,6 +71,7 @@ export const DEFAULT_ROLE_MATRIX: RoleMatrix = {
     allowedScreens: [
       "dashboard",
       "orders",
+      "sales_invoicing",
       "purchase_bills",
       "create_purchase_bill",
       "ledger",
@@ -96,6 +98,7 @@ export const DEFAULT_ROLE_MATRIX: RoleMatrix = {
     allowedScreens: [
       "dashboard",
       "orders",
+      "sales_invoicing",
       "create_order",
       "customers",
       "sowing_plans",

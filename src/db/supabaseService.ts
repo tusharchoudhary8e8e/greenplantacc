@@ -74,7 +74,7 @@ export interface Order {
   customer_id?: string;
   customer_name?: string;
   order_date: string;
-  status?: "pending" | "partially_paid" | "paid" | "sowing_done" | "dispatched" | "cancelled";
+  status?: "pending" | "confirmed" | "partially_paid" | "paid" | "sowing_done" | "dispatched" | "invoiced" | "cancelled";
   transport_charge?: number;
   advance_payment?: number;
   foc_amount?: number;
@@ -84,7 +84,12 @@ export interface Order {
   due_amount?: number;
   narration?: string;
   items?: OrderItem[];
+  is_invoiced?: boolean;
+  posted_to_ledger?: boolean;
+  invoice_no?: string;
+  invoiced_at?: string;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface PaymentReceipt {
@@ -2639,6 +2644,143 @@ export class SupabaseService {
     });
 
     return true;
+  }
+
+  /**
+   * Convert & Post selected Orders to Official Sales Invoices and Party Ledger
+   */
+  static async postOrdersToLedger(
+    orderIds: string[],
+    adjustments?: Record<
+      string,
+      {
+        invoice_no?: string;
+        delivered_qty?: number;
+        transport_charge?: number;
+        total_amount?: number;
+        narration?: string;
+      }
+    >
+  ): Promise<Order[]> {
+    const updatedOrders: Order[] = [];
+    const timestamp = new Date().toISOString();
+
+    for (const ordId of orderIds) {
+      const idx = DEMO_ORDERS.findIndex((o) => o.id === ordId || o.order_no === ordId);
+      if (idx === -1) continue;
+
+      const current = DEMO_ORDERS[idx];
+      const adj = adjustments?.[ordId];
+
+      const invNo =
+        adj?.invoice_no ||
+        current.invoice_no ||
+        `INV-${new Date().getFullYear()}-${String(Math.floor(1000 + Math.random() * 9000))}`;
+
+      let totalAmt = adj?.total_amount !== undefined ? adj.total_amount : (current.total_amount || 0);
+      let transport = adj?.transport_charge !== undefined ? adj.transport_charge : (current.transport_charge || 0);
+      let paidAmt = current.paid_amount || 0;
+      let advAmt = current.advance_payment || 0;
+      let netDue = Math.max(0, totalAmt - advAmt - paidAmt);
+
+      const postedOrder: Order = {
+        ...current,
+        is_invoiced: true,
+        posted_to_ledger: true,
+        invoice_no: invNo,
+        invoiced_at: timestamp,
+        status: netDue === 0 ? "paid" : (paidAmt > 0 ? "partially_paid" : "invoiced"),
+        total_amount: totalAmt,
+        transport_charge: transport,
+        due_amount: netDue,
+        narration: adj?.narration || current.narration || `Sales Invoice #${invNo} posted to ledger`,
+        updated_at: timestamp,
+      };
+
+      DEMO_ORDERS[idx] = postedOrder;
+      updatedOrders.push(postedOrder);
+
+      // Cloud Persistence
+      try {
+        await supabase
+          .from("ma_orders")
+          .update({
+            status: postedOrder.status,
+            total_amount: postedOrder.total_amount,
+            transport_charge: postedOrder.transport_charge,
+            due_amount: postedOrder.due_amount,
+            narration: postedOrder.narration,
+            updated_at: timestamp,
+          })
+          .eq("id", postedOrder.id);
+      } catch (e) {
+        console.warn("Supabase post order update error:", e);
+      }
+
+      SupabaseService.atomicMergeAppSettings("orders", postedOrder);
+
+      // Forensic Audit Log
+      logAuditAction({
+        entity_type: "order",
+        entity_id: postedOrder.id || postedOrder.order_no || invNo,
+        entity_label: `Sales Invoice #${invNo} (${postedOrder.customer_name})`,
+        action: "UPDATE",
+        changes_summary: `Order #${postedOrder.order_no} officially converted & posted to Sales Ledger as Invoice #${invNo} (₹${postedOrder.total_amount})`,
+        previous_state: current,
+        new_state: postedOrder,
+      });
+    }
+
+    saveToStorage("demo_orders", DEMO_ORDERS);
+    return updatedOrders;
+  }
+
+  /**
+   * Revert an invoiced order back to draft / pending queue
+   */
+  static async revertOrderFromLedger(orderId: string): Promise<Order | null> {
+    const idx = DEMO_ORDERS.findIndex((o) => o.id === orderId || o.order_no === orderId);
+    if (idx === -1) return null;
+
+    const current = DEMO_ORDERS[idx];
+    const timestamp = new Date().toISOString();
+
+    const revertedOrder: Order = {
+      ...current,
+      is_invoiced: false,
+      posted_to_ledger: false,
+      status: "confirmed",
+      updated_at: timestamp,
+    };
+
+    DEMO_ORDERS[idx] = revertedOrder;
+    saveToStorage("demo_orders", DEMO_ORDERS);
+
+    try {
+      await supabase
+        .from("ma_orders")
+        .update({
+          status: "confirmed",
+          updated_at: timestamp,
+        })
+        .eq("id", revertedOrder.id);
+    } catch (e) {
+      console.warn("Supabase revert order error:", e);
+    }
+
+    SupabaseService.atomicMergeAppSettings("orders", revertedOrder);
+
+    logAuditAction({
+      entity_type: "order",
+      entity_id: revertedOrder.id || revertedOrder.order_no || "",
+      entity_label: `Order #${revertedOrder.order_no} (${revertedOrder.customer_name})`,
+      action: "UPDATE",
+      changes_summary: `Sales Invoice #${current.invoice_no || current.order_no} unposted from ledger and reverted to draft queue`,
+      previous_state: current,
+      new_state: revertedOrder,
+    });
+
+    return revertedOrder;
   }
 
   // Production Batches

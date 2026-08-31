@@ -53,6 +53,9 @@ const MetricRolePermissionsScreen = lazy(() =>
 const MetricAuditLogScreen = lazy(() =>
   import("./screens/MetricAuditLogScreen").then((m) => ({ default: m.MetricAuditLogScreen }))
 );
+const MetricSalesInvoicingQueueScreen = lazy(() =>
+  import("./screens/MetricSalesInvoicingQueueScreen").then((m) => ({ default: m.MetricSalesInvoicingQueueScreen }))
+);
 
 import {
   UserRole,
@@ -546,6 +549,14 @@ function MainAppContent() {
                       setEditingPurchaseBill(null);
                       setActiveTab("purchase_bills");
                     }}
+                  />
+                )}
+
+                {activeTab === "sales_invoicing" && (
+                  <MetricSalesInvoicingQueueScreen
+                    orders={orders}
+                    customers={customers}
+                    onOrdersUpdated={loadAllData}
                   />
                 )}
 

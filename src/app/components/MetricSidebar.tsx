@@ -16,12 +16,14 @@ import {
   ShieldCheck,
   History,
   X,
+  FileCheck,
 } from "lucide-react";
 import { hasScreenAccess, getCurrentUserRole, UserRole } from "../utils/rbac";
 
 export type MetricTab =
   | "dashboard"
   | "orders"
+  | "sales_invoicing"
   | "purchase_bills"
   | "create_purchase_bill"
   | "ledger"
@@ -70,6 +72,7 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
       items: [
         { id: "dashboard" as MetricTab, label: "Dashboard", icon: LineChart },
         { id: "orders" as MetricTab, label: "Sales Orders", icon: ShoppingCart },
+        { id: "sales_invoicing" as MetricTab, label: "Post to Sales", icon: FileCheck },
         { id: "purchase_bills" as MetricTab, label: "Purchase Bills", icon: Receipt },
       ],
     },
