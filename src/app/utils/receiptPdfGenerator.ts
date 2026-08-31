@@ -231,25 +231,23 @@ export function generateReceiptHTML(data: ReceiptData): string {
       color: #000;
     }
     .bottom-watermark {
-      position: absolute;
-      bottom: 16px;
-      left: 28px;
-      right: 28px;
+      margin-top: 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 11px;
-      color: #0066cc;
+      font-size: 10px;
+      color: #777777;
       border-top: 1px solid #eeeeee;
       padding-top: 8px;
     }
-    .vyapar-tag {
-      background: #eeeeee;
-      color: #444444;
+    .footer-tag {
+      background: #f0fdf4;
+      color: #166534;
       padding: 2px 8px;
-      border-radius: 3px;
+      border-radius: 4px;
       font-size: 10px;
       font-weight: bold;
+      border: 1px solid #bbf7d0;
     }
   </style>
 </head>
@@ -352,10 +350,10 @@ export function generateReceiptHTML(data: ReceiptData): string {
       </div>
     </div>
 
-    <!-- Bottom Footer Watermark -->
+    <!-- Bottom Official Footer -->
     <div class="bottom-watermark">
-      <span>www.vyaparapp.in</span>
-      <span class="vyapar-tag">Generated For Free On Vyapar</span>
+      <span>RKK Nursery • Official Accounting & Management System</span>
+      <span class="footer-tag">Authorized Payment Receipt</span>
     </div>
   </div>
 
