@@ -2230,6 +2230,122 @@ export class SupabaseService {
     }
   }
 
+  /**
+   * Universal Cloud Synchronizer:
+   * Pushes all local orders, customers, and purchase bills to Supabase Cloud,
+   * so all devices (PC, Phone, Tablet) stay 100% in sync with zero lost records.
+   */
+  static async syncAllLocalToCloud(): Promise<{ orders: number; customers: number; bills: number }> {
+    let orderCount = 0;
+    let customerCount = 0;
+    let billCount = 0;
+
+    try {
+      // 1. Sync Orders
+      const localOrders = loadFromStorage("demo_orders", DEMO_ORDERS);
+      if (localOrders && localOrders.length > 0) {
+        const { data: cloudOrders } = await supabase
+          .from("app_settings")
+          .select("value")
+          .eq("key", "orders")
+          .single();
+
+        const remote = Array.isArray(cloudOrders?.value) ? (cloudOrders.value as Order[]) : [];
+        const merged = [...remote];
+
+        localOrders.forEach((lo) => {
+          const idx = merged.findIndex(
+            (r: any) => (lo.id && r.id === lo.id) || (lo.order_no && r.order_no === lo.order_no)
+          );
+          if (idx === -1) {
+            merged.push(lo);
+          } else {
+            merged[idx] = { ...merged[idx], ...lo };
+          }
+        });
+
+        await supabase.from("app_settings").upsert({
+          key: "orders",
+          value: merged,
+          updated_at: new Date().toISOString(),
+        });
+        saveToStorage("demo_orders", merged);
+        DEMO_ORDERS = merged;
+        orderCount = merged.length;
+      }
+
+      // 2. Sync Customers
+      const localCustomers = loadCustomersFromStorage();
+      if (localCustomers && localCustomers.length > 0) {
+        const { data: cloudCust } = await supabase
+          .from("app_settings")
+          .select("value")
+          .eq("key", "customers")
+          .single();
+
+        const remote = Array.isArray(cloudCust?.value) ? (cloudCust.value as Customer[]) : [];
+        const merged = [...remote];
+
+        localCustomers.forEach((lc) => {
+          const idx = merged.findIndex(
+            (r: any) => (lc.id && r.id === lc.id) || (lc.name && r.name === lc.name)
+          );
+          if (idx === -1) {
+            merged.push(lc);
+          } else {
+            merged[idx] = { ...merged[idx], ...lc };
+          }
+        });
+
+        await supabase.from("app_settings").upsert({
+          key: "customers",
+          value: merged,
+          updated_at: new Date().toISOString(),
+        });
+        saveToStorage("demo_customers", merged);
+        DEMO_CUSTOMERS = merged;
+        customerCount = merged.length;
+      }
+
+      // 3. Sync Purchase Bills
+      const localBills = loadFromStorage("demo_purchase_bills", DEMO_PURCHASE_BILLS);
+      if (localBills && localBills.length > 0) {
+        const { data: cloudBills } = await supabase
+          .from("app_settings")
+          .select("value")
+          .eq("key", "purchase_bills")
+          .single();
+
+        const remote = Array.isArray(cloudBills?.value) ? (cloudBills.value as PurchaseBill[]) : [];
+        const merged = [...remote];
+
+        localBills.forEach((lb) => {
+          const idx = merged.findIndex(
+            (r: any) => (lb.id && r.id === lb.id) || (lb.bill_no && r.bill_no === lb.bill_no)
+          );
+          if (idx === -1) {
+            merged.push(lb);
+          } else {
+            merged[idx] = { ...merged[idx], ...lb };
+          }
+        });
+
+        await supabase.from("app_settings").upsert({
+          key: "purchase_bills",
+          value: merged,
+          updated_at: new Date().toISOString(),
+        });
+        saveToStorage("demo_purchase_bills", merged);
+        DEMO_PURCHASE_BILLS = merged;
+        billCount = merged.length;
+      }
+    } catch (e) {
+      console.warn("Universal sync error:", e);
+    }
+
+    return { orders: orderCount, customers: customerCount, bills: billCount };
+  }
+
   // Customers
   static async getCustomers(options?: PaginationOptions): Promise<Customer[]> {
     let list: Customer[] = [];

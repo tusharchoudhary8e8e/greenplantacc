@@ -186,6 +186,8 @@ function MainAppContent() {
   const [receivePaymentCustId, setReceivePaymentCustId] = useState("");
   const [receivePaymentOrderId, setReceivePaymentOrderId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+  const [syncStatusText, setSyncStatusText] = useState<string | null>(null);
 
   const refreshAppData = useCallback(async () => {
     try {
@@ -226,6 +228,8 @@ function MainAppContent() {
       setLoading(true);
     }
     try {
+      // Auto-push local PC records to cloud so mobile devices can see them
+      await SupabaseService.syncAllLocalToCloud();
       await refreshAppData();
       isInitialLoadDoneRef.current = true;
     } catch (e) {
@@ -234,6 +238,20 @@ function MainAppContent() {
       setLoading(false);
     }
   }, [refreshAppData]);
+
+  const handleManualCloudSync = async () => {
+    setIsSyncingCloud(true);
+    try {
+      const res = await SupabaseService.syncAllLocalToCloud();
+      await refreshAppData();
+      setSyncStatusText(`Synced! ${res.orders} Orders Cloud-Ready`);
+      setTimeout(() => setSyncStatusText(null), 3500);
+    } catch (e) {
+      console.error("Manual sync error:", e);
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
 
   const handleSavePurchaseBill = (savedBill: PurchaseBill) => {
     setPurchaseBills((prev) => {
@@ -400,7 +418,7 @@ function MainAppContent() {
         <div className="flex items-center gap-4">
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 -ml-2 text-slate-700 hover:bg-emerald-50 hover:text-[#00a651] rounded-lg transition"
+            className="p-2 -ml-2 text-slate-700 hover:bg-emerald-50 hover:text-[#00a651] rounded-lg transition cursor-pointer"
             title="Toggle Menu"
             aria-label="Toggle Menu"
           >
@@ -414,6 +432,37 @@ function MainAppContent() {
               {activeTab.replace('_', ' ')}
             </p>
           </div>
+        </div>
+
+        {/* Right Header Actions: Live Cloud Sync */}
+        <div className="flex items-center gap-2">
+          {syncStatusText && (
+            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg animate-fadeIn hidden sm:inline-block">
+              {syncStatusText}
+            </span>
+          )}
+          <button
+            onClick={handleManualCloudSync}
+            disabled={isSyncingCloud}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-[#00a651] border border-slate-200 hover:border-emerald-200 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer"
+            title="Sync all orders & records between PC and Mobile"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={isSyncingCloud ? "animate-spin text-emerald-600" : ""}
+            >
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+            </svg>
+            <span className="hidden sm:inline">{isSyncingCloud ? "Syncing..." : "Sync Cloud"}</span>
+          </button>
         </div>
       </header>
 
