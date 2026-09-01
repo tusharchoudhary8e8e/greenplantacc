@@ -130,17 +130,40 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-8 bg-red-50 text-red-700 min-h-screen">
-          <h1 className="text-xl font-bold mb-2">Something went wrong</h1>
-          <pre className="text-xs bg-white p-4 rounded border border-red-200 overflow-auto">
-            {String(this.state.error)}
-          </pre>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded font-bold text-xs"
-          >
-            Reload App
-          </button>
+        <div className="p-8 bg-red-50 text-red-700 min-h-screen font-sans flex flex-col items-center justify-center">
+          <div className="max-w-md w-full bg-white p-6 rounded-2xl shadow-lg border border-red-100 space-y-4 text-center">
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+              ⚠️
+            </div>
+            <h1 className="text-lg font-bold text-red-900">Application Notice</h1>
+            <pre className="text-xs bg-red-50 p-3 rounded-xl border border-red-200 text-red-800 text-left overflow-auto max-h-32">
+              {String(this.state.error?.message || this.state.error)}
+            </pre>
+            <p className="text-xs text-slate-500 font-medium">
+              A newer version of the application has been deployed. Please click below to load the latest update.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 pt-2">
+              <button
+                onClick={() => {
+                  if ("caches" in window) {
+                    caches.keys().then((names) => names.forEach((n) => caches.delete(n)));
+                  }
+                  window.location.href = window.location.pathname + "?t=" + Date.now();
+                }}
+                className="w-full px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs transition cursor-pointer"
+              >
+                🔄 Load Latest Version
+              </button>
+              <button
+                onClick={() => {
+                  this.setState({ hasError: false, error: null });
+                }}
+                className="w-full px-4 py-2.5 border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-xs transition cursor-pointer"
+              >
+                Dismiss &amp; Retry
+              </button>
+            </div>
+          </div>
         </div>
       );
     }
