@@ -281,9 +281,9 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
             </label>
             <SearchableSelect
               options={customerOptions}
-              value={selectedCustId}
+              value={selectedCustomerId}
               onChange={(val) => {
-                setSelectedCustId(val);
+                setSelectedCustomerId(val);
                 setErrorMsg("");
               }}
               placeholder="Type customer name to search & select..."
