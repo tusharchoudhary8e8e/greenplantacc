@@ -442,9 +442,15 @@ export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({
                       </td>
 
                       <td className="py-4 px-4">
-                        <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          ✓ {plan.orders.length} Order{plan.orders.length > 1 ? "s" : ""} Linked
-                        </span>
+                        {plan.orders.length > 0 ? (
+                          <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            ✓ {plan.orders.length} Order{plan.orders.length > 1 ? "s" : ""} Booked
+                          </span>
+                        ) : (
+                          <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-800 border border-amber-200">
+                            🌱 Advance Nursery Stock (Available)
+                          </span>
+                        )}
                       </td>
 
                       <td className="py-4 px-4">
@@ -559,8 +565,11 @@ export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({
                                 </tbody>
                               </table>
                             ) : (
-                              <div className="p-4 text-center text-slate-400 text-xs">
-                                No sales orders linked yet. This is a buffer/production batch.
+                              <div className="p-4 bg-amber-50/60 rounded-lg border border-amber-200/60 text-center text-xs text-amber-900 space-y-1">
+                                <p className="font-bold">🌱 Advance Nursery Production Batch (Unallocated Stock)</p>
+                                <p className="text-[11px] text-amber-700 font-medium">
+                                  This batch of {plan.totalQuantity.toLocaleString("en-IN")} plants was sown directly in {plan.unitName} (Lot: {plan.lotNo}). When a customer places an order for <strong>{plan.productName} ({plan.variantName})</strong>, it will automatically connect here and allocate seedlings.
+                                </p>
                               </div>
                             )}
                           </div>
