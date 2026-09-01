@@ -43,6 +43,8 @@ import {
   PurchaseBill,
   BankAccount,
   ExpenseRecord,
+  SalesReturn,
+  PurchaseReturn,
   SupabaseService,
 } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "../components/SearchableSelect";
@@ -98,19 +100,25 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
   // Journal Sub-Tab: "journal_feed" | "trial_balance"
   const [journalSubTab, setJournalSubTab] = useState<"journal_feed" | "trial_balance">("journal_feed");
 
-  // Expenses & Bank Accounts for full double-entry coverage
+  // Expenses, Bank Accounts, Sales Returns & Purchase Returns for full double-entry coverage
   const [expensesList, setExpensesList] = useState<ExpenseRecord[]>([]);
   const [bankAccountsList, setBankAccountsList] = useState<BankAccount[]>([]);
+  const [salesReturnsList, setSalesReturnsList] = useState<SalesReturn[]>([]);
+  const [purchaseReturnsList, setPurchaseReturnsList] = useState<PurchaseReturn[]>([]);
 
   useEffect(() => {
     const fetchExtraFinance = async () => {
       try {
-        const [exp, b] = await Promise.all([
+        const [exp, b, sr, pr] = await Promise.all([
           SupabaseService.getExpenses(),
           SupabaseService.getBankAccounts(),
+          SupabaseService.getSalesReturns(),
+          SupabaseService.getPurchaseReturns(),
         ]);
         setExpensesList(exp || []);
         setBankAccountsList(b || []);
+        setSalesReturnsList(sr || []);
+        setPurchaseReturnsList(pr || []);
       } catch (e) {
         console.warn("Failed to load extra finance data for journal:", e);
       }
@@ -309,14 +317,33 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       const totalPurchases = cPurchaseBills.reduce((sum, b) => sum + (b.total_amount || 0), 0);
       const totalPurchasePaid = cPurchaseBills.reduce((sum, b) => sum + (b.paid_amount || 0), 0);
 
+      // Sales Returns (Credit Notes) & Purchase Returns (Debit Notes)
+      const cSalesReturns = salesReturnsList.filter(
+        (sr) =>
+          sr.customer_id === cust.id ||
+          (sr.customer_name && sr.customer_name.trim().toLowerCase() === cust.name.trim().toLowerCase())
+      );
+      const totalSalesReturns = cSalesReturns.reduce((sum, sr) => sum + (sr.total_amount || 0), 0);
+
+      const cPurchaseReturns = purchaseReturnsList.filter(
+        (pr) =>
+          pr.party_id === cust.id ||
+          (pr.party_name && pr.party_name.trim().toLowerCase() === cust.name.trim().toLowerCase())
+      );
+      const totalPurchaseReturns = cPurchaseReturns.reduce((sum, pr) => sum + (pr.total_amount || 0), 0);
+
       const openingBal = cust.opening_balance || 0;
-      const netBalance = (openingBal + totalSales - totalReceipts - totalAdvance) - (totalPurchases - totalPurchasePaid);
+      const netBalance =
+        (openingBal + totalSales - totalReceipts - totalAdvance - totalSalesReturns) -
+        (totalPurchases - totalPurchasePaid - totalPurchaseReturns);
 
       const dates = [
         cust.created_at ? cust.created_at.split("T")[0] : null,
         ...cOrders.map((o) => o.order_date),
         ...cReceipts.map((r) => r.receipt_date),
         ...cPurchaseBills.map((b) => b.bill_date),
+        ...cSalesReturns.map((sr) => sr.return_date),
+        ...cPurchaseReturns.map((pr) => pr.return_date),
       ].filter(Boolean) as string[];
 
       const sortedDates = dates.sort().reverse();
@@ -336,7 +363,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
         formattedLastDate,
       };
     });
-  }, [safeCustomers, invoicedOrders, safePaymentReceipts, safePurchaseBills]);
+  }, [safeCustomers, invoicedOrders, safePaymentReceipts, safePurchaseBills, salesReturnsList, purchaseReturnsList]);
 
   const totalYoullGet = useMemo(() => {
     return partyBalancesList.filter((p) => p.netBalance > 0).reduce((sum, p) => sum + p.netBalance, 0);
@@ -635,6 +662,90 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       });
     });
 
+    // 5. Sales Returns (Credit Notes - Dr. Returns / Cr. Debtors)
+    salesReturnsList.forEach((sr) => {
+      const dateStr = sr.return_date || "2026-08-25";
+      let formattedDate = dateStr;
+      try {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          formattedDate = `${d.getDate()} ${d.toLocaleDateString("en-US", { month: "short" })}, ${String(d.getFullYear()).slice(2)}`;
+        }
+      } catch {}
+
+      const amt = sr.total_amount || 0;
+      const legs: JournalLeg[] = [
+        {
+          account: "Plant Sales Returns & Allowances",
+          group: "Income",
+          dr: amt, // Dr. Contra-Income decreases revenue
+          cr: 0,
+        },
+        {
+          account: `Sundry Debtors - ${sr.customer_name || "Customer"}`,
+          group: "Asset",
+          dr: 0,
+          cr: amt, // Cr. Debtors reduces receivable asset
+        },
+      ];
+
+      vouchers.push({
+        id: `jv-sr-${sr.id || sr.credit_note_no}`,
+        voucherNo: `#${sr.credit_note_no}`,
+        date: dateStr,
+        formattedDate,
+        type: "Sales Invoice" as any, // Visual badge compatibility
+        partyName: sr.customer_name || "Customer",
+        narration: `Credit note issued for returned/damaged plants against Order #${sr.order_no || "N/A"}${sr.reason ? ` (${sr.reason})` : ""}`,
+        legs,
+        totalDr: amt,
+        totalCr: amt,
+        isBalanced: true,
+      });
+    });
+
+    // 6. Purchase Returns (Debit Notes - Dr. Creditors / Cr. Returns)
+    purchaseReturnsList.forEach((pr) => {
+      const dateStr = pr.return_date || "2026-08-25";
+      let formattedDate = dateStr;
+      try {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          formattedDate = `${d.getDate()} ${d.toLocaleDateString("en-US", { month: "short" })}, ${String(d.getFullYear()).slice(2)}`;
+        }
+      } catch {}
+
+      const amt = pr.total_amount || 0;
+      const legs: JournalLeg[] = [
+        {
+          account: `Sundry Creditors - ${pr.party_name || "Supplier"}`,
+          group: "Liability",
+          dr: amt, // Dr. Creditors reduces payable liability
+          cr: 0,
+        },
+        {
+          account: "Purchase Returns & Outward Allowances",
+          group: "Expense",
+          dr: 0,
+          cr: amt, // Cr. Contra-Expense reduces purchase expense
+        },
+      ];
+
+      vouchers.push({
+        id: `jv-pr-${pr.id || pr.debit_note_no}`,
+        voucherNo: `#${pr.debit_note_no}`,
+        date: dateStr,
+        formattedDate,
+        type: "Purchase Bill" as any, // Visual badge compatibility
+        partyName: pr.party_name || "Supplier",
+        narration: `Debit note issued for returned materials/plants against Bill #${pr.bill_no || "N/A"}${pr.reason ? ` (${pr.reason})` : ""}`,
+        legs,
+        totalDr: amt,
+        totalCr: amt,
+        isBalanced: true,
+      });
+    });
+
     vouchers.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const overallDr = vouchers.reduce((s, v) => s + v.totalDr, 0);
@@ -693,7 +804,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       totalJournalCr: overallCr,
       trialBalanceAccounts: tbAccounts,
     };
-  }, [invoicedOrders, safePaymentReceipts, safePurchaseBills, expensesList]);
+  }, [invoicedOrders, safePaymentReceipts, safePurchaseBills, expensesList, salesReturnsList, purchaseReturnsList]);
 
   const handlePrint = () => {
     window.print();

@@ -56,6 +56,9 @@ const MetricAuditLogScreen = lazy(() =>
 const MetricSalesInvoicingQueueScreen = lazy(() =>
   import("./screens/MetricSalesInvoicingQueueScreen").then((m) => ({ default: m.MetricSalesInvoicingQueueScreen }))
 );
+const MetricReturnsNotesScreen = lazy(() =>
+  import("./screens/MetricReturnsNotesScreen").then((m) => ({ default: m.MetricReturnsNotesScreen }))
+);
 
 import {
   UserRole,
@@ -568,6 +571,15 @@ function MainAppContent() {
                       setActiveTab("ledger");
                     }}
                     onOpenReceivePayment={handleOpenReceivePaymentModal}
+                  />
+                )}
+
+                {activeTab === "returns_notes" && (
+                  <MetricReturnsNotesScreen
+                    customers={customers}
+                    orders={orders}
+                    purchaseBills={purchaseBills}
+                    onDataUpdated={loadAllData}
                   />
                 )}
 

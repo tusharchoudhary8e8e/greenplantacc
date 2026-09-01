@@ -140,6 +140,66 @@ export interface PurchaseBill {
   created_at?: string;
 }
 
+export interface SalesReturnItem {
+  id?: string;
+  return_id?: string;
+  order_item_id?: string;
+  product_name: string;
+  variant_name?: string;
+  quantity: number;
+  unit_price: number;
+  return_reason?: "damaged_in_transit" | "disease_wilted" | "wrong_variety" | "excess_unsold" | "other";
+  restock_action?: "restock_to_inventory" | "write_off_loss";
+  line_total: number;
+  notes?: string;
+}
+
+export interface SalesReturn {
+  id?: string;
+  credit_note_no: string;
+  order_id?: string;
+  order_no?: string;
+  customer_id?: string;
+  customer_name: string;
+  return_date: string;
+  total_amount: number;
+  refund_status?: "adjusted_in_ledger" | "refunded_cash" | "refunded_bank";
+  refund_account_id?: string;
+  reason?: string;
+  items: SalesReturnItem[];
+  created_at?: string;
+}
+
+export interface PurchaseReturnItem {
+  id?: string;
+  return_id?: string;
+  bill_item_id?: string;
+  product_name: string;
+  variant_name?: string;
+  unit?: string;
+  quantity: number;
+  unit_price: number;
+  return_reason?: "damaged_defective" | "expired" | "substandard_quality" | "wrong_supply" | "other";
+  line_total: number;
+  notes?: string;
+}
+
+export interface PurchaseReturn {
+  id?: string;
+  debit_note_no: string;
+  bill_id?: string;
+  bill_no?: string;
+  party_id?: string;
+  party_name: string;
+  return_date: string;
+  total_amount: number;
+  refund_status?: "adjusted_in_ledger" | "refund_received_cash" | "refund_received_bank";
+  refund_account_id?: string;
+  reason?: string;
+  items: PurchaseReturnItem[];
+  created_at?: string;
+}
+
 export interface ProductionBatch {
   id?: string;
   batch_no?: string;
@@ -3775,6 +3835,162 @@ export class SupabaseService {
     // Atomic removal in app_settings
     SupabaseService.atomicMergeAppSettings("expenses", { id: expId }, true);
 
+    return true;
+  }
+
+  // ─── SALES RETURNS (CREDIT NOTES) ──────────────────────────────────
+  static async getSalesReturns(): Promise<SalesReturn[]> {
+    try {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "sales_returns")
+        .single();
+      if (!error && data?.value && Array.isArray(data.value)) {
+        saveToStorage("demo_sales_returns", data.value);
+        return data.value as SalesReturn[];
+      }
+    } catch {}
+
+    return loadFromStorage<SalesReturn[]>("demo_sales_returns", []);
+  }
+
+  static async saveSalesReturn(sr: Partial<SalesReturn>): Promise<SalesReturn> {
+    const list = await this.getSalesReturns();
+    const newSR: SalesReturn = {
+      id: sr.id || `sr-${Date.now()}`,
+      credit_note_no: sr.credit_note_no || `CN-${new Date().getFullYear()}-${String(list.length + 1001)}`,
+      order_id: sr.order_id,
+      order_no: sr.order_no,
+      customer_id: sr.customer_id,
+      customer_name: sr.customer_name || "Customer",
+      return_date: sr.return_date || new Date().toISOString().split("T")[0],
+      total_amount: roundCurrency(sr.total_amount || 0),
+      refund_status: sr.refund_status || "adjusted_in_ledger",
+      refund_account_id: sr.refund_account_id,
+      reason: sr.reason,
+      items: sr.items || [],
+      created_at: new Date().toISOString(),
+    };
+
+    const idx = list.findIndex((r) => r.id === newSR.id);
+    if (idx !== -1) {
+      list[idx] = newSR;
+    } else {
+      list.unshift(newSR);
+    }
+    saveToStorage("demo_sales_returns", list);
+
+    // Audit Log
+    AuditLogger.log({
+      module: "orders",
+      action: "CREATE",
+      record_id: newSR.id || newSR.credit_note_no,
+      record_identifier: `Credit Note #${newSR.credit_note_no} (${newSR.customer_name})`,
+      newState: newSR,
+      notes: `Issued Credit Note #${newSR.credit_note_no} for ₹${newSR.total_amount} against Order #${newSR.order_no || "N/A"}`,
+    });
+
+    SupabaseService.atomicMergeAppSettings("sales_returns", newSR);
+    return newSR;
+  }
+
+  static async deleteSalesReturn(id: string): Promise<boolean> {
+    let list = await this.getSalesReturns();
+    const target = list.find((r) => r.id === id);
+    list = list.filter((r) => r.id !== id);
+    saveToStorage("demo_sales_returns", list);
+
+    if (target) {
+      AuditLogger.log({
+        module: "orders",
+        action: "DELETE",
+        record_id: id,
+        record_identifier: `Credit Note #${target.credit_note_no}`,
+        previousState: target,
+        notes: `Deleted Credit Note #${target.credit_note_no}`,
+      });
+    }
+
+    SupabaseService.atomicMergeAppSettings("sales_returns", { id }, true);
+    return true;
+  }
+
+  // ─── PURCHASE RETURNS (DEBIT NOTES) ────────────────────────────────
+  static async getPurchaseReturns(): Promise<PurchaseReturn[]> {
+    try {
+      const { data, error } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "purchase_returns")
+        .single();
+      if (!error && data?.value && Array.isArray(data.value)) {
+        saveToStorage("demo_purchase_returns", data.value);
+        return data.value as PurchaseReturn[];
+      }
+    } catch {}
+
+    return loadFromStorage<PurchaseReturn[]>("demo_purchase_returns", []);
+  }
+
+  static async savePurchaseReturn(pr: Partial<PurchaseReturn>): Promise<PurchaseReturn> {
+    const list = await this.getPurchaseReturns();
+    const newPR: PurchaseReturn = {
+      id: pr.id || `pr-${Date.now()}`,
+      debit_note_no: pr.debit_note_no || `DN-${new Date().getFullYear()}-${String(list.length + 2001)}`,
+      bill_id: pr.bill_id,
+      bill_no: pr.bill_no,
+      party_id: pr.party_id,
+      party_name: pr.party_name || "Supplier",
+      return_date: pr.return_date || new Date().toISOString().split("T")[0],
+      total_amount: roundCurrency(pr.total_amount || 0),
+      refund_status: pr.refund_status || "adjusted_in_ledger",
+      refund_account_id: pr.refund_account_id,
+      reason: pr.reason,
+      items: pr.items || [],
+      created_at: new Date().toISOString(),
+    };
+
+    const idx = list.findIndex((r) => r.id === newPR.id);
+    if (idx !== -1) {
+      list[idx] = newPR;
+    } else {
+      list.unshift(newPR);
+    }
+    saveToStorage("demo_purchase_returns", list);
+
+    // Audit Log
+    AuditLogger.log({
+      module: "purchase_bills",
+      action: "CREATE",
+      record_id: newPR.id || newPR.debit_note_no,
+      record_identifier: `Debit Note #${newPR.debit_note_no} (${newPR.party_name})`,
+      newState: newPR,
+      notes: `Issued Debit Note #${newPR.debit_note_no} for ₹${newPR.total_amount} against Purchase Bill #${newPR.bill_no || "N/A"}`,
+    });
+
+    SupabaseService.atomicMergeAppSettings("purchase_returns", newPR);
+    return newPR;
+  }
+
+  static async deletePurchaseReturn(id: string): Promise<boolean> {
+    let list = await this.getPurchaseReturns();
+    const target = list.find((r) => r.id === id);
+    list = list.filter((r) => r.id !== id);
+    saveToStorage("demo_purchase_returns", list);
+
+    if (target) {
+      AuditLogger.log({
+        module: "purchase_bills",
+        action: "DELETE",
+        record_id: id,
+        record_identifier: `Debit Note #${target.debit_note_no}`,
+        previousState: target,
+        notes: `Deleted Debit Note #${target.debit_note_no}`,
+      });
+    }
+
+    SupabaseService.atomicMergeAppSettings("purchase_returns", { id }, true);
     return true;
   }
 }

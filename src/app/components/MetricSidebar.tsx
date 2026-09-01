@@ -17,6 +17,7 @@ import {
   History,
   X,
   FileCheck,
+  RotateCcw,
 } from "lucide-react";
 import { hasScreenAccess, getCurrentUserRole, UserRole } from "../utils/rbac";
 
@@ -24,6 +25,7 @@ export type MetricTab =
   | "dashboard"
   | "orders"
   | "sales_invoicing"
+  | "returns_notes"
   | "purchase_bills"
   | "create_purchase_bill"
   | "ledger"
@@ -73,6 +75,7 @@ export const MetricSidebar: React.FC<SidebarProps> = ({
         { id: "dashboard" as MetricTab, label: "Dashboard", icon: LineChart },
         { id: "orders" as MetricTab, label: "Sales Orders", icon: ShoppingCart },
         { id: "sales_invoicing" as MetricTab, label: "Post to Sales", icon: FileCheck },
+        { id: "returns_notes" as MetricTab, label: "Returns (CN / DN)", icon: RotateCcw },
         { id: "purchase_bills" as MetricTab, label: "Purchase Bills", icon: Receipt },
       ],
     },
