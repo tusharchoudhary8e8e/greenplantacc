@@ -10,6 +10,8 @@ import {
   CheckCircle,
   Printer,
   CreditCard,
+  Sprout,
+  AlertCircle,
 } from "lucide-react";
 import { Customer, Product, Order, OrderItem, ProductionBatch, BankAccount, SupabaseService } from "../../db/supabaseService";
 import { SearchableSelect, SearchableOption } from "../components/SearchableSelect";
