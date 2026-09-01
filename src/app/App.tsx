@@ -4,59 +4,86 @@ import { User } from "@supabase/supabase-js";
 import { getCurrentUser, onAuthStateChange, signOutUser, supabase } from "../lib/supabase";
 import { MetricSidebar, MetricTab } from "./components/MetricSidebar";
 
-// Lazy-loaded screens for dynamic code-splitting and instant initial page load
-const MetricDashboardScreen = lazy(() =>
+// Resilient Lazy Loading Helper with Automatic Cache Invalidation on New Deployments
+function lazyWithRetry<T extends React.ComponentType<any>>(
+  componentImport: () => Promise<{ default: T }>
+) {
+  return lazy(async () => {
+    const pageHasBeenForceRefreshed = JSON.parse(
+      window.sessionStorage.getItem("rkk-app-force-refreshed") || "false"
+    );
+
+    try {
+      const component = await componentImport();
+      window.sessionStorage.setItem("rkk-app-force-refreshed", "false");
+      return component;
+    } catch (error: any) {
+      if (!pageHasBeenForceRefreshed) {
+        window.sessionStorage.setItem("rkk-app-force-refreshed", "true");
+        if ("caches" in window) {
+          const names = await caches.keys();
+          await Promise.all(names.map((n) => caches.delete(n)));
+        }
+        window.location.reload();
+      }
+      throw error;
+    }
+  });
+}
+
+// Lazy-loaded screens with automatic retry and fresh deployment resolution
+const MetricDashboardScreen = lazyWithRetry(() =>
   import("./screens/MetricDashboardScreen").then((m) => ({ default: m.MetricDashboardScreen }))
 );
-const MetricSowingPlansScreen = lazy(() =>
+const MetricSowingPlansScreen = lazyWithRetry(() =>
   import("./screens/MetricSowingPlansScreen").then((m) => ({ default: m.MetricSowingPlansScreen }))
 );
-const MetricCreateOrderScreen = lazy(() =>
+const MetricCreateOrderScreen = lazyWithRetry(() =>
   import("./screens/MetricCreateOrderScreen").then((m) => ({ default: m.MetricCreateOrderScreen }))
 );
-const MetricOrdersListScreen = lazy(() =>
+const MetricOrdersListScreen = lazyWithRetry(() =>
   import("./screens/MetricOrdersListScreen").then((m) => ({ default: m.MetricOrdersListScreen }))
 );
-const MetricCustomersScreen = lazy(() =>
+const MetricCustomersScreen = lazyWithRetry(() =>
   import("./screens/MetricCustomersScreen").then((m) => ({ default: m.MetricCustomersScreen }))
 );
-const MetricInventoryScreen = lazy(() =>
+const MetricInventoryScreen = lazyWithRetry(() =>
   import("./screens/MetricInventoryScreen").then((m) => ({ default: m.MetricInventoryScreen }))
 );
-const MetricLedgerScreen = lazy(() =>
+const MetricLedgerScreen = lazyWithRetry(() =>
   import("./screens/MetricLedgerScreen").then((m) => ({ default: m.MetricLedgerScreen }))
 );
-const MetricLoginScreen = lazy(() =>
+const MetricLoginScreen = lazyWithRetry(() =>
   import("./screens/MetricLoginScreen").then((m) => ({ default: m.MetricLoginScreen }))
 );
-const MetricDispatchPlansScreen = lazy(() =>
+const MetricDispatchPlansScreen = lazyWithRetry(() =>
   import("./screens/MetricDispatchPlansScreen").then((m) => ({ default: m.MetricDispatchPlansScreen }))
 );
-const MetricDriversScreen = lazy(() =>
+const MetricDriversScreen = lazyWithRetry(() =>
   import("./screens/MetricDriversScreen").then((m) => ({ default: m.MetricDriversScreen }))
 );
-const MetricPurchaseBillsScreen = lazy(() =>
+const MetricPurchaseBillsScreen = lazyWithRetry(() =>
   import("./screens/MetricPurchaseBillsScreen").then((m) => ({ default: m.MetricPurchaseBillsScreen }))
 );
-const MetricCreatePurchaseBillScreen = lazy(() =>
+const MetricCreatePurchaseBillScreen = lazyWithRetry(() =>
   import("./screens/MetricCreatePurchaseBillScreen").then((m) => ({ default: m.MetricCreatePurchaseBillScreen }))
 );
-const MetricBankAccountsScreen = lazy(() =>
+const MetricBankAccountsScreen = lazyWithRetry(() =>
   import("./screens/MetricBankAccountsScreen").then((m) => ({ default: m.MetricBankAccountsScreen }))
 );
-const MetricExpensesScreen = lazy(() =>
+const MetricExpensesScreen = lazyWithRetry(() =>
   import("./screens/MetricExpensesScreen").then((m) => ({ default: m.MetricExpensesScreen }))
 );
-const MetricRolePermissionsScreen = lazy(() =>
+const MetricRolePermissionsScreen = lazyWithRetry(() =>
   import("./screens/MetricRolePermissionsScreen").then((m) => ({ default: m.MetricRolePermissionsScreen }))
 );
-const MetricAuditLogScreen = lazy(() =>
+const MetricAuditLogScreen = lazyWithRetry(() =>
   import("./screens/MetricAuditLogScreen").then((m) => ({ default: m.MetricAuditLogScreen }))
 );
-const MetricSalesInvoicingQueueScreen = lazy(() =>
+const MetricSalesInvoicingQueueScreen = lazyWithRetry(() =>
   import("./screens/MetricSalesInvoicingQueueScreen").then((m) => ({ default: m.MetricSalesInvoicingQueueScreen }))
 );
-const MetricReturnsNotesScreen = lazy(() =>
+const MetricReturnsNotesScreen = lazyWithRetry(() =>
   import("./screens/MetricReturnsNotesScreen").then((m) => ({ default: m.MetricReturnsNotesScreen }))
 );
 
