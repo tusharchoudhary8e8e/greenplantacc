@@ -48,7 +48,13 @@ export const MetricDispatchPlansScreen: React.FC<DispatchPlansScreenProps> = ({
       if (!order.items || order.items.length === 0) return;
 
       order.items.forEach((item) => {
-        const dateStr = item.sowing_date || order.order_date;
+        const dateStr =
+          item.delivery_date ||
+          item.dispatch_from ||
+          item.dispatch_to ||
+          (order as any).delivery_date ||
+          item.sowing_date ||
+          order.order_date;
         if (!dateStr) return;
 
         const dateObj = new Date(dateStr);

@@ -12,6 +12,10 @@ import {
   Plus,
   Trash2,
   Edit,
+  Printer,
+  Search,
+  Layers,
+  ArrowRight,
 } from "lucide-react";
 import { Order, OrderItem, ProductionBatch, Customer } from "../../db/supabaseService";
 
@@ -20,6 +24,7 @@ interface SowingPlansScreenProps {
   batches?: ProductionBatch[];
   customers?: Customer[];
   onOpenCreateBatch?: () => void;
+  onNavigateToTab?: (tab: string) => void;
 }
 
 interface SowingPlanGroup {
@@ -32,9 +37,11 @@ interface SowingPlanGroup {
   cropsPerTray: number;
   unitName: string;
   lotNo: string;
-  statusOnTime: string; // "On Time" | "2 Days Delayed"
-  statusExpiry: string; // "Expires in 30 Days"
-  statusDispatch: string; // "Ready To Dispatch" | "In Germination"
+  statusOnTime: string;
+  statusExpiry: string;
+  statusDispatch: string;
+  sowingDateStr: string;
+  readyDateStr: string;
   createdDate: { month: string; day: string; dayName: string; year: string; dateStr: string };
   completedDate: { month: string; day: string; dayName: string; year: string; dateStr: string };
   orders: { order: Order; item: OrderItem }[];
@@ -45,21 +52,48 @@ export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({
   batches = [],
   customers = [],
   onOpenCreateBatch,
+  onNavigateToTab,
 }) => {
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({
-    "plan-saaho": true, // Expand first by default
-  });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [expandAll, setExpandAll] = useState(true);
 
   const toggleRow = (id: string) => {
     setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const formatBadgeDate = (dateStr: string) => {
+  const handleToggleExpandAll = () => {
+    const nextState = !expandAll;
+    setExpandAll(nextState);
+    const newExpanded: Record<string, boolean> = {};
+    sowingPlans.forEach((p) => {
+      newExpanded[p.id] = nextState;
+    });
+    setExpandedRows(newExpanded);
+  };
+
+  const formatBadgeDate = (dateStr?: string) => {
+    const defaultDate = new Date();
     try {
+      if (!dateStr) {
+        return {
+          month: defaultDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+          day: String(defaultDate.getDate()),
+          dayName: defaultDate.toLocaleDateString("en-US", { weekday: "long" }),
+          year: String(defaultDate.getFullYear()),
+          dateStr: defaultDate.toISOString().split("T")[0],
+        };
+      }
       const dateObj = new Date(dateStr);
       if (isNaN(dateObj.getTime())) {
-        return { month: "AUG", day: "7", dayName: "Friday", year: "2026", dateStr };
+        return {
+          month: defaultDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+          day: String(defaultDate.getDate()),
+          dayName: defaultDate.toLocaleDateString("en-US", { weekday: "long" }),
+          year: String(defaultDate.getFullYear()),
+          dateStr,
+        };
       }
       return {
         month: dateObj.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
@@ -69,45 +103,69 @@ export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({
         dateStr,
       };
     } catch {
-      return { month: "AUG", day: "7", dayName: "Friday", year: "2026", dateStr };
+      return {
+        month: "AUG",
+        day: "25",
+        dayName: "Tuesday",
+        year: "2026",
+        dateStr: dateStr || "2026-08-25",
+      };
     }
   };
 
-  // Group orders into Sowing Plans matching the user screenshot UI
+  // Group orders & batches into Sowing Plans in real-time
   const sowingPlans = useMemo<SowingPlanGroup[]>(() => {
     const map = new Map<string, SowingPlanGroup>();
 
-    (orders || []).forEach((order, orderIdx) => {
+    // 1. Process all sales orders line items
+    (orders || []).forEach((order) => {
       if (!order.items || order.items.length === 0) return;
 
-      order.items.forEach((item, itemIdx) => {
-        const variant = (item.variant_name || "SAAHO").toUpperCase();
-        const key = `plan-${variant.toLowerCase()}`;
+      order.items.forEach((item) => {
+        const prodName = (item.product_name || "Tomato").trim();
+        const varName = (item.variant_name || "Standard Variety").trim();
+        const key = `${prodName.toUpperCase()}_${varName.toUpperCase()}`;
 
-        const qty = item.quantity || 10000;
-        const trays = Math.ceil(qty / 120);
+        const qty = Number(item.quantity) || 0;
+        const trayCap = Number(item.tray_size) || 104;
+        const trays = Math.ceil(qty / trayCap);
 
         if (!map.has(key)) {
+          // Look up matching production batch if one exists
           const matchedBatch = batches.find(
-            (b) => (b.variant_name || "").toUpperCase() === variant
+            (b) =>
+              (b.product_name || "").toUpperCase() === prodName.toUpperCase() &&
+              (b.variant_name || "").toUpperCase() === varName.toUpperCase()
           );
 
-          const createdD = formatBadgeDate(matchedBatch?.sowing_date || order.order_date || "2026-08-07");
-          const endD = formatBadgeDate(matchedBatch?.end_date || "2026-09-06");
+          const sowDate = matchedBatch?.sowing_date || item.sowing_date || order.order_date || new Date().toISOString().split("T")[0];
+          
+          // Calculate expected ready date (default +28 days if not specified)
+          let readyDate = matchedBatch?.end_date;
+          if (!readyDate) {
+            const d = new Date(sowDate);
+            d.setDate(d.getDate() + 28);
+            readyDate = !isNaN(d.getTime()) ? d.toISOString().split("T")[0] : sowDate;
+          }
+
+          const createdD = formatBadgeDate(sowDate);
+          const endD = formatBadgeDate(readyDate);
 
           map.set(key, {
-            id: key,
-            batchCode: matchedBatch?.batch_code || matchedBatch?.batch_no || `#ORG1_BCH_2026_000${map.size + 5}`,
-            variantName: variant,
-            productName: item.product_name || "TOMATO",
+            id: `plan-${key.toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
+            batchCode: matchedBatch?.batch_code || matchedBatch?.batch_no || `#RKK_SOW_${String(map.size + 1001)}`,
+            variantName: varName.toUpperCase(),
+            productName: prodName.toUpperCase(),
             totalQuantity: 0,
             totalTrays: 0,
-            cropsPerTray: 120,
-            unitName: matchedBatch?.unit || "Unit 1",
-            lotNo: matchedBatch?.lot_no || `1234${map.size === 0 ? "5" : "567"}`,
-            statusOnTime: map.size === 0 ? "On Time" : "2 Days Delayed",
-            statusExpiry: "Expires in 30 Days",
-            statusDispatch: "Ready To Dispatch",
+            cropsPerTray: trayCap,
+            unitName: matchedBatch?.polyhouse || matchedBatch?.unit || "Polyhouse 1",
+            lotNo: matchedBatch?.lot_no || `LOT-${1000 + map.size * 15}`,
+            statusOnTime: "On Time",
+            statusExpiry: "Ready in 28 Days",
+            statusDispatch: "Sowing Scheduled",
+            sowingDateStr: sowDate,
+            readyDateStr: readyDate,
             createdDate: createdD,
             completedDate: endD,
             orders: [],
@@ -121,222 +179,277 @@ export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({
       });
     });
 
-    // Fallback seed plans if no orders exist yet
-    if (map.size === 0) {
-      return [
-        {
-          id: "plan-saaho",
-          batchCode: "#ORG1_BCH_2026_0005",
-          variantName: "SAAHO",
-          productName: "TOMATO",
-          totalQuantity: 28750,
-          totalTrays: 240,
-          cropsPerTray: 120,
-          unitName: "Unit 1",
-          lotNo: "12345",
+    // 2. Also process direct batches that might not have orders linked yet
+    (batches || []).forEach((b) => {
+      const prodName = (b.product_name || "Crop").trim();
+      const varName = (b.variant_name || "Variety").trim();
+      const key = `${prodName.toUpperCase()}_${varName.toUpperCase()}`;
+
+      if (!map.has(key)) {
+        const sowDate = b.sowing_date || new Date().toISOString().split("T")[0];
+        const readyDate = b.end_date || sowDate;
+        const qty = b.required_quantity || b.total_seeds || 5000;
+        const trayCap = Number(b.tray_size) || 104;
+
+        map.set(key, {
+          id: `plan-${key.toLowerCase().replace(/[^a-z0-9]/g, "-")}`,
+          batchCode: b.batch_code || b.batch_no || `#RKK_BCH_${b.id?.slice(0, 4)}`,
+          variantName: varName.toUpperCase(),
+          productName: prodName.toUpperCase(),
+          totalQuantity: qty,
+          totalTrays: Math.ceil(qty / trayCap),
+          cropsPerTray: trayCap,
+          unitName: b.polyhouse || b.unit || "Polyhouse 1",
+          lotNo: b.lot_no || "LOT-BATCH",
           statusOnTime: "On Time",
-          statusExpiry: "Expires in 30 Days",
-          statusDispatch: "Ready To Dispatch",
-          createdDate: { month: "AUG", day: "7", dayName: "Friday", year: "2026", dateStr: "2026-08-07" },
-          completedDate: { month: "SEPT", day: "6", dayName: "Sunday", year: "2026", dateStr: "2026-09-06" },
-          orders: [
-            {
-              order: {
-                id: "ord-9009",
-                order_no: "#ORG1_ORD_2026_0009",
-                order_date: "2026-08-07",
-                customer_name: "Ayush Choudhary",
-                customer_id: "cust-1006",
-              },
-              item: { product_name: "TOMATO", variant_name: "SAAHO", price: 1.5, quantity: 10000 },
-            },
-            {
-              order: {
-                id: "ord-9010",
-                order_no: "#ORG1_ORD_2026_0010",
-                order_date: "2026-08-07",
-                customer_name: "Ayush Choudhary",
-                customer_id: "cust-1006",
-              },
-              item: { product_name: "TOMATO", variant_name: "SAAHO", price: 1.5, quantity: 10000 },
-            },
-          ],
-        },
-        {
-          id: "plan-talwar",
-          batchCode: "#ORG1_BCH_2026_0006",
-          variantName: "TALWAR",
-          productName: "CHILLY",
-          totalQuantity: 17250,
-          totalTrays: 144,
-          cropsPerTray: 120,
-          unitName: "Unit 1",
-          lotNo: "1234567",
-          statusOnTime: "2 Days Delayed",
-          statusExpiry: "Expires in 30 Days",
-          statusDispatch: "Ready To Dispatch",
-          createdDate: { month: "AUG", day: "7", dayName: "Friday", year: "2026", dateStr: "2026-08-07" },
-          completedDate: { month: "SEPT", day: "16", dayName: "Wednesday", year: "2026", dateStr: "2026-09-16" },
-          orders: [
-            {
-              order: {
-                id: "ord-9011",
-                order_no: "#ORG1_ORD_2026_0011",
-                order_date: "2026-08-07",
-                customer_name: "Ayush Choudhary",
-                customer_id: "cust-1006",
-              },
-              item: { product_name: "CHILLY", variant_name: "TALWAR", price: 1.6, quantity: 15000 },
-            },
-          ],
-        },
-      ];
-    }
+          statusExpiry: "In Production",
+          statusDispatch: b.status === "ready" ? "Ready To Dispatch" : "Germinating",
+          sowingDateStr: sowDate,
+          readyDateStr: readyDate,
+          createdDate: formatBadgeDate(sowDate),
+          completedDate: formatBadgeDate(readyDate),
+          orders: [],
+        });
+      }
+    });
 
     return Array.from(map.values());
   }, [orders, batches]);
 
+  // Filter plans by search term
+  const filteredPlans = useMemo(() => {
+    if (!searchTerm.trim()) return sowingPlans;
+    const q = searchTerm.trim().toLowerCase();
+    return sowingPlans.filter(
+      (p) =>
+        p.productName.toLowerCase().includes(q) ||
+        p.variantName.toLowerCase().includes(q) ||
+        p.batchCode.toLowerCase().includes(q) ||
+        p.orders.some(
+          (o) =>
+            (o.order.customer_name || "").toLowerCase().includes(q) ||
+            (o.order.order_no || "").toLowerCase().includes(q)
+        )
+    );
+  }, [sowingPlans, searchTerm]);
+
+  // Totals
+  const totalPlantsSowing = useMemo(
+    () => sowingPlans.reduce((sum, p) => sum + p.totalQuantity, 0),
+    [sowingPlans]
+  );
+  const totalTraysSowing = useMemo(
+    () => sowingPlans.reduce((sum, p) => sum + p.totalTrays, 0),
+    [sowingPlans]
+  );
+  const totalOrdersInSowing = useMemo(
+    () => sowingPlans.reduce((sum, p) => sum + p.orders.length, 0),
+    [sowingPlans]
+  );
+
+  const handlePrintSchedule = () => {
+    window.print();
+  };
+
   return (
     <div className="p-4 sm:p-6 space-y-5 bg-[#f4f4f0] min-h-screen font-sans">
-      {/* Top Header Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-[10px] border border-[#e8e8e8]">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-bold text-[#1a1a1a] tracking-tight">Sowing Plans &amp; Batch Schedule</h1>
-            <span className="bg-[#e6f4ed] text-[#2d7a4f] border border-[#b8ddc8] font-bold px-2.5 py-0.5 rounded-full text-[11px]">
-              {sowingPlans.length} Sowing Plans
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              Sowing Plans &amp; Nursery Production Batches
+            </h1>
+            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-300 uppercase">
+              Live Order Sync
             </span>
           </div>
-          <p className="text-xs text-[#888] font-medium mt-0.5">
-            Monitor crop variety sowing targets, tray calculations, batch deadlines, and customer order breakdowns
+          <p className="text-xs text-slate-500 font-medium mt-0.5">
+            Real-time seedling tray calculations, sowing schedule dates &amp; linked customer bookings
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
-            onClick={onOpenCreateBatch}
-            className="bg-[#1e4d2b] text-white px-4 py-2 rounded-[7px] font-bold text-xs hover:bg-[#163d21] transition flex items-center gap-1.5 shadow-xs cursor-pointer"
+            onClick={handleToggleExpandAll}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>+ Create Batch / Sowing</span>
+            {expandAll ? "Collapse All" : "Expand All"}
           </button>
+
+          <button
+            onClick={handlePrintSchedule}
+            className="flex items-center gap-1.5 px-3.5 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 transition cursor-pointer"
+          >
+            <Printer className="w-4 h-4 text-slate-500" />
+            <span>Print Sowing Sheet</span>
+          </button>
+
+          {onOpenCreateBatch && (
+            <button
+              onClick={onOpenCreateBatch}
+              className="flex items-center gap-1.5 bg-[#00a651] text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-emerald-600 transition shadow-xs cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Create Sowing Batch</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Main Table Container */}
-      <div className="bg-white rounded-[10px] border border-[#e8e8e8] overflow-hidden">
+      {/* Summary KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+              Total Seedlings To Sow
+            </span>
+            <div className="text-2xl font-black text-emerald-800 font-mono mt-0.5">
+              🌱 {totalPlantsSowing.toLocaleString("en-IN")}
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+              Across {sowingPlans.length} Crop Varieties
+            </p>
+          </div>
+          <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-700">
+            <Sprout className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+              Pro-Trays Required
+            </span>
+            <div className="text-2xl font-black text-sky-800 font-mono mt-0.5">
+              📦 {totalTraysSowing.toLocaleString("en-IN")} Trays
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+              Based on standard 104-cavity pro-trays
+            </p>
+          </div>
+          <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center text-sky-700">
+            <Box className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+              Booked Customer Orders
+            </span>
+            <div className="text-2xl font-black text-slate-800 font-mono mt-0.5">
+              📑 {totalOrdersInSowing} Orders Linked
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+              Automatically synchronized from Sales Orders
+            </p>
+          </div>
+          <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-700">
+            <Layers className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* Search Filter Bar */}
+      <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search crop, variety, batch #, customer..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 bg-slate-50 focus:ring-1 focus:ring-emerald-500"
+          />
+        </div>
+        <div className="text-xs font-bold text-slate-500">
+          Showing {filteredPlans.length} Sowing Plan{filteredPlans.length !== 1 ? "s" : ""}
+        </div>
+      </div>
+
+      {/* Sowing Plans Main Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse min-w-[1100px]">
+          <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-[#f9f9f7] text-[#888] font-bold uppercase text-[10px] tracking-wider border-b border-[#f0f0ec]">
-                <th className="py-3 px-4 pl-6">CROP</th>
-                <th className="py-3 px-4">QUANTITY</th>
-                <th className="py-3 px-4">NUMBER OF TRAYS</th>
-                <th className="py-3 px-4">UNIT</th>
-                <th className="py-3 px-4">LOT NO.</th>
-                <th className="py-3 px-4">STATUS</th>
-                <th className="py-3 px-4">CREATED AT</th>
-                <th className="py-3 px-4">COMPLETE AT</th>
+              <tr className="bg-slate-50/80 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-200 tracking-wider">
+                <th className="py-3 px-3 w-10 text-center"></th>
+                <th className="py-3 px-4">BATCH CODE</th>
+                <th className="py-3 px-4">CROP &amp; VARIETY</th>
+                <th className="py-3 px-4">QUANTITY / TRAYS</th>
+                <th className="py-3 px-4">POLYHOUSE / LOT</th>
+                <th className="py-3 px-4">SOWING STATUS</th>
+                <th className="py-3 px-4">SOWING DATE</th>
+                <th className="py-3 px-4">READY DATE</th>
                 <th className="py-3 px-4 text-center">ACTION</th>
               </tr>
             </thead>
-
-            <tbody className="divide-y divide-[#f0f0ec] text-[#333] font-medium">
-              {sowingPlans.map((plan) => {
-                const isExpanded = !!expandedRows[plan.id];
+            <tbody className="divide-y divide-slate-100 text-slate-700">
+              {filteredPlans.map((plan) => {
+                const isExpanded = expandedRows[plan.id] !== undefined ? expandedRows[plan.id] : expandAll;
 
                 return (
                   <React.Fragment key={plan.id}>
-                    {/* Main Row */}
-                    <tr className="hover:bg-slate-50/80 transition group">
-                      {/* CROP */}
-                      <td className="py-4 px-4 pl-6">
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => toggleRow(plan.id)}
-                            className="p-1 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
-                          >
-                            {isExpanded ? (
-                              <ChevronDown className="w-4 h-4 text-slate-600" />
-                            ) : (
-                              <ChevronRight className="w-4 h-4 text-slate-400" />
-                            )}
-                          </button>
-
-                          <div className="flex flex-col">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded-md font-extrabold text-xs">
-                              <Sprout className="w-3.5 h-3.5 text-emerald-600" />
-                              {plan.variantName}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono mt-1 font-medium">
-                              {plan.batchCode}
-                            </span>
-                          </div>
-                        </div>
+                    <tr
+                      className={`hover:bg-slate-50/80 transition cursor-pointer ${
+                        isExpanded ? "bg-emerald-50/20" : ""
+                      }`}
+                      onClick={() => toggleRow(plan.id)}
+                    >
+                      <td className="py-4 px-3 text-center">
+                        <button
+                          type="button"
+                          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="w-4 h-4 text-emerald-700" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
+                        </button>
                       </td>
 
-                      {/* QUANTITY */}
+                      <td className="py-4 px-4 font-mono font-bold text-emerald-900">
+                        {plan.batchCode}
+                      </td>
+
                       <td className="py-4 px-4">
                         <div className="flex flex-col">
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded-full font-extrabold text-xs font-mono w-max shadow-xs">
-                            🌱 {plan.totalQuantity.toLocaleString()}
+                          <span className="font-extrabold text-slate-900 text-sm">
+                            {plan.productName}
                           </span>
-                          <button
-                            onClick={() => toggleRow(plan.id)}
-                            className="text-[10px] text-sky-600 hover:underline font-bold text-left mt-1"
-                          >
-                            See breakdown
-                          </button>
+                          <span className="text-[11px] font-bold text-emerald-700 mt-0.5">
+                            {plan.variantName}
+                          </span>
                         </div>
                       </td>
 
-                      {/* NUMBER OF TRAYS */}
+                      <td className="py-4 px-4">
+                        <div className="flex flex-col">
+                          <span className="font-black text-slate-900 text-sm font-mono">
+                            🌱 {plan.totalQuantity.toLocaleString("en-IN")} plants
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500 mt-0.5">
+                            📦 {plan.totalTrays.toLocaleString("en-IN")} trays ({plan.cropsPerTray}/tray)
+                          </span>
+                        </div>
+                      </td>
+
+                      <td className="py-4 px-4">
+                        <div className="font-bold text-slate-800 text-xs">{plan.unitName}</div>
+                        <div className="text-[10px] font-mono text-slate-400 mt-0.5">Lot: {plan.lotNo}</div>
+                      </td>
+
+                      <td className="py-4 px-4">
+                        <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          ✓ {plan.orders.length} Order{plan.orders.length > 1 ? "s" : ""} Linked
+                        </span>
+                      </td>
+
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded-md font-extrabold text-xs font-mono">
-                            📦 {plan.totalTrays}
-                          </span>
-                          <span className="text-[11px] text-slate-400 font-medium">
-                            {plan.cropsPerTray} crops/tray
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* UNIT */}
-                      <td className="py-4 px-4 font-bold text-slate-700 text-xs">
-                        {plan.unitName}
-                      </td>
-
-                      {/* LOT NO. */}
-                      <td className="py-4 px-4 font-extrabold font-mono text-slate-800 text-xs">
-                        {plan.lotNo}
-                      </td>
-
-                      {/* STATUS */}
-                      <td className="py-4 px-4">
-                        <div className="flex flex-col gap-1.5 w-max">
-                          <span
-                            className={`px-3 py-0.5 rounded-full text-[10px] font-extrabold capitalize text-center ${
-                              plan.statusOnTime === "On Time"
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                : "bg-pink-50 text-pink-700 border border-pink-200"
-                            }`}
-                          >
-                            {plan.statusOnTime}
-                          </span>
-                          <span className="px-3 py-0.5 rounded-full text-[10px] font-extrabold bg-red-50 text-red-600 border border-red-200 text-center">
-                            {plan.statusExpiry}
-                          </span>
-                          <span className="px-3 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 text-center">
-                            {plan.statusDispatch}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* CREATED AT */}
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-10 h-10 rounded-full bg-slate-50 text-slate-700 border border-slate-200 font-extrabold flex flex-col items-center justify-center leading-none shadow-xs">
+                          <div className="w-9 h-9 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 font-extrabold flex flex-col items-center justify-center leading-none">
                             <span className="text-[8px] uppercase font-bold text-slate-400">
                               {plan.createdDate.month}
                             </span>
@@ -344,21 +457,16 @@ export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({
                               {plan.createdDate.day}
                             </span>
                           </div>
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-800 text-xs">
-                              {plan.createdDate.dayName}
-                            </span>
-                            <span className="text-[10px] font-medium text-slate-400">
-                              {plan.createdDate.year}
-                            </span>
+                          <div className="text-[11px] text-slate-600 font-medium">
+                            <div>{plan.createdDate.dayName}</div>
+                            <div className="text-[9px] text-slate-400">{plan.createdDate.year}</div>
                           </div>
                         </div>
                       </td>
 
-                      {/* COMPLETE AT */}
                       <td className="py-4 px-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-10 h-10 rounded-full bg-sky-50 text-sky-700 border border-sky-200 font-extrabold flex flex-col items-center justify-center leading-none shadow-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="w-9 h-9 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 font-extrabold flex flex-col items-center justify-center leading-none">
                             <span className="text-[8px] uppercase font-bold text-sky-500">
                               {plan.completedDate.month}
                             </span>
@@ -366,50 +474,22 @@ export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({
                               {plan.completedDate.day}
                             </span>
                           </div>
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-800 text-xs">
-                              {plan.completedDate.dayName}
-                            </span>
-                            <span className="text-[10px] font-medium text-slate-400">
-                              {plan.completedDate.year}
-                            </span>
+                          <div className="text-[11px] text-sky-900 font-medium">
+                            <div>{plan.completedDate.dayName}</div>
+                            <div className="text-[9px] text-slate-400">{plan.completedDate.year}</div>
                           </div>
                         </div>
                       </td>
 
-                      {/* ACTION */}
-                      <td className="py-4 px-4 text-center relative">
+                      <td className="py-4 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => setActionMenuId(actionMenuId === plan.id ? null : plan.id)}
-                          className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition"
+                          onClick={() => {
+                            if (onOpenCreateBatch) onOpenCreateBatch();
+                          }}
+                          className="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[10px] font-bold border border-emerald-200 transition cursor-pointer"
                         >
-                          <MoreHorizontal className="w-5 h-5" />
+                          + Batch
                         </button>
-
-                        {actionMenuId === plan.id && (
-                          <div className="absolute right-6 top-12 z-20 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 text-left text-xs space-y-1 animate-in fade-in duration-100">
-                            <button
-                              onClick={() => {
-                                setActionMenuId(null);
-                                if (onOpenCreateBatch) onOpenCreateBatch();
-                              }}
-                              className="w-full px-4 py-2 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 flex items-center gap-2 font-medium"
-                            >
-                              <Plus className="w-4 h-4 text-emerald-600" />
-                              <span>Create Sowing Batch</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                setActionMenuId(null);
-                                alert(`Editing sowing plan for ${plan.variantName}`);
-                              }}
-                              className="w-full px-4 py-2 hover:bg-slate-50 text-slate-700 flex items-center gap-2 font-medium"
-                            >
-                              <Edit className="w-4 h-4 text-blue-500" />
-                              <span>Edit Sowing Plan</span>
-                            </button>
-                          </div>
-                        )}
                       </td>
                     </tr>
 
@@ -417,78 +497,72 @@ export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({
                     {isExpanded && (
                       <tr className="bg-slate-50/70 border-b border-slate-200/80">
                         <td colSpan={9} className="p-4 pl-12">
-                          <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm space-y-3 max-w-4xl">
+                          <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm space-y-3">
                             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                               <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                                 <Sprout className="w-4 h-4 text-emerald-600" />
-                                Linked Customer Orders Breakdown
+                                Customer Orders Demanding {plan.productName} ({plan.variantName})
                               </span>
-                              <span className="text-[11px] font-bold text-emerald-700 font-mono">
-                                Total: 🌱 {plan.totalQuantity.toLocaleString()} plants
+                              <span className="text-xs font-bold text-emerald-700 font-mono">
+                                Total: 🌱 {plan.totalQuantity.toLocaleString("en-IN")} plants
                               </span>
                             </div>
 
-                            <table className="w-full text-left text-xs border-collapse">
-                              <thead>
-                                <tr className="text-slate-400 font-bold uppercase text-[9px] tracking-wider border-b border-slate-100 bg-slate-50/50">
-                                  <th className="py-2.5 px-3">ORDER ID</th>
-                                  <th className="py-2.5 px-3">ORDER DATE</th>
-                                  <th className="py-2.5 px-3">CUSTOMER</th>
-                                  <th className="py-2.5 px-3">SOWED QUANTITY</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-100 text-slate-700">
-                                {plan.orders.map((o, idx) => {
-                                  const matchedCustomer = customers.find(
-                                    (c) =>
-                                      c.id === o.order.customer_id ||
-                                      c.name.toLowerCase() === (o.order.customer_name || "").toLowerCase()
-                                  );
+                            {plan.orders.length > 0 ? (
+                              <table className="w-full text-left text-xs border-collapse">
+                                <thead>
+                                  <tr className="text-slate-400 font-bold uppercase text-[9px] tracking-wider border-b border-slate-100 bg-slate-50/50">
+                                    <th className="py-2.5 px-3">ORDER ID</th>
+                                    <th className="py-2.5 px-3">ORDER DATE</th>
+                                    <th className="py-2.5 px-3">CUSTOMER NAME</th>
+                                    <th className="py-2.5 px-3 text-right">BOOKED QUANTITY</th>
+                                    <th className="py-2.5 px-3 text-right">EST. TRAYS</th>
+                                    <th className="py-2.5 px-3 text-center">ORDER STATUS</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-slate-700">
+                                  {plan.orders.map((o, idx) => {
+                                    const qty = Number(o.item.quantity) || 0;
+                                    const trays = Math.ceil(qty / (o.item.tray_size ? Number(o.item.tray_size) : 104));
 
-                                  const custCode = o.order.customer_id ? `#ORG1_CUST_2026_0006` : matchedCustomer?.org_id || "#ORG1_CUST_2026_0006";
-
-                                  return (
-                                    <tr key={idx} className="hover:bg-slate-50 transition">
-                                      {/* ORDER ID */}
-                                      <td className="py-3 px-3 font-extrabold font-mono text-slate-800 text-xs">
-                                        {o.order.order_no || `#ORG1_ORD_2026_000${idx + 9}`}
-                                      </td>
-
-                                      {/* ORDER DATE */}
-                                      <td className="py-3 px-3 text-slate-500 font-medium text-xs">
-                                        {o.order.order_date
-                                          ? new Date(o.order.order_date).toLocaleDateString("en-US", {
-                                              weekday: "short",
-                                              month: "short",
-                                              day: "2-digit",
-                                              year: "numeric",
-                                            })
-                                          : "Fri Aug 07 2026"}
-                                      </td>
-
-                                      {/* CUSTOMER */}
-                                      <td className="py-3 px-3">
-                                        <div className="flex flex-col">
-                                          <span className="font-extrabold text-slate-800 text-xs underline decoration-slate-300">
-                                            {o.order.customer_name || "Ayush Choudhary"}
+                                    return (
+                                      <tr key={idx} className="hover:bg-slate-50/80 transition">
+                                        <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
+                                          #{o.order.order_no || o.order.id}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-slate-600">
+                                          {o.order.order_date || "2026-08-25"}
+                                        </td>
+                                        <td className="py-2.5 px-3 font-bold text-slate-900">
+                                          {o.order.customer_name || "Direct Farmer"}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-right font-black text-emerald-800 font-mono">
+                                          {qty.toLocaleString("en-IN")} Plants
+                                        </td>
+                                        <td className="py-2.5 px-3 text-right font-bold text-slate-600 font-mono">
+                                          {trays} Trays
+                                        </td>
+                                        <td className="py-2.5 px-3 text-center">
+                                          <span
+                                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                              o.order.is_invoiced
+                                                ? "bg-emerald-100 text-emerald-800"
+                                                : "bg-amber-100 text-amber-800"
+                                            }`}
+                                          >
+                                            {o.order.is_invoiced ? "Invoiced" : "Booked"}
                                           </span>
-                                          <span className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                            {custCode}
-                                          </span>
-                                        </div>
-                                      </td>
-
-                                      {/* SOWED QUANTITY */}
-                                      <td className="py-3 px-3">
-                                        <span className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded-full font-extrabold text-xs font-mono">
-                                          🌱 {(o.item.quantity || 10000).toLocaleString()}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <div className="p-4 text-center text-slate-400 text-xs">
+                                No sales orders linked yet. This is a buffer/production batch.
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -496,6 +570,14 @@ export const MetricSowingPlansScreen: React.FC<SowingPlansScreenProps> = ({
                   </React.Fragment>
                 );
               })}
+
+              {filteredPlans.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="py-12 text-center text-slate-400 font-medium">
+                    No Sowing Plans found. Create your first Sales Order or Sowing Batch to generate plans.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
