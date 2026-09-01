@@ -22,16 +22,19 @@ interface MetricExpensesScreenProps {
 }
 
 const PRESET_CATEGORIES = [
-  "Transport",
+  "Labour & Worker Wages",
+  "Electricity & Water Pump Charges",
+  "Diesel & Vehicle Fuel",
+  "Polyhouse & Net Maintenance",
+  "Freight & Inward Transport",
+  "Packaging & Crates",
+  "Staff Tea & Refreshments",
+  "Nursery Land Rent / Lease",
+  "Sprayers, Pumps & Tool Repairs",
   "Salary",
-  "Manufacturing Expense",
+  "Mobile & Internet",
   "Personal expenses",
-  "Payment-in Discount",
-  "Petrol",
-  "Rent",
-  "Tea",
-  "College fee",
-  "Bank communication and interest",
+  "Bank charges & interest",
 ];
 
 export const MetricExpensesScreen: React.FC<MetricExpensesScreenProps> = ({

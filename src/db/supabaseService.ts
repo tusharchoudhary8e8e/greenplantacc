@@ -112,9 +112,12 @@ export interface PurchaseBillItem {
   bill_id?: string;
   product_name: string;
   variant_name?: string;
+  unit?: string;
+  item_type?: "plants" | "cocopeat" | "trays" | "seeds" | "fertilizer" | "supplies" | "other";
   price: number;
   quantity: number;
   line_total?: number;
+  notes?: string;
 }
 
 export interface PurchaseBill {
