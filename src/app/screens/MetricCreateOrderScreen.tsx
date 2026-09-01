@@ -111,7 +111,7 @@ export const MetricCreateOrderScreen: React.FC<CreateOrderProps> = ({
     transportVal,
     focVal,
     advanceVal,
-    netGrandTotal,
+    netGrandTotal: netTotalAmount,
     dueBalanceAmount,
   } = calculateOrderTotals(
     items.map((i) => ({ price: i.price || 0, quantity: i.quantity || 0 })),
