@@ -33,6 +33,7 @@ import {
   Scale,
   FileSpreadsheet,
   Layers,
+  FileCheck,
 } from "lucide-react";
 import {
   Customer,
@@ -63,6 +64,7 @@ interface MetricLedgerScreenProps {
   onEditOrder?: (order: Order) => void;
   onDeleteOrder?: (orderId: string) => void;
   onOpenReceivePayment?: (customerId?: string, orderId?: string) => void;
+  onNavigateToPostToSales?: () => void;
 }
 
 export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
@@ -79,6 +81,7 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
   onEditOrder,
   onDeleteOrder,
   onOpenReceivePayment,
+  onNavigateToPostToSales,
 }) => {
   const safeCustomers = Array.isArray(customers) ? customers : [];
   const safeOrders = Array.isArray(orders) ? orders : [];
@@ -92,6 +95,16 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
       (o) => o.is_invoiced || o.posted_to_ledger || o.status === "invoiced" || o.status === "dispatched"
     );
   }, [safeOrders]);
+
+  const unpostedOrders = useMemo(() => {
+    return safeOrders.filter(
+      (o) => !o.is_invoiced && !o.posted_to_ledger && o.status !== "invoiced" && o.status !== "dispatched" && o.status !== "cancelled"
+    );
+  }, [safeOrders]);
+
+  const unpostedTotalValue = useMemo(() => {
+    return unpostedOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+  }, [unpostedOrders]);
 
   // View Mode: "transaction_details" | "party_balances" | "journal_vouchers"
   const [viewMode, setViewMode] = useState<"party_balances" | "transaction_details" | "journal_vouchers">(initialMode);
@@ -945,6 +958,37 @@ export const MetricLedgerScreen: React.FC<MetricLedgerScreenProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Unposted Sales Invoicing Queue Banner */}
+      {unpostedOrders.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-[10px] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 font-sans">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-100 text-amber-800 rounded-lg shrink-0">
+              <Clock className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <span>{unpostedOrders.length} Booked Order{unpostedOrders.length > 1 ? "s" : ""} (₹{unpostedTotalValue.toLocaleString("en-IN")}) in "Post to Sales" Queue</span>
+                <span className="bg-amber-200/80 text-amber-900 text-[10px] font-black px-1.5 py-0.2 rounded uppercase">
+                  Pending Posting
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-700 font-medium mt-0.5">
+                Booked orders remain ₹0 notes until manually posted. Click below to generate official sales invoices and post them to customer ledgers.
+              </p>
+            </div>
+          </div>
+          {onNavigateToPostToSales && (
+            <button
+              onClick={onNavigateToPostToSales}
+              className="flex items-center gap-1.5 bg-[#1e4d2b] hover:bg-[#163d21] text-white px-3.5 py-1.5 rounded-[7px] text-xs font-bold transition shadow-xs shrink-0 cursor-pointer"
+            >
+              <FileCheck className="w-3.5 h-3.5" />
+              <span>Post to Sales Queue ({unpostedOrders.length}) →</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* VIEW MODE 1: TRANSACTION DETAILS FEED (Matching media_1787741586595.png) */}
       {viewMode === "transaction_details" && (

@@ -662,6 +662,7 @@ function MainAppContent() {
                       setEditingOrder(null);
                       setActiveTab("create_order");
                     }}
+                    onNavigateToPostToSales={() => setActiveTab("sales_invoicing")}
                   />
                 )}
 

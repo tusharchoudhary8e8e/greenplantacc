@@ -21,6 +21,8 @@ import {
   Sprout,
   Leaf,
   Layers,
+  FileCheck,
+  Clock,
 } from "lucide-react";
 import {
   Customer,
@@ -75,13 +77,30 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
     fetchData();
   }, []);
 
-  // 1. Dynamic Live Receivables (You'll Get) and Payables (You'll Give)
+  // Filter Invoiced vs Uninvoiced Orders for strict Ledger Alignment
+  const invoicedOrders = useMemo(() => {
+    return safeOrders.filter(
+      (o) => o.is_invoiced || o.posted_to_ledger || o.status === "invoiced" || o.status === "dispatched"
+    );
+  }, [safeOrders]);
+
+  const unpostedOrders = useMemo(() => {
+    return safeOrders.filter(
+      (o) => !o.is_invoiced && !o.posted_to_ledger && o.status !== "invoiced" && o.status !== "dispatched" && o.status !== "cancelled"
+    );
+  }, [safeOrders]);
+
+  const unpostedTotalValue = useMemo(() => {
+    return unpostedOrders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
+  }, [unpostedOrders]);
+
+  // 1. Dynamic Live Receivables (You'll Get) and Payables (You'll Give) - Matches Party Ledger
   const { totalYoullGet, totalYoullGive } = useMemo(() => {
     let youllGet = 0;
     let youllGive = 0;
 
     safeCustomers.forEach((cust) => {
-      const cOrders = safeOrders.filter(
+      const cOrders = invoicedOrders.filter(
         (o) =>
           o.customer_id === cust.id ||
           (o.customer_name && o.customer_name.trim().toLowerCase() === cust.name.trim().toLowerCase())
@@ -115,7 +134,7 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
     });
 
     return { totalYoullGet: youllGet, totalYoullGive: youllGive };
-  }, [safeCustomers, safeOrders, safePaymentReceipts, safePurchaseBills]);
+  }, [safeCustomers, invoicedOrders, safePaymentReceipts, safePurchaseBills]);
 
   // 3. Sales Breakdown
   const { salesThisMonth, salesLastMonth, salesTrendPct, monthlySalesChartData } = useMemo(() => {
@@ -307,6 +326,39 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
         </div>
       </div>
 
+      {/* Unposted Sales Invoicing Queue Banner */}
+      {unpostedOrders.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-50 border border-amber-200 rounded-[10px] p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-100 text-amber-800 rounded-lg shrink-0">
+              <Clock className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <span>{unpostedOrders.length} Booked Order{unpostedOrders.length > 1 ? "s" : ""} (₹{unpostedTotalValue.toLocaleString("en-IN")}) Awaiting Posting</span>
+                <span className="bg-amber-200/80 text-amber-900 text-[10px] font-black px-1.5 py-0.2 rounded uppercase">
+                  Sales Queue
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-700 font-medium mt-0.5">
+                These orders remain provisional until posted. They will not reflect in the Party Ledger until posted.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => onNavigateToTab("sales_invoicing")}
+            className="flex items-center gap-1.5 bg-[#1e4d2b] hover:bg-[#163d21] text-white px-3.5 py-1.5 rounded-[7px] text-xs font-bold transition shadow-xs shrink-0 cursor-pointer"
+          >
+            <FileCheck className="w-3.5 h-3.5" />
+            <span>Open Post to Sales Queue ({unpostedOrders.length}) →</span>
+          </button>
+        </motion.div>
+      )}
+
       <div className="flex flex-col xl:flex-row gap-5">
         <div className="flex-1 space-y-5">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -322,11 +374,17 @@ export const MetricDashboardScreen: React.FC<DashboardProps> = ({
               </div>
               <div>
                 <span className="text-[11px] font-semibold uppercase text-[#888] tracking-wider block">
-                  You'll Get
+                  You'll Get (Invoiced)
                 </span>
                 <div className="text-[19px] font-extrabold text-[#1a1a1a] font-mono leading-tight mt-0.5">
                   ₹ {totalYoullGet.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </div>
+                {unpostedOrders.length > 0 && (
+                  <div className="text-[10px] text-amber-700 font-bold mt-1 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5" />
+                    <span>+₹{unpostedTotalValue.toLocaleString("en-IN")} in Queue</span>
+                  </div>
+                )}
               </div>
             </motion.div>
 
